@@ -9,11 +9,13 @@ npx jest --watch    # re-run tests when files change
 
 | Area | File | What it checks |
 |---|---|---|
-| Decks data | `src/data/__tests__/decks.test.ts` | create, list with card counts, update, soft delete, migrations |
-| Cards data | `src/data/__tests__/cards.test.ts` | create, list per deck, update, delete, rejects unknown deck |
+| Decks data | `src/data/__tests__/decks.test.ts` | create, list with card counts, update, soft delete, last studied / continue deck, migrations |
+| Cards data | `src/data/__tests__/cards.test.ts` | create, list per deck, list for several decks, update, delete, rejects unknown deck |
 | Shuffle | `src/lib/__tests__/shuffle.test.ts` | keeps all items, doesn't change the input |
-| Home screen | `src/__tests__/screens/home.test.tsx` | empty state, deck list, create deck, name required |
+| Home screen | `src/__tests__/screens/home.test.tsx` | continue studying, subjects, empty state, coming-soon links |
+| Flashcards screen | `src/__tests__/screens/flashcards.test.tsx` | empty state, deck list, create deck, name required, open form from + menu |
 | Study screen | `src/__tests__/screens/study.test.tsx` | flip, next/previous, finish, study again, shuffle |
+| Create Revision screen | `src/__tests__/screens/new-revision.test.tsx` | select decks, unselect, select all skips empty decks, start |
 
 Data tests run the app's real SQL on Node's built-in SQLite (`src/test-utils/test-db.ts`).
 Screen tests replace the data layer and router with mocks.
@@ -41,6 +43,19 @@ Before every commit: `npx tsc --noEmit && npx expo lint && npm test`
 - [ ] Next/Previous work, and every new card starts on the question
 - [ ] Shuffle on: the order changes and starts again at 1
 - [ ] After the last card, "Well done!" shows; Study again restarts
+
+**Home and navigation**
+- [ ] Bottom tabs: Home, Notes, Flashcards, Profile switch screens; the active tab is a brown pill
+- [ ] The + button opens the Create menu; New deck opens the form on Flashcards
+- [ ] Continue Studying shows the last deck you studied; ▶ starts it
+- [ ] Your Subjects shows your decks with matching icons; Add opens the new-deck form
+- [ ] Ask AI, AI Study, bell, Notes and Profile show "Coming soon"
+- [ ] Nothing is hidden under the status bar or the phone's bottom bar
+
+**Create Revision**
+- [ ] Flashcards → Create revision: decks with no cards can't be selected; Select all / Clear work
+- [ ] Start revision: cards from all picked decks appear, shuffled, with the deck name above each card
+- [ ] Back from the revision keeps the deck selection
 
 **Data and device**
 - [ ] Close the app completely and reopen it: decks and cards are still there

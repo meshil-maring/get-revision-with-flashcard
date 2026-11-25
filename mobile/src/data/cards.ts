@@ -33,6 +33,20 @@ export async function listCards(db: SQLiteDatabase, deckId: string): Promise<Car
   return rows.map(toCard);
 }
 
+/** Cards from several decks, grouped in the order the deck ids are given. */
+export async function listCardsForDecks(db: SQLiteDatabase, deckIds: string[]): Promise<Card[]> {
+  if (deckIds.length === 0) return [];
+  const placeholders = deckIds.map(() => '?').join(', ');
+  const rows = await db.getAllAsync<CardRow>(
+    `SELECT * FROM cards WHERE deck_id IN (${placeholders}) AND deleted_at IS NULL ORDER BY created_at ASC`,
+    ...deckIds,
+  );
+  const deckOrder = new Map(deckIds.map((id, i) => [id, i]));
+  return rows
+    .map(toCard)
+    .sort((a, b) => (deckOrder.get(a.deckId) ?? 0) - (deckOrder.get(b.deckId) ?? 0));
+}
+
 export async function createCard(
   db: SQLiteDatabase,
   deckId: string,

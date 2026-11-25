@@ -8,6 +8,7 @@ export type Deck = {
   createdAt: string; // ISO date string
   updatedAt: string;
   deletedAt: string | null; // soft delete: set instead of removing the row
+  lastStudiedAt: string | null; // when a study session last opened this deck
 };
 
 export type DeckWithCount = Deck & { cardCount: number };

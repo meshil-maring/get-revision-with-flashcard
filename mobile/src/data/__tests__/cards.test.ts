@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { createCard, deleteCard, listCards, updateCard } from '@/data/cards';
+import { createCard, deleteCard, listCards, listCardsForDecks, updateCard } from '@/data/cards';
 import { createDeck } from '@/data/decks';
 import { createTestDb } from '@/test-utils/test-db';
 
@@ -35,6 +35,21 @@ describe('cards', () => {
     const cards = await listCards(db, deckId);
 
     expect(cards.map((c) => c.front)).toEqual(['Mine']);
+  });
+
+  it('lists cards from several decks, grouped in the order the decks are given', async () => {
+    const second = await createDeck(db, { name: 'Second' });
+    const ignored = await createDeck(db, { name: 'Ignored' });
+    await createCard(db, deckId, { front: 'First 1', back: 'A' });
+    await createCard(db, second, { front: 'Second 1', back: 'B' });
+    await createCard(db, ignored, { front: 'Ignored 1', back: 'C' });
+    const removed = await createCard(db, second, { front: 'Removed', back: 'D' });
+    await deleteCard(db, removed);
+
+    const cards = await listCardsForDecks(db, [second, deckId]);
+
+    expect(cards.map((c) => c.front)).toEqual(['Second 1', 'First 1']);
+    expect(await listCardsForDecks(db, [])).toEqual([]);
   });
 
   it('updates the front and back', async () => {

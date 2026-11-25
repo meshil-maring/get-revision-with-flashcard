@@ -39,23 +39,36 @@ export function FlipCard({ front, back, flipped, onPress }: Props) {
 }
 
 function Face({ label, text, tone }: { label: string; text: string; tone: 'front' | 'back' }) {
+  const front = tone === 'front';
   return (
     <View
-      className={`flex-1 items-center justify-center rounded-3xl border p-6 ${
-        tone === 'front' ? 'border-slate-200 bg-white' : 'border-indigo-200 bg-indigo-50'
+      className={`flex-1 items-center justify-center rounded-3xl p-8 ${
+        front ? 'border border-line bg-white' : 'bg-brand'
       }`}
     >
-      <Text
-        className={`absolute left-6 top-5 text-xs font-semibold uppercase tracking-wide ${
-          tone === 'front' ? 'text-slate-400' : 'text-indigo-400'
+      <View
+        className={`absolute left-5 top-5 rounded-full px-3 py-1 ${
+          front ? 'bg-cream' : 'bg-white/20'
         }`}
       >
-        {label}
+        <Text
+          className={`text-xs font-bold uppercase tracking-wider ${
+            front ? 'text-muted' : 'text-white'
+          }`}
+        >
+          {label}
+        </Text>
+      </View>
+      <Text
+        className={`text-center text-2xl font-semibold leading-9 ${
+          front ? 'text-ink' : 'text-white'
+        }`}
+      >
+        {text}
       </Text>
-      <Text className="text-center text-2xl text-slate-900">{text}</Text>
-      {tone === 'front' ? (
-        <Text className="absolute bottom-5 text-sm text-slate-400">Tap to see the answer</Text>
-      ) : null}
+      <Text className={`absolute bottom-5 text-sm ${front ? 'text-muted' : 'text-white/75'}`}>
+        {front ? 'Tap to see the answer' : 'Tap to see the question'}
+      </Text>
     </View>
   );
 }

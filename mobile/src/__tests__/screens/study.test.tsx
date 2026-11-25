@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import StudyScreen from '@/app/(revision)/study/[id]';
+import StudyScreen from '@/app/study/[id]';
 import * as cards from '@/data/cards';
 import * as decks from '@/data/decks';
 import type { Card } from '@/data/types';
@@ -61,6 +61,7 @@ beforeEach(() => {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     deletedAt: null,
+    lastStudiedAt: null,
   });
 });
 
@@ -84,11 +85,11 @@ describe('Study screen', () => {
     await screen.findByText('Question 1');
 
     await fireEvent.press(screen.getByTestId('flip-card')); // show answer 1
-    await fireEvent.press(screen.getByText('Next →'));
+    await fireEvent.press(screen.getByText('Next'));
     expect(screen.getByText('Question 2')).toBeOnTheScreen();
     expect(screen.getByText('2 / 2')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByText('← Previous'));
+    await fireEvent.press(screen.getByLabelText('Previous'));
     expect(screen.getByText('Question 1')).toBeOnTheScreen();
   });
 
@@ -98,7 +99,7 @@ describe('Study screen', () => {
     await render(<StudyScreen />);
     await screen.findByText('Question 1');
 
-    await fireEvent.press(screen.getByText('Next →'));
+    await fireEvent.press(screen.getByText('Next'));
     await fireEvent.press(screen.getByText('Finish'));
     expect(screen.getByText('Well done!')).toBeOnTheScreen();
     expect(screen.getByText('You went through all 2 cards.')).toBeOnTheScreen();
@@ -123,11 +124,12 @@ describe('Study screen', () => {
 
     await render(<StudyScreen />);
     await screen.findByText('Question 1');
-    await fireEvent.press(screen.getByText('Next →'));
+    await fireEvent.press(screen.getByText('Next'));
 
-    await fireEvent.press(screen.getByText('🔀 Shuffle off'));
+    expect(screen.getByRole('switch', { name: 'Shuffle' })).not.toBeChecked();
+    await fireEvent.press(screen.getByRole('switch', { name: 'Shuffle' }));
 
-    expect(screen.getByText('🔀 Shuffle on')).toBeOnTheScreen();
+    expect(screen.getByRole('switch', { name: 'Shuffle' })).toBeChecked();
     expect(screen.getByText('1 / 3')).toBeOnTheScreen();
   });
 });

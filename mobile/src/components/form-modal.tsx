@@ -1,5 +1,20 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  type TextStyle,
+} from 'react-native';
+
+import { colors } from '@/components/ui';
+
+// Browsers draw their own focus ring over the input; we show a brown border instead.
+// ('none' works on web but isn't in React Native's types.)
+const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 
 export type FormField = {
   key: string;
@@ -26,7 +41,7 @@ export function FormModal({ visible, title, fields, initialValues = {}, onCancel
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 justify-center bg-black/50 px-6"
+        className="flex-1 items-center justify-center bg-black/40 px-5"
       >
         {/* Mounted only while visible, so the fields start fresh each time the form opens. */}
         {visible ? (
@@ -53,17 +68,18 @@ function Form({
   const [values, setValues] = useState<Values>(() =>
     Object.fromEntries(fields.map((f) => [f.key, initialValues[f.key] ?? ''])),
   );
+  const [focused, setFocused] = useState<string | null>(null);
   const canSave = fields.every((f) => !f.required || values[f.key].trim().length > 0);
 
   return (
-    <View className="rounded-2xl bg-white p-5">
-      <Text className="mb-4 text-lg font-semibold text-slate-900">{title}</Text>
+    <View className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+      <Text className="mb-5 text-xl font-bold text-ink">{title}</Text>
 
       {fields.map((field, index) => (
         <View key={field.key} className="mb-4">
-          <Text className="mb-1 text-sm text-slate-600">
+          <Text className="mb-1.5 text-sm font-semibold text-ink">
             {field.label}
-            {field.required ? '' : ' (optional)'}
+            {field.required ? '' : <Text className="font-normal text-muted"> (optional)</Text>}
           </Text>
           <TextInput
             value={values[field.key]}
@@ -72,21 +88,36 @@ function Form({
             multiline={field.multiline}
             autoFocus={index === 0}
             textAlignVertical={field.multiline ? 'top' : 'center'}
-            className={`rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 ${
-              field.multiline ? 'min-h-20' : ''
+            placeholderTextColor={colors.faint}
+            onFocus={() => setFocused(field.key)}
+            onBlur={() => setFocused((f) => (f === field.key ? null : f))}
+            // Indigo border while typing (and no browser focus outline on web).
+            style={{
+              ...NO_WEB_FOCUS_RING,
+              borderWidth: 1.5,
+              borderColor: focused === field.key ? colors.brand : colors.line,
+              backgroundColor: focused === field.key ? colors.white : colors.cream,
+            }}
+            className={`rounded-xl px-4 py-3 text-base text-ink ${
+              field.multiline ? 'min-h-24' : ''
             }`}
           />
         </View>
       ))}
 
-      <View className="mt-1 flex-row justify-end gap-3">
-        <Pressable onPress={onCancel} className="rounded-lg px-4 py-2">
-          <Text className="text-base text-slate-600">Cancel</Text>
+      <View className="mt-2 flex-row gap-3">
+        <Pressable
+          onPress={onCancel}
+          className="flex-1 items-center rounded-xl border border-line py-3 active:bg-cream"
+        >
+          <Text className="text-base font-semibold text-ink">Cancel</Text>
         </Pressable>
         <Pressable
           disabled={!canSave}
           onPress={() => onSave(values)}
-          className={`rounded-lg px-4 py-2 ${canSave ? 'bg-indigo-600' : 'bg-indigo-300'}`}
+          className={`flex-1 items-center rounded-xl py-3 ${
+            canSave ? 'bg-brand active:bg-brand-dark' : 'bg-brand/40'
+          }`}
         >
           <Text className="text-base font-semibold text-white">Save</Text>
         </Pressable>

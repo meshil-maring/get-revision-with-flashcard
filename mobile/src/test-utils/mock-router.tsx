@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 export const mockRouter = {
-  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn() },
+  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), navigate: jest.fn(), setParams: jest.fn() },
   useLocalSearchParams: jest.fn(() => ({})),
   // Run the focus callback once, like a screen opening.
   useFocusEffect: (callback: () => void) => {

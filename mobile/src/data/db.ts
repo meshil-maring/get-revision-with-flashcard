@@ -26,6 +26,10 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id);
   `,
+  // v2: remember when a deck was last studied (for "Continue Studying" on Home)
+  `
+  ALTER TABLE decks ADD COLUMN last_studied_at TEXT;
+  `,
 ];
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */

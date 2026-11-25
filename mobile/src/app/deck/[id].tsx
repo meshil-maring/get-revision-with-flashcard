@@ -1,9 +1,10 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 
 import { FormModal, type FormField } from '@/components/form-modal';
+import { Button, DeckBadge, EmptyState, Fab, IconButton, plural } from '@/components/ui';
 import { createCard, deleteCard, listCards, updateCard } from '@/data/cards';
 import { getDeck } from '@/data/decks';
 import type { Card, Deck } from '@/data/types';
@@ -59,71 +60,82 @@ export default function DeckScreen() {
 
   if (deck === null) {
     return (
-      <View className="flex-1 items-center justify-center bg-slate-50 px-6">
+      <View className="flex-1 justify-center bg-page">
         <Stack.Screen options={{ title: 'Not found' }} />
-        <Text className="text-lg text-slate-600">This deck no longer exists.</Text>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Deck not found"
+          text="This deck no longer exists."
+        />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-slate-50">
+    <View className="flex-1 bg-page">
       <Stack.Screen options={{ title: deck.name }} />
 
       <FlatList
         data={cards}
         keyExtractor={(card) => card.id}
-        contentContainerClassName="gap-3 p-4 pb-28"
+        contentContainerClassName="w-full max-w-3xl self-center gap-3 px-4 pb-32 pt-2"
         ListHeaderComponent={
-          <View className="mb-1">
-            {deck.description ? <Text className="mb-2 text-slate-600">{deck.description}</Text> : null}
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm text-slate-500">
-                {cards.length} {cards.length === 1 ? 'card' : 'cards'}
-              </Text>
-              {cards.length > 0 ? (
-                <Pressable
-                  onPress={() => router.push({ pathname: '/study/[id]', params: { id } })}
-                  className="rounded-full bg-indigo-600 px-5 py-2 active:bg-indigo-700"
-                >
-                  <Text className="font-semibold text-white">▶ Study</Text>
-                </Pressable>
-              ) : null}
+          <View className="mb-2 rounded-2xl border border-line bg-white p-4">
+            <View className="flex-row items-center gap-3">
+              <DeckBadge name={deck.name} size={52} />
+              <View className="flex-1">
+                <Text className="text-lg font-bold text-ink">{deck.name}</Text>
+                <Text className="text-sm text-muted">{plural(cards.length, 'card')}</Text>
+              </View>
             </View>
+            {deck.description ? (
+              <Text className="mt-3 text-sm leading-5 text-muted">{deck.description}</Text>
+            ) : null}
+            {cards.length > 0 ? (
+              <Button
+                label="Study"
+                icon="play"
+                className="mt-4"
+                onPress={() => router.push({ pathname: '/study/[id]', params: { id } })}
+              />
+            ) : null}
           </View>
         }
         ListEmptyComponent={
-          <View className="items-center px-6 py-16">
-            <Text className="mb-2 text-lg font-semibold text-slate-800">No cards yet</Text>
-            <Text className="text-center text-slate-500">
-              Add a card with a question on the front and the answer on the back.
-            </Text>
-          </View>
+          <EmptyState
+            icon="copy-outline"
+            title="No cards yet"
+            text="Add a card with a question on the front and the answer on the back."
+          />
         }
-        renderItem={({ item: card }) => (
-          <View className="rounded-2xl border border-slate-200 bg-white p-4">
-            <Text className="text-xs font-semibold uppercase tracking-wide text-slate-400">Front</Text>
-            <Text className="mb-3 mt-1 text-base text-slate-900">{card.front}</Text>
-            <Text className="text-xs font-semibold uppercase tracking-wide text-slate-400">Back</Text>
-            <Text className="mt-1 text-base text-slate-700">{card.back}</Text>
-            <View className="mt-3 flex-row justify-end gap-4">
-              <Pressable onPress={() => setForm({ mode: 'edit', card })} hitSlop={8}>
-                <Text className="font-medium text-indigo-600">Edit</Text>
-              </Pressable>
-              <Pressable onPress={() => handleDelete(card)} hitSlop={8}>
-                <Text className="font-medium text-red-600">Delete</Text>
-              </Pressable>
+        renderItem={({ item: card, index }) => (
+          <View className="rounded-2xl border border-line bg-white">
+            <View className="flex-row items-start gap-3 p-4 pb-3">
+              <Text className="w-6 pt-0.5 text-xs font-bold text-muted">{index + 1}</Text>
+              <View className="flex-1 gap-3">
+                <View>
+                  <Text className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">
+                    Question
+                  </Text>
+                  <Text className="text-base font-medium leading-6 text-ink">{card.front}</Text>
+                </View>
+                <View>
+                  <Text className="mb-1 text-xs font-bold uppercase tracking-wider text-brand">
+                    Answer
+                  </Text>
+                  <Text className="text-base leading-6 text-muted">{card.back}</Text>
+                </View>
+              </View>
+            </View>
+            <View className="flex-row justify-end border-t border-line px-2 py-1">
+              <IconButton icon="create-outline" label="Edit card" onPress={() => setForm({ mode: 'edit', card })} />
+              <IconButton icon="trash-outline" label="Delete card" tone="danger" onPress={() => handleDelete(card)} />
             </View>
           </View>
         )}
       />
 
-      <Pressable
-        onPress={() => setForm({ mode: 'create' })}
-        className="absolute bottom-8 right-6 rounded-full bg-indigo-600 px-6 py-4 shadow-lg"
-      >
-        <Text className="text-base font-semibold text-white">+ Add card</Text>
-      </Pressable>
+      <Fab label="Add card" onPress={() => setForm({ mode: 'create' })} />
 
       <FormModal
         visible={form.mode !== 'closed'}

@@ -10,6 +10,7 @@ type DeckRow = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  last_studied_at: string | null;
 };
 
 function toDeck(row: DeckRow): Deck {
@@ -20,6 +21,7 @@ function toDeck(row: DeckRow): Deck {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    lastStudiedAt: row.last_studied_at,
   };
 }
 
@@ -71,6 +73,26 @@ export async function updateDeck(
     new Date().toISOString(),
     id,
   );
+}
+
+/**
+ * Records that the deck was just studied. Doesn't change updated_at, so the deck
+ * list order (and future sync) isn't affected by studying.
+ */
+export async function markDeckStudied(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('UPDATE decks SET last_studied_at = ? WHERE id = ?', new Date().toISOString(), id);
+}
+
+/**
+ * The deck to show under "Continue Studying": the one studied most recently,
+ * or else the most recently changed deck that has cards.
+ */
+export function pickContinueDeck(decks: DeckWithCount[]): DeckWithCount | null {
+  const withCards = decks.filter((d) => d.cardCount > 0);
+  const studied = withCards
+    .filter((d) => d.lastStudiedAt)
+    .sort((a, b) => (b.lastStudiedAt ?? '').localeCompare(a.lastStudiedAt ?? ''));
+  return studied[0] ?? withCards[0] ?? null; // listDecks is already newest-first
 }
 
 /** Soft-deletes the deck and all of its cards. */

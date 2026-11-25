@@ -2,7 +2,15 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { createCard } from '@/data/cards';
 import { migrateDbIfNeeded } from '@/data/db';
-import { createDeck, deleteDeck, getDeck, listDecks, updateDeck } from '@/data/decks';
+import {
+  createDeck,
+  deleteDeck,
+  getDeck,
+  listDecks,
+  markDeckStudied,
+  pickContinueDeck,
+  updateDeck,
+} from '@/data/decks';
 import { createTestDb } from '@/test-utils/test-db';
 
 let db: SQLiteDatabase;
@@ -78,14 +86,49 @@ describe('decks', () => {
   });
 });
 
+describe('continue studying', () => {
+  it('records when a deck was studied without changing its updated time', async () => {
+    const id = await createDeck(db, { name: 'Bio' });
+    const before = await getDeck(db, id);
+    expect(before?.lastStudiedAt).toBeNull();
+
+    await markDeckStudied(db, id);
+
+    const after = await getDeck(db, id);
+    expect(after?.lastStudiedAt).not.toBeNull();
+    expect(after?.updatedAt).toBe(before?.updatedAt);
+  });
+
+  it('picks the most recently studied deck with cards, else the newest deck with cards', async () => {
+    const empty = await createDeck(db, { name: 'Empty' });
+    const older = await createDeck(db, { name: 'Older' });
+    await createCard(db, older, { front: 'Q', back: 'A' });
+    await new Promise((r) => setTimeout(r, 5));
+    const newer = await createDeck(db, { name: 'Newer' });
+    await createCard(db, newer, { front: 'Q', back: 'A' });
+    await markDeckStudied(db, empty);
+
+    // Nothing with cards studied yet: newest deck with cards.
+    expect(pickContinueDeck(await listDecks(db))?.id).toBe(newer);
+
+    await markDeckStudied(db, older);
+    expect(pickContinueDeck(await listDecks(db))?.id).toBe(older);
+  });
+
+  it('returns null when no deck has cards', async () => {
+    await createDeck(db, { name: 'Empty' });
+    expect(pickContinueDeck(await listDecks(db))).toBeNull();
+  });
+});
+
 describe('migrations', () => {
   it('sets the schema version and can run again safely', async () => {
     const before = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    expect(before?.user_version).toBe(1);
+    expect(before?.user_version).toBe(2);
 
     await migrateDbIfNeeded(db); // second run should do nothing
 
     const after = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    expect(after?.user_version).toBe(1);
+    expect(after?.user_version).toBe(2);
   });
 });
