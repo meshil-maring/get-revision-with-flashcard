@@ -1,11 +1,13 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AttachmentList } from '@/components/cards/attachments';
 import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
+import { FocusReader } from '@/components/notes/focus-reader';
 import { RichText } from '@/components/ui/rich-text';
 import { TagChip } from '@/components/tags/tag-chip';
 import { Button, colors, EmptyState, Icon, IconButton } from '@/components/ui';
@@ -25,6 +27,8 @@ export default function NoteScreen() {
   const [path, setPath] = useState<FolderCrumb[]>([]);
   const [attachments, setAttachments] = useState<NoteAttachment[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [focus, setFocus] = useState(false);
+  const exitFocus = useCallback(() => setFocus(false), []);
 
   const load = useCallback(async () => {
     const n = await getNote(db, id);
@@ -77,11 +81,22 @@ export default function NoteScreen() {
     router.back();
   }
 
+  if (focus && !isEmpty) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar hidden />
+        <FocusReader note={current} onExit={exitFocus} />
+      </>
+    );
+  }
+
   return (
     <View className="flex-1 bg-page">
       <Stack.Screen
         options={{
           title: '',
+          headerShown: true,
           headerRight: () => (
             <View className="flex-row">
               <IconButton
@@ -146,11 +161,13 @@ export default function NoteScreen() {
       </ScrollView>
 
       <View className="border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
-        <View className="w-full max-w-3xl self-center">
+        <View className="w-full max-w-3xl flex-row gap-3 self-center">
+          <Button label="Focus" icon="book-outline" variant="secondary" disabled={isEmpty} onPress={() => setFocus(true)} />
           <Button
             label={suggested > 0 ? `Make flashcards (${suggested} found)` : 'Make flashcards'}
             icon="copy-outline"
             variant="cta"
+            className="flex-1"
             onPress={() => router.push({ pathname: '/note-cards', params: { noteId: current.id } })}
           />
         </View>

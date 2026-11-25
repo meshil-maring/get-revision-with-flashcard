@@ -4,6 +4,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 export const SETTINGS = {
   welcomeSeen: 'welcome_seen',
   lastCustomAutoNext: 'last_custom_auto_next',
+  noteFocusSize: 'note_focus_size',
 } as const;
 
 // Screen tips are saved one key each, e.g. 'tip:study' (see components/ui/screen-tip.tsx).
@@ -79,6 +80,20 @@ export async function getLastCustomAutoNext(db: SQLiteDatabase): Promise<number>
 
 export async function setLastCustomAutoNext(db: SQLiteDatabase, seconds: number): Promise<void> {
   await setSetting(db, SETTINGS.lastCustomAutoNext, String(Math.round(seconds)));
+}
+
+/** Text sizes for reading a note in focus mode, smallest first. */
+export const NOTE_FOCUS_SIZES = ['base', 'lg', 'xl'] as const;
+export type NoteFocusSize = (typeof NOTE_FOCUS_SIZES)[number];
+
+/** The text size last picked in focus mode (large by default). */
+export async function getNoteFocusSize(db: SQLiteDatabase): Promise<NoteFocusSize> {
+  const value = await getSetting(db, SETTINGS.noteFocusSize);
+  return NOTE_FOCUS_SIZES.find((size) => size === value) ?? 'lg';
+}
+
+export async function setNoteFocusSize(db: SQLiteDatabase, size: NoteFocusSize): Promise<void> {
+  await setSetting(db, SETTINGS.noteFocusSize, size);
 }
 
 /** Shows every screen tip again. */

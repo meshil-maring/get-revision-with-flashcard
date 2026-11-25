@@ -8,8 +8,11 @@ type Props = {
   tone?: 'default' | 'onDark';
   /** Centre short answers on a flashcard; lists and headings stay readable either way. */
   center?: boolean;
-  size?: 'base' | 'lg';
+  /** 'xl' is for focus reading, where the note fills the screen. */
+  size?: RichTextSize;
 };
+
+export type RichTextSize = 'base' | 'lg' | 'xl';
 
 /** Shows text written with the formatting toolbar (headings, bold, lists…). */
 export function RichText({ text, tone = 'default', center = false, size = 'base' }: Props) {
@@ -38,12 +41,12 @@ function BlockView({
   block: Block;
   align: string;
   ink: string;
-  size: 'base' | 'lg';
+  size: RichTextSize;
   tone: 'default' | 'onDark';
 }) {
   if (block.type === 'blank') return <View className="h-2" />;
 
-  const body = size === 'lg' ? 'text-xl leading-7' : 'text-base leading-6';
+  const body = size === 'xl' ? 'text-2xl leading-9' : size === 'lg' ? 'text-xl leading-7' : 'text-base leading-6';
   const spans = <Spans spans={block.spans} tone={tone} />;
 
   if (block.type === 'h1') {
