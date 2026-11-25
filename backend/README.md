@@ -1,6 +1,6 @@
 # NoteMe server
 
-Sign-in (email + password, Google) and backup/sync for the NoteMe app. Phase 2 adds the MCP server for AI apps.
+Sign-in (email + password, Google, Microsoft, Facebook) and backup/sync for the NoteMe app. Phase 2 adds the MCP server for AI apps.
 
 Stack: Node 22 + TypeScript (run with tsx), Hono, Better Auth, Drizzle, Postgres.
 
@@ -33,12 +33,34 @@ drizzle/          generated SQL migrations
 test/             API tests (Vitest, in-memory Postgres)
 ```
 
+## Sign-in providers
+
+Email + password always works. Google, Microsoft and Facebook each turn on when both their client id and secret
+are in `.env`, and the app then shows a "Continue with …" button for them. Restart the server after changing `.env`.
+
+Every provider asks for a redirect (callback) URI. Use `{BETTER_AUTH_URL}/api/auth/callback/<provider>`, e.g.
+`http://localhost:4000/api/auth/callback/google`. Add your production URL too when you deploy.
+
+| Provider | Where | Notes |
+| --- | --- | --- |
+| Google | [Google Cloud console](https://console.cloud.google.com/apis/credentials) → Create credentials → OAuth client ID → *Web application* | Set up the OAuth consent screen first. While it is in "Testing", only the test users you add can sign in. |
+| Microsoft | [Microsoft Entra admin center](https://entra.microsoft.com) → App registrations → New registration | Choose "Accounts in any organizational directory and personal Microsoft accounts", platform *Web*. Make a secret under Certificates & secrets. `MICROSOFT_TENANT_ID=common` lets school, work and personal accounts in; a school's tenant id allows only that school. |
+| Facebook | [Meta for Developers](https://developers.facebook.com/apps) → Create app → add *Facebook Login* | Put the callback in "Valid OAuth Redirect URIs". App ID = client id, App secret = client secret. |
+
+The browser sign-in page sends the phone back to the app through the `flashcards://` scheme (Expo Go uses `exp://`
+while developing), which the server already trusts. On a real phone, `BETTER_AUTH_URL` must be an address the
+phone can reach (your computer's LAN address, or the deployed server), and the provider must list that callback.
+
+If someone signs in with Google or Microsoft using the email of an account they already have, the sign-in is added
+to that account. Facebook doesn't confirm emails, so Facebook sign-in is refused (`account_not_linked`) for an
+email that already has an account; that person signs in the way they first did.
+
 ## API
 
 | Route | What it does |
 | --- | --- |
 | `GET /health` | `{ ok: true }` |
-| `GET /api/config` | `{ google: boolean }`, whether Google sign-in is set up |
+| `GET /api/config` | `{ providers: ['google', 'microsoft', 'facebook'] }`, the sign-in providers that are set up |
 | `/api/auth/*` | Better Auth: `sign-up/email`, `sign-in/email`, `sign-in/social`, `get-session`, `sign-out`, … |
 | `POST /api/sync` | Signed-in only. Body `{ cursor, changes[] }` → `{ cursor, changes[], more }` |
 

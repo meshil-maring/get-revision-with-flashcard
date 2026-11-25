@@ -3,8 +3,13 @@ import { createAuth } from '../src/auth/auth.ts';
 import { openDatabase } from '../src/db/client.ts';
 import { readEnv } from '../src/env.ts';
 
-export async function createTestServer() {
-  const env = readEnv({ NODE_ENV: 'test', BETTER_AUTH_URL: 'http://localhost:4000', CORS_ORIGINS: 'http://localhost:8081' });
+export async function createTestServer(extraEnv: NodeJS.ProcessEnv = {}) {
+  const env = readEnv({
+    NODE_ENV: 'test',
+    BETTER_AUTH_URL: 'http://localhost:4000',
+    CORS_ORIGINS: 'http://localhost:8081',
+    ...extraEnv,
+  });
   const database = await openDatabase('memory://');
   const auth = createAuth(database.db, env);
   const app = createApp({ db: database.db, auth, env });

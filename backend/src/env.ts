@@ -7,6 +7,12 @@ function list(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+/** Sign-in providers the app can offer, in the order its buttons appear. */
+export const SOCIAL_PROVIDERS = ['google', 'microsoft', 'facebook'] as const;
+export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
+
+export type OAuthClient = { clientId: string; clientSecret: string };
+
 export type Env = {
   port: number;
   baseURL: string;
@@ -14,7 +20,10 @@ export type Env = {
   databaseUrl: string;
   corsOrigins: string[];
   appScheme: string;
-  google: { clientId: string; clientSecret: string } | null;
+  /** Only the providers whose client id and secret are set. */
+  social: Partial<Record<SocialProvider, OAuthClient>>;
+  /** Microsoft tenant: 'common' = school, work and personal accounts. */
+  microsoftTenantId: string;
   isDev: boolean;
 };
 
@@ -24,10 +33,13 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (!isDev && (secret === '' || secret === 'change-me')) {
     throw new Error('Set BETTER_AUTH_SECRET to a long random string in production.');
   }
-  const google =
-    source.GOOGLE_CLIENT_ID && source.GOOGLE_CLIENT_SECRET
-      ? { clientId: source.GOOGLE_CLIENT_ID, clientSecret: source.GOOGLE_CLIENT_SECRET }
-      : null;
+  const social: Env['social'] = {};
+  for (const provider of SOCIAL_PROVIDERS) {
+    const prefix = provider.toUpperCase(); // GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, FACEBOOK_CLIENT_ID
+    const clientId = source[`${prefix}_CLIENT_ID`];
+    const clientSecret = source[`${prefix}_CLIENT_SECRET`];
+    if (clientId && clientSecret) social[provider] = { clientId, clientSecret };
+  }
   return {
     port: Number(source.PORT ?? 4000),
     baseURL: source.BETTER_AUTH_URL ?? `http://localhost:${source.PORT ?? 4000}`,
@@ -35,7 +47,8 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     databaseUrl: source.DATABASE_URL ?? '',
     corsOrigins: list(source.CORS_ORIGINS ?? 'http://localhost:8081'),
     appScheme: source.APP_SCHEME ?? 'flashcards',
-    google,
+    social,
+    microsoftTenantId: source.MICROSOFT_TENANT_ID || 'common',
     isDev,
   };
 }

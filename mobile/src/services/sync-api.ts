@@ -22,9 +22,16 @@ export async function postSync(request: SyncRequest): Promise<SyncResponse> {
   return (await res.json()) as SyncResponse;
 }
 
-/** Whether the server offers Google sign-in. */
-export async function fetchServerConfig(): Promise<{ google: boolean }> {
+/** Sign-in providers the app knows how to show. */
+export const SOCIAL_PROVIDERS = ['google', 'microsoft', 'facebook'] as const;
+export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
+
+/** Which sign-in providers the server has set up (unknown ones are left out). */
+export async function fetchServerConfig(): Promise<{ providers: SocialProvider[] }> {
   const res = await fetch(`${API_URL}/api/config`);
   if (!res.ok) throw new Error(`The server said ${res.status}.`);
-  return (await res.json()) as { google: boolean };
+  const body = (await res.json()) as { providers?: string[] };
+  return {
+    providers: SOCIAL_PROVIDERS.filter((provider) => body.providers?.includes(provider)),
+  };
 }

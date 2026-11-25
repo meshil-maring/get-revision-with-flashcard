@@ -36,8 +36,32 @@ describe('auth', () => {
     expect(short.status).toBe(400);
   });
 
-  it('says whether Google sign-in is available', async () => {
+  it('lists no sign-in providers when none are set up', async () => {
     const res = await server.request('/api/config');
-    expect(await res.json()).toEqual({ google: false });
+    expect(await res.json()).toEqual({ providers: [] });
+  });
+
+  it('lists the providers that have a client id and secret', async () => {
+    const withSocial = await createTestServer({
+      GOOGLE_CLIENT_ID: 'g-id',
+      GOOGLE_CLIENT_SECRET: 'g-secret',
+      FACEBOOK_CLIENT_ID: 'f-id',
+      FACEBOOK_CLIENT_SECRET: 'f-secret',
+      MICROSOFT_CLIENT_ID: 'm-id', // no secret: stays off
+    });
+    try {
+      const res = await withSocial.request('/api/config');
+      expect(await res.json()).toEqual({ providers: ['google', 'facebook'] });
+
+      // Starting a sign-in sends the browser to the provider.
+      const start = await withSocial.request('/api/auth/sign-in/social', {
+        method: 'POST',
+        body: JSON.stringify({ provider: 'facebook', callbackURL: 'http://localhost:8081/account' }),
+      });
+      expect(start.status).toBe(200);
+      expect(((await start.json()) as { url: string }).url).toContain('facebook.com');
+    } finally {
+      await withSocial.close();
+    }
   });
 });

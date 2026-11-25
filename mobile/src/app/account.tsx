@@ -11,14 +11,20 @@ import {
   type TextStyle,
 } from 'react-native';
 
-import { Button, colors, Icon } from '@/components/ui';
+import { Button, colors, Icon, type IconName } from '@/components/ui';
 import { useAccount } from '@/providers/account';
 import { authClient } from '@/services/auth-client';
 import { confirm } from '@/lib/confirm';
 import { syncedAgo } from '@/lib/dates';
-import { fetchServerConfig } from '@/services/sync-api';
+import { fetchServerConfig, type SocialProvider } from '@/services/sync-api';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
+
+const PROVIDERS: Record<SocialProvider, { label: string; icon: IconName }> = {
+  google: { label: 'Google', icon: 'logo-google' },
+  microsoft: { label: 'Microsoft', icon: 'logo-microsoft' },
+  facebook: { label: 'Facebook', icon: 'logo-facebook' },
+};
 
 /** URL: /account — sign in, or see the account and its sync. */
 export default function AccountScreen() {
@@ -174,12 +180,13 @@ function SignInForm() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [google, setGoogle] = useState(false);
+  const [providers, setProviders] = useState<SocialProvider[]>([]);
+  const [socialBusy, setSocialBusy] = useState<SocialProvider | null>(null);
 
   useEffect(() => {
     fetchServerConfig()
-      .then((config) => setGoogle(config.google))
-      .catch(() => setGoogle(false));
+      .then((config) => setProviders(config.providers))
+      .catch(() => setProviders([]));
   }, []);
 
   async function submit() {
@@ -210,14 +217,19 @@ function SignInForm() {
     }
   }
 
-  async function signInWithGoogle() {
+  /** Opens the provider's sign-in page; on phones it comes back to the app when done. */
+  async function signInWith(provider: SocialProvider) {
     setError(null);
+    setSocialBusy(provider);
     const callbackURL = Platform.OS === 'web' ? `${window.location.origin}/account` : '/account';
-    const result = await authClient.signIn.social({
-      provider: 'google',
-      callbackURL,
-    });
-    if (result?.error) setError(result.error.message ?? 'Google sign-in failed.');
+    try {
+      const result = await authClient.signIn.social({ provider, callbackURL });
+      if (result?.error) setError(result.error.message ?? `${PROVIDERS[provider].label} sign-in failed.`);
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.');
+    } finally {
+      setSocialBusy(null);
+    }
   }
 
   return (
@@ -235,6 +247,30 @@ function SignInForm() {
           a guest moves into your account.
         </Text>
       </View>
+
+      {providers.length > 0 ? (
+        <>
+          <View className="gap-3">
+            {providers.map((provider) => (
+              <Button
+                key={provider}
+                label={
+                  socialBusy === provider ? 'Opening…' : `Continue with ${PROVIDERS[provider].label}`
+                }
+                icon={PROVIDERS[provider].icon}
+                variant="secondary"
+                onPress={() => void signInWith(provider)}
+                disabled={socialBusy !== null}
+              />
+            ))}
+          </View>
+          <View className="flex-row items-center gap-3">
+            <View className="h-px flex-1 bg-line" />
+            <Text className="text-sm text-muted">or use your email</Text>
+            <View className="h-px flex-1 bg-line" />
+          </View>
+        </>
+      ) : null}
 
       <View className="flex-row rounded-2xl bg-surface p-1" accessibilityRole="tablist">
         {(['sign-in', 'sign-up'] as const).map((m) => (
@@ -277,21 +313,6 @@ function SignInForm() {
         disabled={busy}
       />
 
-      {google ? (
-        <>
-          <View className="flex-row items-center gap-3">
-            <View className="h-px flex-1 bg-line" />
-            <Text className="text-sm text-muted">or</Text>
-            <View className="h-px flex-1 bg-line" />
-          </View>
-          <Button
-            label="Continue with Google"
-            icon="logo-google"
-            variant="secondary"
-            onPress={() => void signInWithGoogle()}
-          />
-        </>
-      ) : null}
     </ScrollView>
   );
 }

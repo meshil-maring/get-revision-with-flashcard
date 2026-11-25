@@ -26,7 +26,7 @@ jest.mock('@/services/auth-client', () => ({
 }));
 jest.mock('@/services/sync-api', () => ({
   postSync: jest.fn(async () => ({ cursor: 1, changes: [], more: false })),
-  fetchServerConfig: jest.fn(async () => ({ google: false })),
+  fetchServerConfig: jest.fn(async () => ({ providers: [] })),
 }));
 jest.mock('@/lib/confirm', () => ({ confirm: jest.fn(async () => true) }));
 
@@ -82,14 +82,27 @@ describe('Account screen, signed out', () => {
     expect(authClient.signUp.email).not.toHaveBeenCalled();
   });
 
-  it('offers Google only when the server has it', async () => {
+  it('offers only the sign-in providers the server has', async () => {
     await renderAccount();
     expect(screen.queryByText('Continue with Google')).toBeNull();
 
-    jest.mocked(fetchServerConfig).mockResolvedValueOnce({ google: true });
+    jest.mocked(fetchServerConfig).mockResolvedValueOnce({ providers: ['google', 'facebook'] });
     await screen.unmount();
     await renderAccount();
     expect(await screen.findByText('Continue with Google')).toBeOnTheScreen();
+    expect(screen.getByText('Continue with Facebook')).toBeOnTheScreen();
+    expect(screen.queryByText('Continue with Microsoft')).toBeNull();
+  });
+
+  it('starts sign-in with the provider you tap', async () => {
+    jest.mocked(fetchServerConfig).mockResolvedValueOnce({ providers: ['microsoft'] });
+    jest.mocked(authClient.signIn.social).mockResolvedValueOnce({ error: { message: 'Cancelled.' } } as never);
+    await renderAccount();
+
+    await fireEvent.press(await screen.findByText('Continue with Microsoft'));
+
+    expect(authClient.signIn.social).toHaveBeenCalledWith({ provider: 'microsoft', callbackURL: '/account' });
+    expect(await screen.findByText('Cancelled.')).toBeOnTheScreen();
   });
 });
 
