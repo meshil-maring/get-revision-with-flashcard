@@ -53,7 +53,7 @@ export default function NewRevisionScreen() {
         ListHeaderComponent={
           decks.length > 0 ? (
             <View className="mb-2">
-              <View className="mb-4 flex-row items-center gap-3 rounded-2xl bg-brand p-4">
+              <View className="mb-4 flex-row items-center gap-3 rounded-2xl bg-primary p-4">
                 <View className="h-11 w-11 items-center justify-center rounded-xl bg-white/20">
                   <Icon name="layers" size={22} color="#ffffff" />
                 </View>
@@ -70,7 +70,7 @@ export default function NewRevisionScreen() {
                 </Text>
                 {studyable.length > 0 ? (
                   <Pressable onPress={toggleAll} hitSlop={8}>
-                    <Text className="text-sm font-semibold text-brand">
+                    <Text className="text-sm font-semibold text-primary">
                       {allSelected ? 'Clear' : 'Select all'}
                     </Text>
                   </Pressable>
@@ -97,8 +97,8 @@ export default function NewRevisionScreen() {
               accessibilityRole="checkbox"
               accessibilityState={{ checked, disabled: empty }}
               className={`flex-row items-center gap-3 rounded-2xl border-2 bg-white p-3.5 ${
-                checked ? 'border-brand' : 'border-transparent'
-              } ${empty ? 'opacity-50' : 'active:bg-cream'}`}
+                checked ? 'border-primary' : 'border-transparent'
+              } ${empty ? 'opacity-50' : 'active:bg-surface'}`}
             >
               <DeckBadge name={deck.name} size={40} />
               <View className="flex-1">
@@ -111,7 +111,7 @@ export default function NewRevisionScreen() {
               </View>
               <View
                 className={`h-6 w-6 items-center justify-center rounded-full border-2 ${
-                  checked ? 'border-brand bg-brand' : 'border-line'
+                  checked ? 'border-primary bg-primary' : 'border-line'
                 }`}
               >
                 {checked ? <Icon name="checkmark" size={14} color="#ffffff" /> : null}
@@ -129,7 +129,7 @@ export default function NewRevisionScreen() {
                 ? 'Select at least one deck'
                 : `${plural(selected.length, 'deck')} · ${plural(cardTotal, 'card')}`}
             </Text>
-            <Button label="Start revision" icon="play" disabled={cardTotal === 0} onPress={start} />
+            <Button label="Start revision" icon="play" variant="cta" disabled={cardTotal === 0} onPress={start} />
           </View>
         </View>
       ) : null}

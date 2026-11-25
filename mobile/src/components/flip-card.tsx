@@ -43,12 +43,12 @@ function Face({ label, text, tone }: { label: string; text: string; tone: 'front
   return (
     <View
       className={`flex-1 items-center justify-center rounded-3xl p-8 ${
-        front ? 'border border-line bg-white' : 'bg-brand'
+        front ? 'border border-line bg-white' : 'bg-primary'
       }`}
     >
       <View
         className={`absolute left-5 top-5 rounded-full px-3 py-1 ${
-          front ? 'bg-cream' : 'bg-white/20'
+          front ? 'bg-surface' : 'bg-white/20'
         }`}
       >
         <Text

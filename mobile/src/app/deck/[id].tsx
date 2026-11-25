@@ -95,6 +95,7 @@ export default function DeckScreen() {
               <Button
                 label="Study"
                 icon="play"
+                variant="cta"
                 className="mt-4"
                 onPress={() => router.push({ pathname: '/study/[id]', params: { id } })}
               />
@@ -120,7 +121,7 @@ export default function DeckScreen() {
                   <Text className="text-base font-medium leading-6 text-ink">{card.front}</Text>
                 </View>
                 <View>
-                  <Text className="mb-1 text-xs font-bold uppercase tracking-wider text-brand">
+                  <Text className="mb-1 text-xs font-bold uppercase tracking-wider text-primary">
                     Answer
                   </Text>
                   <Text className="text-base leading-6 text-muted">{card.back}</Text>

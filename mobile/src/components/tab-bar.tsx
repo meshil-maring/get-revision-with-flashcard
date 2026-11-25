@@ -34,7 +34,7 @@ export function TabBar({ state, descriptors, emitter, navigateToTab }: BottomTab
                 onPress={() => setMenuOpen(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Create"
-                className="h-14 w-14 items-center justify-center rounded-2xl bg-brand active:bg-brand-dark"
+                className="h-14 w-14 items-center justify-center rounded-2xl bg-cta active:bg-cta-dark"
               >
                 <Icon name="add" size={32} color={colors.white} />
               </Pressable>
@@ -57,7 +57,7 @@ export function TabBar({ state, descriptors, emitter, navigateToTab }: BottomTab
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               accessibilityLabel={label}
-              className={`min-w-16 items-center rounded-2xl px-3 py-2 ${focused ? 'bg-brand' : ''}`}
+              className={`min-w-16 items-center rounded-2xl px-3 py-2 ${focused ? 'bg-primary' : ''}`}
             >
               <Icon
                 name={focused ? icons.activeIcon : icons.icon}
@@ -125,9 +125,9 @@ function CreateMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
                 item.onPress();
               }}
               accessibilityRole="button"
-              className="flex-row items-center gap-4 rounded-2xl bg-cream p-4 active:bg-peach"
+              className="flex-row items-center gap-4 rounded-2xl bg-surface p-4 active:bg-line"
             >
-              <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand">
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary">
                 <Icon name={item.icon} size={22} color={colors.white} />
               </View>
               <View className="flex-1">

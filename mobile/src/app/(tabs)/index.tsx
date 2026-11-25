@@ -42,7 +42,7 @@ export default function HomeScreen() {
     >
       {/* App header */}
       <View className="mb-7 flex-row items-center">
-        <MaterialCommunityIcons name="book-open-variant" size={scaled(48)} color={colors.brand} />
+        <MaterialCommunityIcons name="book-open-variant" size={scaled(48)} color={colors.primary} />
         <View className="ml-2 flex-1">
           <Text className="text-2xl font-extrabold leading-7 text-ink">NoteMe</Text>
           <Text className="text-base text-ink">with FlashCard</Text>
@@ -55,13 +55,13 @@ export default function HomeScreen() {
           className="mr-4"
         >
           <Icon name="notifications-outline" size={30} color={colors.ink} />
-          <View className="absolute right-0.5 top-0 h-3 w-3 rounded-full border-2 border-page bg-accent" />
+          <View className="absolute right-0.5 top-0 h-3 w-3 rounded-full border-2 border-page bg-alert" />
         </Pressable>
         <Pressable
           onPress={() => router.navigate('/profile')}
           accessibilityRole="button"
           accessibilityLabel="Profile"
-          className="h-12 w-12 items-center justify-center rounded-full bg-brand"
+          className="h-12 w-12 items-center justify-center rounded-full bg-primary"
         >
           <Icon name="person-outline" size={24} color={colors.white} />
         </Pressable>
@@ -75,13 +75,13 @@ export default function HomeScreen() {
       <Pressable
         onPress={() => router.push(comingSoonHref('ai'))}
         accessibilityRole="search"
-        className="mb-7 flex-row items-center gap-3 rounded-2xl bg-cream py-2 pl-4 pr-2"
+        className="mb-7 flex-row items-center gap-3 rounded-2xl bg-surface py-2 pl-4 pr-2"
       >
         <Icon name="search-outline" size={24} color={colors.ink} />
         <Text className="flex-1 text-base text-muted" numberOfLines={1}>
           Ask AI to make notes or flashcards...
         </Text>
-        <View className="h-12 w-14 items-center justify-center rounded-xl bg-brand">
+        <View className="h-12 w-14 items-center justify-center rounded-xl bg-primary">
           <Icon name="sparkles" size={22} color={colors.white} />
         </View>
       </Pressable>
@@ -104,7 +104,7 @@ export default function HomeScreen() {
           onPress={() => router.push({ pathname: '/study/[id]', params: { id: continueDeck.id } })}
           accessibilityRole="button"
           accessibilityLabel={`Continue studying ${continueDeck.name}`}
-          className="mb-8 flex-row items-center gap-4 rounded-3xl bg-cream p-4 active:bg-peach"
+          className="mb-8 flex-row items-center gap-4 rounded-3xl bg-surface p-4 active:bg-line"
         >
           <DeckBadge name={continueDeck.name} size={60} />
           <View className="flex-1">
@@ -113,7 +113,7 @@ export default function HomeScreen() {
             </Text>
             <Text className="text-base text-muted">{plural(continueDeck.cardCount, 'flashcard')}</Text>
           </View>
-          <View className="h-12 w-12 items-center justify-center rounded-full bg-brand">
+          <View className="h-12 w-12 items-center justify-center rounded-full bg-cta">
             <Icon name="play" size={22} color={colors.white} />
           </View>
         </Pressable>
@@ -121,10 +121,10 @@ export default function HomeScreen() {
         <Pressable
           onPress={() => router.navigate(NEW_DECK)}
           accessibilityRole="button"
-          className="mb-8 flex-row items-center gap-4 rounded-3xl bg-cream p-4 active:bg-peach"
+          className="mb-8 flex-row items-center gap-4 rounded-3xl bg-surface p-4 active:bg-line"
         >
-          <View className="h-15 w-15 items-center justify-center rounded-2xl bg-peach">
-            <Icon name="add" size={30} color={colors.brand} />
+          <View className="h-15 w-15 items-center justify-center rounded-2xl bg-calm-soft">
+            <Icon name="add" size={30} color={colors.primary} />
           </View>
           <View className="flex-1">
             <Text className="text-lg font-bold text-ink">Nothing to study yet</Text>
@@ -162,7 +162,7 @@ function SubjectTile({ deck, fill = false }: { deck: DeckWithCount; fill?: boole
       onPress={() => router.push({ pathname: '/deck/[id]', params: { id: deck.id } })}
       accessibilityRole="button"
       accessibilityLabel={`Open subject ${deck.name}`}
-      className={`h-22 items-center justify-center gap-2 rounded-2xl bg-cream px-1 active:bg-peach ${
+      className={`h-22 items-center justify-center gap-2 rounded-2xl bg-surface px-1 active:bg-line ${
         fill ? 'flex-1' : 'w-18'
       }`}
     >
@@ -180,11 +180,11 @@ function AddSubjectTile({ fill = false }: { fill?: boolean }) {
       onPress={() => router.navigate(NEW_DECK)}
       accessibilityRole="button"
       accessibilityLabel="Add subject"
-      className={`h-22 items-center justify-center gap-2 rounded-2xl bg-cream active:bg-peach ${
+      className={`h-22 items-center justify-center gap-2 rounded-2xl bg-surface active:bg-line ${
         fill ? 'flex-1' : 'w-18'
       }`}
     >
-      <Icon name="add" size={28} color={colors.brand} />
+      <Icon name="add" size={28} color={colors.primary} />
       <Text className="text-xs font-semibold text-ink">Add</Text>
     </Pressable>
   );
@@ -195,7 +195,7 @@ function Tile({ icon, label, onPress }: { icon: IconName; label: string; onPress
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      className="h-28 flex-1 items-center justify-center gap-2 rounded-3xl bg-brand active:bg-brand-dark"
+      className="h-28 flex-1 items-center justify-center gap-2 rounded-3xl bg-primary active:bg-primary-dark"
     >
       <Icon name={icon} size={34} color={colors.white} />
       <Text className="text-base font-bold text-white" numberOfLines={1}>

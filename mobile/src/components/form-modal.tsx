@@ -12,7 +12,7 @@ import {
 
 import { colors } from '@/components/ui';
 
-// Browsers draw their own focus ring over the input; we show a brown border instead.
+// Browsers draw their own focus ring over the input; we show a primary-colour border instead.
 // ('none' works on web but isn't in React Native's types.)
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 
@@ -95,8 +95,8 @@ function Form({
             style={{
               ...NO_WEB_FOCUS_RING,
               borderWidth: 1.5,
-              borderColor: focused === field.key ? colors.brand : colors.line,
-              backgroundColor: focused === field.key ? colors.white : colors.cream,
+              borderColor: focused === field.key ? colors.primary : colors.line,
+              backgroundColor: focused === field.key ? colors.white : colors.surface,
             }}
             className={`rounded-xl px-4 py-3 text-base text-ink ${
               field.multiline ? 'min-h-24' : ''
@@ -108,7 +108,7 @@ function Form({
       <View className="mt-2 flex-row gap-3">
         <Pressable
           onPress={onCancel}
-          className="flex-1 items-center rounded-xl border border-line py-3 active:bg-cream"
+          className="flex-1 items-center rounded-xl border border-line py-3 active:bg-surface"
         >
           <Text className="text-base font-semibold text-ink">Cancel</Text>
         </Pressable>
@@ -116,7 +116,7 @@ function Form({
           disabled={!canSave}
           onPress={() => onSave(values)}
           className={`flex-1 items-center rounded-xl py-3 ${
-            canSave ? 'bg-brand active:bg-brand-dark' : 'bg-brand/40'
+            canSave ? 'bg-cta active:bg-cta-dark' : 'bg-cta/40'
           }`}
         >
           <Text className="text-base font-semibold text-white">Save</Text>

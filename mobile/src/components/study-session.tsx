@@ -65,15 +65,15 @@ export function StudySession({
   if (finished) {
     return (
       <Centered title={title}>
-        <View className="mb-6 h-24 w-24 items-center justify-center rounded-full bg-peach">
-          <Icon name="trophy" size={44} color={colors.brand} />
+        <View className="mb-6 h-24 w-24 items-center justify-center rounded-full bg-calm-soft">
+          <Icon name="trophy" size={44} color={colors.warning} />
         </View>
         <Text className="mb-2 text-3xl font-bold text-ink">Well done!</Text>
         <Text className="mb-10 text-center text-base text-muted">
           You went through all {plural(order.length, 'card')}.
         </Text>
         <View className="w-full gap-3">
-          <Button label="Study again" icon="refresh" onPress={() => restart(shuffled)} />
+          <Button label="Study again" icon="refresh" variant="cta" onPress={() => restart(shuffled)} />
           <Button label={backLabel} variant="secondary" onPress={() => router.back()} />
         </View>
       </Centered>
@@ -102,7 +102,7 @@ export function StudySession({
             accessibilityLabel="Shuffle"
             accessibilityState={{ checked: shuffled }}
             className={`flex-row items-center gap-1.5 rounded-full px-3 py-1.5 ${
-              shuffled ? 'bg-brand' : 'border border-line bg-white'
+              shuffled ? 'bg-primary' : 'border border-line bg-white'
             }`}
           >
             <Icon name="shuffle" size={15} color={shuffled ? '#ffffff' : colors.muted} />
@@ -111,9 +111,9 @@ export function StudySession({
             </Text>
           </Pressable>
         </View>
-        <View className="mb-5 h-2 overflow-hidden rounded-full bg-cream">
+        <View className="mb-5 h-2 overflow-hidden rounded-full bg-surface">
           <View
-            className="h-full rounded-full bg-brand"
+            className="h-full rounded-full bg-calm"
             style={{ width: `${((index + 1) / order.length) * 100}%` }}
           />
         </View>
@@ -142,7 +142,7 @@ export function StudySession({
             accessibilityRole="button"
             accessibilityLabel="Previous"
             className={`h-14 w-14 items-center justify-center rounded-2xl border ${
-              isFirst ? 'border-line bg-cream' : 'border-line bg-white active:bg-cream'
+              isFirst ? 'border-line bg-surface' : 'border-line bg-white active:bg-surface'
             }`}
           >
             <Icon name="arrow-back" size={22} color={isFirst ? colors.faint : colors.ink} />
@@ -150,7 +150,7 @@ export function StudySession({
           <Pressable
             onPress={next}
             accessibilityRole="button"
-            className="h-14 flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-brand active:bg-brand-dark"
+            className="h-14 flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-cta active:bg-cta-dark"
           >
             <Text className="text-base font-semibold text-white">{isLast ? 'Finish' : 'Next'}</Text>
             <Icon name={isLast ? 'checkmark' : 'arrow-forward'} size={20} color="#ffffff" />

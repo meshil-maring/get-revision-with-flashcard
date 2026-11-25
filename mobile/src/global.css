@@ -1,17 +1,34 @@
 @import 'tailwindcss';
 @import 'uniwind';
 
-/* NoteMe brand colours. Use as classes, e.g. bg-brand, text-ink, bg-cream. */
+/*
+ * NoteMe colours, chosen for studying:
+ *   primary (blue)  - focus and reading: headers, tiles, active tab, flashcards
+ *   calm (teal)     - balance and progress: subject icons, progress bars
+ *   cta (orange)    - actions: Study, Next, Start revision, Save, the + button
+ *   alert (red)     - warnings and delete, used sparingly; warning (amber) for reminders
+ *   page/surface/ink - off-white and soft gray backgrounds, charcoal text (no pure black)
+ * Use as classes, e.g. bg-primary, text-ink, bg-surface, bg-cta.
+ */
 @theme {
-  --color-brand: #5b2410; /* dark brown: buttons, tiles, active tab */
-  --color-brand-dark: #431a0b; /* pressed state */
-  --color-page: #fffdfb; /* screen background */
-  --color-cream: #f8f1ec; /* cards, search box, subject tiles */
-  --color-peach: #fde8d8; /* icon backgrounds */
-  --color-line: #efe3da; /* borders */
-  --color-ink: #2a1810; /* main text */
-  --color-muted: #7a685f; /* secondary text */
-  --color-accent: #f28c28; /* notification dot */
+  --color-primary: #2f6bd8;
+  --color-primary-dark: #2455b0; /* pressed state */
+  --color-primary-soft: #e6eefc;
+
+  --color-calm: #23988a;
+  --color-calm-soft: #def3ef;
+
+  --color-cta: #f08a24;
+  --color-cta-dark: #d6741a; /* pressed state */
+
+  --color-alert: #dc3b3b;
+  --color-warning: #f2a516;
+
+  --color-page: #f9fafb; /* off-white screen background */
+  --color-surface: #eef1f5; /* soft gray cards, search box, tiles */
+  --color-line: #e1e5eb; /* borders */
+  --color-ink: #1f2933; /* dark charcoal text */
+  --color-muted: #5c6773; /* secondary text */
 }
 
 /*

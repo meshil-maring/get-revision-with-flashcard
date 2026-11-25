@@ -96,7 +96,7 @@ export default function FlashcardsScreen() {
               <Pressable
                 onPress={() => setForm({ mode: 'create' })}
                 accessibilityRole="button"
-                className="flex-row items-center gap-1.5 rounded-2xl bg-brand px-4 py-3 active:bg-brand-dark"
+                className="flex-row items-center gap-1.5 rounded-2xl bg-primary px-4 py-3 active:bg-primary-dark"
               >
                 <Icon name="add" size={20} color={colors.white} />
                 <Text className="text-base font-bold text-white">New deck</Text>
@@ -107,7 +107,7 @@ export default function FlashcardsScreen() {
               <Pressable
                 onPress={() => router.push('/new-revision')}
                 accessibilityRole="button"
-                className="mb-2 flex-row items-center gap-4 rounded-3xl bg-brand p-4 active:bg-brand-dark"
+                className="mb-2 flex-row items-center gap-4 rounded-3xl bg-primary p-4 active:bg-primary-dark"
               >
                 <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
                   <Icon name="git-merge-outline" size={24} color={colors.white} />
@@ -133,7 +133,7 @@ export default function FlashcardsScreen() {
         renderItem={({ item: deck }) => (
           <Pressable
             onPress={() => router.push({ pathname: '/deck/[id]', params: { id: deck.id } })}
-            className="flex-row items-center gap-4 rounded-3xl bg-cream p-4 active:bg-peach"
+            className="flex-row items-center gap-4 rounded-3xl bg-surface p-4 active:bg-line"
           >
             <DeckBadge name={deck.name} size={56} />
             <View className="flex-1">
@@ -154,7 +154,7 @@ export default function FlashcardsScreen() {
                 hitSlop={6}
                 accessibilityRole="button"
                 accessibilityLabel={`Study ${deck.name}`}
-                className="h-12 w-12 items-center justify-center rounded-full bg-brand active:bg-brand-dark"
+                className="h-12 w-12 items-center justify-center rounded-full bg-cta active:bg-cta-dark"
               >
                 <Icon name="play" size={22} color={colors.white} />
               </Pressable>
