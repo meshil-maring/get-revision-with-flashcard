@@ -14,10 +14,9 @@ const SECTIONS: { title: string; items: MenuItem[] }[] = [
     items: [
       {
         icon: 'person-outline',
-        title: 'Profile',
-        subtitle: 'Sign in and back up your decks',
-        href: comingSoonHref('profile'),
-        soon: true,
+        title: 'Account',
+        subtitle: 'Sign in, back up and sync your decks and notes',
+        href: '/account',
       },
     ],
   },

@@ -48,7 +48,8 @@
         {
           "photosPermission": "Allow NoteMe to add pictures from your library to your flashcards."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

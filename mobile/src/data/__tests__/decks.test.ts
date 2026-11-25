@@ -125,12 +125,12 @@ describe('continue studying', () => {
 describe('migrations', () => {
   it('sets the schema version and can run again safely', async () => {
     const before = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    expect(before?.user_version).toBe(9);
+    expect(before?.user_version).toBe(10);
 
     await migrateDbIfNeeded(db); // second run should do nothing
 
     const after = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    expect(after?.user_version).toBe(9);
+    expect(after?.user_version).toBe(10);
   });
 });
 

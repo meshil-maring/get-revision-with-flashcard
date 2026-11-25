@@ -1,4 +1,4 @@
-import { addDays, currentStreak, dayKey, fromDayKey, longestStreak } from '@/lib/dates';
+import { addDays, currentStreak, dayKey, fromDayKey, longestStreak, syncedAgo } from '@/lib/dates';
 
 const today = new Date(2026, 10, 25, 15, 30); // 25 Nov 2026, 3:30pm local
 
@@ -48,5 +48,14 @@ describe('longestStreak', () => {
 
   it('is 0 with no study', () => {
     expect(longestStreak(new Set())).toBe(0);
+  });
+});
+
+describe('syncedAgo', () => {
+  const now = new Date('2026-11-25T12:00:00Z');
+  it('says how long ago a sync was', () => {
+    expect(syncedAgo('2026-11-25T11:59:40Z', now)).toBe('just now');
+    expect(syncedAgo('2026-11-25T11:55:00Z', now)).toBe('5 min ago');
+    expect(syncedAgo('2026-11-25T09:00:00Z', now)).toBe('3 h ago');
   });
 });

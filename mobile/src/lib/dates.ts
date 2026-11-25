@@ -47,3 +47,12 @@ export function longestStreak(studiedDays: ReadonlySet<string>): number {
   }
   return best;
 }
+
+/** "just now", "5 min ago", "3 h ago", or the date. */
+export function syncedAgo(iso: string, now = new Date()): string {
+  const minutes = Math.floor((now.getTime() - new Date(iso).getTime()) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} h ago`;
+  return new Date(iso).toLocaleDateString();
+}

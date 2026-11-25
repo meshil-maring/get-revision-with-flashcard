@@ -64,9 +64,9 @@ export default function HomeScreen() {
           <View className="absolute right-0.5 top-0 h-3 w-3 rounded-full border-2 border-page bg-alert" />
         </Pressable>
         <Pressable
-          onPress={() => router.push(comingSoonHref('profile'))}
+          onPress={() => router.push('/account')}
           accessibilityRole="button"
-          accessibilityLabel="Profile"
+          accessibilityLabel="Account"
           className="h-12 w-12 items-center justify-center rounded-full bg-primary"
         >
           <Icon name="person-outline" size={24} color={colors.white} />

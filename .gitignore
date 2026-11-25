@@ -7,3 +7,4 @@ backend/data/*.json
 
 # Claude Code local settings
 .claude/
+data/pglite/

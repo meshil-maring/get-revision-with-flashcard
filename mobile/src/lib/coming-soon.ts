@@ -24,11 +24,6 @@ export const COMING_SOON = {
     icon: 'settings-outline',
     text: 'Soon you can change reminders, study options and how the app looks.',
   },
-  profile: {
-    title: 'Profile',
-    icon: 'person-outline',
-    text: 'Soon you can sign in to back up your decks and use them on any device.',
-  },
 } satisfies Record<string, { title: string; icon: IconName; text: string }>;
 
 export type ComingSoonFeature = keyof typeof COMING_SOON;

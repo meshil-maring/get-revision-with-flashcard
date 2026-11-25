@@ -127,7 +127,45 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS idx_note_tags_tag_id ON note_tags(tag_id);
   `,
+  // v10: sync with the user's account. Triggers note every changed row in sync_outbox, so the
+  // data functions don't need to know about syncing. While sync writes rows that came from the
+  // server it sets sync_state 'applying', and the triggers stay quiet.
+  `
+  CREATE TABLE IF NOT EXISTS sync_outbox (
+    table_name  TEXT NOT NULL,
+    row_id      TEXT NOT NULL, -- note_tags: '<note_id>:<tag_id>'
+    changed_at  TEXT NOT NULL, -- ISO time of the latest local change
+    PRIMARY KEY (table_name, row_id)
+  );
+  CREATE TABLE IF NOT EXISTS sync_state (
+    key   TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  );
+  ${syncTriggers('decks', 'NEW.id')}
+  ${syncTriggers('cards', 'NEW.id')}
+  ${syncTriggers('folders', 'NEW.id')}
+  ${syncTriggers('notes', 'NEW.id')}
+  ${syncTriggers('tags', 'NEW.id')}
+  ${syncTriggers('note_tags', "NEW.note_id || ':' || NEW.tag_id")}
+  `,
 ];
+
+// An upsert, not INSERT OR REPLACE: inside a trigger, OR REPLACE is overridden by the
+// conflict rule of the statement that fired it (e.g. setNoteTags's ON CONFLICT … DO UPDATE).
+function syncTriggers(table: string, rowId: string): string {
+  return ['INSERT', 'UPDATE']
+    .map(
+      (event) => `
+  CREATE TRIGGER IF NOT EXISTS sync_${table}_${event.toLowerCase()} AFTER ${event} ON ${table}
+  WHEN NOT EXISTS (SELECT 1 FROM sync_state WHERE key = 'applying')
+  BEGIN
+    INSERT INTO sync_outbox (table_name, row_id, changed_at)
+    VALUES ('${table}', ${rowId}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT (table_name, row_id) DO UPDATE SET changed_at = excluded.changed_at;
+  END;`,
+    )
+    .join('\n');
+}
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
