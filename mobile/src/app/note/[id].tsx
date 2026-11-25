@@ -7,10 +7,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AttachmentList } from '@/components/attachments';
 import { AiBadge, FolderPath } from '@/components/folder-browser';
 import { RichText } from '@/components/rich-text';
+import { TagChip } from '@/components/tag-chip';
 import { Button, colors, EmptyState, Icon, IconButton } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
-import { deleteNote, getNote, listNoteAttachments } from '@/data/notes';
-import type { FolderCrumb, Note, NoteAttachment } from '@/data/types';
+import { deleteNote, getNote, listNoteAttachments, setNoteFavorite } from '@/data/notes';
+import { listTagsForNotes } from '@/data/tags';
+import type { FolderCrumb, Note, NoteAttachment, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
 import { suggestCards } from '@/lib/notes';
 
@@ -22,17 +24,25 @@ export default function NoteScreen() {
   const [note, setNote] = useState<Note | null | undefined>(undefined); // undefined = loading
   const [path, setPath] = useState<FolderCrumb[]>([]);
   const [attachments, setAttachments] = useState<NoteAttachment[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+
+  const load = useCallback(async () => {
+    const n = await getNote(db, id);
+    const [p, a, t] = await Promise.all([
+      getFolderPath(db, n?.folderId ?? null),
+      listNoteAttachments(db, id),
+      listTagsForNotes(db, [id]),
+    ]);
+    setNote(n);
+    setPath(p);
+    setAttachments(a);
+    setTags(t.get(id) ?? []);
+  }, [db, id]);
 
   useFocusEffect(
     useCallback(() => {
-      (async () => {
-        const n = await getNote(db, id);
-        const [p, a] = await Promise.all([getFolderPath(db, n?.folderId ?? null), listNoteAttachments(db, id)]);
-        setNote(n);
-        setPath(p);
-        setAttachments(a);
-      })();
-    }, [db, id]),
+      load();
+    }, [load]),
   );
 
   if (note === undefined) return <Stack.Screen options={{ title: '' }} />;
@@ -55,6 +65,11 @@ export default function NoteScreen() {
     router.push({ pathname: '/note-editor', params: { noteId: current.id } });
   }
 
+  async function toggleFavorite() {
+    await setNoteFavorite(db, current.id, current.favoritedAt === null);
+    await load();
+  }
+
   async function handleDelete() {
     const ok = await confirm('Delete note?', `"${current.title}" will be deleted.`);
     if (!ok) return;
@@ -69,6 +84,12 @@ export default function NoteScreen() {
           title: '',
           headerRight: () => (
             <View className="flex-row">
+              <IconButton
+                icon={current.favoritedAt ? 'star' : 'star-outline'}
+                label={current.favoritedAt ? 'Remove from favourites' : 'Add to favourites'}
+                tone={current.favoritedAt ? 'favorite' : 'default'}
+                onPress={toggleFavorite}
+              />
               <IconButton icon="create-outline" label="Edit note" onPress={edit} />
               <IconButton icon="trash-outline" label="Delete note" tone="danger" onPress={handleDelete} />
             </View>
@@ -88,6 +109,18 @@ export default function NoteScreen() {
                 </View>
               ) : null}
               {current.createdBy ? <AiBadge by={current.createdBy} /> : null}
+            </View>
+          ) : null}
+          {tags.length > 0 ? (
+            <View className="mt-2 flex-row flex-wrap gap-2">
+              {tags.map((tag) => (
+                <TagChip
+                  key={tag.id}
+                  tag={tag}
+                  size="md"
+                  onPress={() => router.push({ pathname: '/tag/[id]', params: { id: tag.id } })}
+                />
+              ))}
             </View>
           ) : null}
         </View>

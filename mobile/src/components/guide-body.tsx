@@ -87,6 +87,8 @@ const LABEL_ICONS: Record<string, IconName> = {
   ai: 'sparkles-outline',
   notes: 'document-outline',
   'cornell notes': 'grid-outline',
+  note: 'document-text-outline',
+  folder: 'folder-outline',
   'plain notes': 'document-text-outline',
   'study all again': 'refresh-outline',
 };

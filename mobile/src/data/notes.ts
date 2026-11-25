@@ -1,10 +1,11 @@
 import { randomUUID } from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { listAllFolders, pathFromFolders, toFolder } from './folders';
+import { compareNames, listAllFolders, pathFromFolders, toFolder } from './folders';
 import type {
   AttachmentKind,
   CornellRow,
+  FavoriteFolder,
   Folder,
   FolderSearchResult,
   Note,
@@ -12,6 +13,7 @@ import type {
   NoteInput,
   NoteSearchResult,
   NoteSource,
+  NoteWithPath,
 } from './types';
 
 type NoteRow = {
@@ -23,6 +25,7 @@ type NoteRow = {
   cornell_rows: string;
   summary: string;
   created_by: string | null;
+  favorited_at: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -51,6 +54,7 @@ function toNote(row: NoteRow): Note {
     rows: parseRows(row.cornell_rows),
     summary: row.summary,
     createdBy: row.created_by ?? null,
+    favoritedAt: row.favorited_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -124,6 +128,63 @@ export async function updateNote(db: SQLiteDatabase, id: string, input: NoteInpu
     new Date().toISOString(),
     id,
   );
+}
+
+/** Stars a note (or not). Doesn't change updated_at, like favourite cards. */
+export async function setNoteFavorite(db: SQLiteDatabase, id: string, favorite: boolean): Promise<void> {
+  await db.runAsync(
+    'UPDATE notes SET favorited_at = ? WHERE id = ?',
+    favorite ? new Date().toISOString() : null,
+    id,
+  );
+}
+
+/** Favourite folders and notes, newest favourite first, with where each one is. */
+export async function listFavorites(
+  db: SQLiteDatabase,
+): Promise<{ folders: FavoriteFolder[]; notes: NoteWithPath[] }> {
+  const [folderRows, noteRows, allFolders] = await Promise.all([
+    db.getAllAsync<Parameters<typeof toFolder>[0] & { folder_count: number; note_count: number }>(
+      `SELECT f.*,
+              (SELECT COUNT(*) FROM folders c WHERE c.parent_id = f.id AND c.deleted_at IS NULL) AS folder_count,
+              (SELECT COUNT(*) FROM notes n WHERE n.folder_id = f.id AND n.deleted_at IS NULL) AS note_count
+         FROM folders f
+        WHERE f.favorited_at IS NOT NULL AND f.deleted_at IS NULL
+        ORDER BY f.favorited_at DESC`,
+    ),
+    db.getAllAsync<NoteRow>(
+      'SELECT * FROM notes WHERE favorited_at IS NOT NULL AND deleted_at IS NULL ORDER BY favorited_at DESC',
+    ),
+    listAllFolders(db),
+  ]);
+  const byId = new Map<string, Folder>(allFolders.map((f) => [f.id, f]));
+  return {
+    folders: folderRows.map((row) => ({
+      ...toFolder(row),
+      folderCount: row.folder_count,
+      noteCount: row.note_count,
+      path: pathFromFolders(byId, row.parent_id),
+    })),
+    notes: noteRows.map(toNote).map((n) => ({ ...n, path: pathFromFolders(byId, n.folderId) })),
+  };
+}
+
+/** Notes with this tag, from every folder, with where each one is. Sorted by title. */
+export async function listNotesWithTag(db: SQLiteDatabase, tagId: string): Promise<NoteWithPath[]> {
+  const [rows, allFolders] = await Promise.all([
+    db.getAllAsync<NoteRow>(
+      `SELECT n.* FROM notes n
+         JOIN note_tags nt ON nt.note_id = n.id AND nt.deleted_at IS NULL
+        WHERE nt.tag_id = ? AND n.deleted_at IS NULL`,
+      tagId,
+    ),
+    listAllFolders(db),
+  ]);
+  const byId = new Map<string, Folder>(allFolders.map((f) => [f.id, f]));
+  return rows
+    .map(toNote)
+    .map((n) => ({ ...n, path: pathFromFolders(byId, n.folderId) }))
+    .sort((a, b) => compareNames(a.title, b.title));
 }
 
 export async function deleteNote(db: SQLiteDatabase, id: string): Promise<void> {

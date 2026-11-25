@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import { Alert } from 'react-native';
 
+import NoteScreen from '@/app/note/[id]';
 import NotesScreen from '@/app/(tabs)/notes';
 import NoteCardsScreen from '@/app/note-cards';
 import NoteEditorScreen from '@/app/note-editor';
@@ -10,7 +11,8 @@ import * as decks from '@/data/decks';
 import * as folders from '@/data/folders';
 import * as notes from '@/data/notes';
 import * as settings from '@/data/settings';
-import type { FolderWithCounts, Note } from '@/data/types';
+import * as tags from '@/data/tags';
+import type { FolderWithCounts, Note, Tag } from '@/data/types';
 import { mockRouter } from '@/test-utils/mock-router';
 
 jest.mock('expo-router', () => jest.requireActual('@/test-utils/mock-router').mockRouter);
@@ -28,6 +30,7 @@ jest.mock('@/data/folders', () => ({
   createFolder: jest.fn(),
   countFolderContents: jest.fn(),
   deleteFolder: jest.fn(),
+  setFolderFavorite: jest.fn(),
 }));
 jest.mock('@/data/notes', () => ({
   ...jest.requireActual('@/data/notes'),
@@ -36,6 +39,17 @@ jest.mock('@/data/notes', () => ({
   createNote: jest.fn(),
   listNoteAttachments: jest.fn(),
   searchNotes: jest.fn(),
+  listFavorites: jest.fn(),
+  setNoteFavorite: jest.fn(),
+}));
+jest.mock('@/data/tags', () => ({
+  ...jest.requireActual('@/data/tags'),
+  listTags: jest.fn(),
+  listTagsForNotes: jest.fn(),
+  searchTags: jest.fn(),
+  setNoteTags: jest.fn(),
+  createTag: jest.fn(),
+  findTagByName: jest.fn(),
 }));
 jest.mock('@/data/decks');
 jest.mock('@/data/cards');
@@ -51,6 +65,7 @@ function folder(overrides: Partial<FolderWithCounts>): FolderWithCounts {
     id: 'f-1',
     parentId: null,
     name: 'Class 10',
+    favoritedAt: null,
     createdAt: NOW,
     updatedAt: NOW,
     deletedAt: null,
@@ -58,6 +73,10 @@ function folder(overrides: Partial<FolderWithCounts>): FolderWithCounts {
     noteCount: 0,
     ...overrides,
   };
+}
+
+function tag(overrides: Partial<Tag>): Tag {
+  return { id: 't-1', name: 'Exam 1', color: 'red', createdAt: NOW, updatedAt: NOW, deletedAt: null, ...overrides };
 }
 
 function note(overrides: Partial<Note>): Note {
@@ -70,6 +89,7 @@ function note(overrides: Partial<Note>): Note {
     rows: [],
     summary: '',
     createdBy: null,
+    favoritedAt: null,
     createdAt: NOW,
     updatedAt: NOW,
     deletedAt: null,
@@ -87,6 +107,11 @@ beforeEach(() => {
   jest.mocked(notes.listNoteAttachments).mockResolvedValue([]);
   jest.mocked(notes.searchNotes).mockResolvedValue({ folders: [], notes: [] });
   jest.mocked(decks.listDecks).mockResolvedValue([]);
+  jest.mocked(notes.listFavorites).mockResolvedValue({ folders: [], notes: [] });
+  jest.mocked(tags.listTags).mockResolvedValue([]);
+  jest.mocked(tags.listTagsForNotes).mockResolvedValue(new Map());
+  jest.mocked(tags.searchTags).mockResolvedValue([]);
+  jest.mocked(tags.findTagByName).mockResolvedValue(null);
 });
 
 describe('Notes tab', () => {
@@ -119,6 +144,33 @@ describe('Notes tab', () => {
     await fireEvent.press(screen.getByText('Save'));
 
     expect(folders.createFolder).toHaveBeenCalledWith(expect.anything(), { parentId: null, name: 'Class 10' });
+  });
+
+  it('shows tags and favourites at the top', async () => {
+    jest.mocked(tags.listTags).mockResolvedValue([{ ...tag({}), noteCount: 3 }]);
+    jest.mocked(notes.listFavorites).mockResolvedValue({
+      folders: [{ ...folder({ id: 'f-9', name: 'Physics', favoritedAt: NOW, noteCount: 2 }), path: [{ id: 'f-1', name: 'Class 10' }] }],
+      notes: [{ ...note({ id: 'n-9', title: 'Inertia', favoritedAt: NOW }), path: [] }],
+    });
+    jest.mocked(tags.listTagsForNotes).mockResolvedValue(new Map([['n-9', [tag({ name: 'Hard', id: 't-2' })]]]));
+
+    await render(<NotesScreen />);
+
+    expect(await screen.findByText('Favourites')).toBeOnTheScreen();
+    expect(screen.getByText('Notes › Class 10 · 2 notes')).toBeOnTheScreen();
+    expect(screen.getByText('Inertia')).toBeOnTheScreen();
+    expect(screen.getByText('Hard')).toBeOnTheScreen(); // the favourite note's tag
+
+    await fireEvent.press(screen.getByLabelText('Open tag Exam 1'));
+    expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/tag/[id]', params: { id: 't-1' } });
+  });
+
+  it('stars a folder from its menu', async () => {
+    jest.mocked(folders.listFolders).mockResolvedValue([folder({})]);
+    await render(<NotesScreen />);
+    await fireEvent.press(await screen.findByLabelText('More options for Class 10'));
+    await fireEvent.press(screen.getByText('Add to favourites'));
+    await waitFor(() => expect(folders.setFolderFavorite).toHaveBeenCalledWith(expect.anything(), 'f-1', true));
   });
 
   it('marks notes an AI app wrote', async () => {
@@ -183,6 +235,8 @@ describe('Note editor', () => {
   it('saves a new Cornell note in the folder it was opened from', async () => {
     mockRouter.useLocalSearchParams.mockReturnValue({ folderId: 'f-2' });
     jest.mocked(notes.createNote).mockResolvedValue('n-new');
+    jest.mocked(tags.listTags).mockResolvedValue([{ ...tag({}), noteCount: 0 }]);
+    jest.mocked(tags.createTag).mockResolvedValue('t-new');
 
     await render(<NoteEditorScreen />);
     await fireEvent.changeText(await screen.findByLabelText('Title'), 'Forces');
@@ -192,6 +246,11 @@ describe('Note editor', () => {
     await fireEvent.press(screen.getByText('Add row'));
     await fireEvent.changeText(screen.getByLabelText('Cue 2'), 'F = ?');
     await fireEvent.changeText(screen.getByLabelText('Summary'), 'Newton');
+    // Pick an existing tag and make a new one.
+    await fireEvent.press(screen.getByLabelText('Tag Exam 1'));
+    await fireEvent.changeText(screen.getByLabelText('New tag'), 'Hard');
+    await fireEvent.press(screen.getByLabelText('Add tag'));
+    expect(screen.getByLabelText('Tag Hard')).toBeChecked();
     await fireEvent.press(screen.getByLabelText('Save'));
 
     await waitFor(() =>
@@ -206,6 +265,8 @@ describe('Note editor', () => {
         summary: 'Newton',
       }),
     );
+    expect(tags.createTag).toHaveBeenCalledWith(expect.anything(), { name: 'Hard', color: 'teal' }); // next colour after the one tag
+    expect(tags.setNoteTags).toHaveBeenCalledWith(expect.anything(), 'n-new', ['t-1', 't-new']);
     expect(mockRouter.router.replace).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n-new' } });
   });
 
@@ -213,6 +274,20 @@ describe('Note editor', () => {
     await render(<NoteEditorScreen />);
     expect(await screen.findByText('Add a title to save this note')).toBeOnTheScreen();
     expect(screen.getByLabelText('Save')).toBeDisabled();
+  });
+});
+
+describe('Note screen', () => {
+  it('shows the tags on a note and opens one', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Speed: distance ÷ time' }));
+    jest.mocked(tags.listTagsForNotes).mockResolvedValue(new Map([['n-1', [tag({})]]]));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('Exam 1')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Open tag Exam 1'));
+    expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/tag/[id]', params: { id: 't-1' } });
   });
 });
 

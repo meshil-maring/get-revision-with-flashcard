@@ -5,6 +5,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ActionSheet } from '@/components/action-sheet';
+import { TagRow } from '@/components/tag-chip';
 import { FormModal, type FormField } from '@/components/form-modal';
 import { colors, EmptyState, Icon, plural, scaled, subjectIcon } from '@/components/ui';
 import {
@@ -14,9 +15,11 @@ import {
   FolderNameTakenError,
   listFolders,
   renameFolder,
+  setFolderFavorite,
 } from '@/data/folders';
 import { listNotes } from '@/data/notes';
-import type { FolderWithCounts, Note } from '@/data/types';
+import { listTagsForNotes } from '@/data/tags';
+import type { FolderWithCounts, Note, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
 import { notePreview } from '@/lib/notes';
 
@@ -75,22 +78,33 @@ export function FolderBrowser({
   folderId,
   header,
   emptyText,
+  onChange,
 }: {
   folderId: string | null;
   header?: ReactNode;
   emptyText: string;
+  /** Called after a folder is added, renamed, starred or deleted (so a header can refresh). */
+  onChange?: () => void;
 }) {
   const db = useSQLiteContext();
   const [folders, setFolders] = useState<FolderWithCounts[] | null>(null); // null = loading
   const [notes, setNotes] = useState<Note[]>([]);
+  const [tags, setTags] = useState<Map<string, Tag[]>>(new Map());
   const [form, setForm] = useState<FormState>({ mode: 'closed' });
   const [menuFor, setMenuFor] = useState<FolderWithCounts | null>(null);
 
   const refresh = useCallback(async () => {
     const [f, n] = await Promise.all([listFolders(db, folderId), listNotes(db, folderId)]);
+    const t = await listTagsForNotes(db, n.map((note) => note.id));
     setFolders(f);
     setNotes(n);
+    setTags(t);
   }, [db, folderId]);
+
+  const changed = useCallback(async () => {
+    await refresh();
+    onChange?.();
+  }, [refresh, onChange]);
 
   useFocusEffect(
     useCallback(() => {
@@ -112,7 +126,7 @@ ${error.message}`);
       return;
     }
     setForm({ mode: 'closed' });
-    await refresh();
+    await changed();
   }
 
   async function handleDelete(folder: FolderWithCounts) {
@@ -129,7 +143,12 @@ ${error.message}`);
     );
     if (!ok) return;
     await deleteFolder(db, folder.id);
-    await refresh();
+    await changed();
+  }
+
+  async function toggleFavorite(folder: FolderWithCounts) {
+    await setFolderFavorite(db, folder.id, folder.favoritedAt === null);
+    await changed();
   }
 
   function newNote() {
@@ -178,9 +197,12 @@ ${error.message}`);
               >
                 <FolderBadge name={folder.name} />
                 <View className="flex-1">
-                  <Text className="text-base font-bold text-ink" numberOfLines={1}>
-                    {folder.name}
-                  </Text>
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="flex-shrink text-base font-bold text-ink" numberOfLines={1}>
+                      {folder.name}
+                    </Text>
+                    {folder.favoritedAt ? <FavoriteStar /> : null}
+                  </View>
                   <Text className="text-sm text-muted">{folderSummary(folder)}</Text>
                 </View>
                 <Pressable
@@ -201,7 +223,7 @@ ${error.message}`);
           <View className="gap-2">
             <SectionTitle title="Notes" count={notes.length} />
             {notes.map((note) => (
-              <NoteRow key={note.id} note={note} />
+              <NoteRow key={note.id} note={note} tags={tags.get(note.id)} />
             ))}
           </View>
         ) : null}
@@ -223,6 +245,9 @@ ${error.message}`);
         actions={
           menuFor
             ? [
+                menuFor.favoritedAt
+                  ? { icon: 'star', label: 'Remove from favourites', onPress: () => toggleFavorite(menuFor) }
+                  : { icon: 'star-outline', label: 'Add to favourites', onPress: () => toggleFavorite(menuFor) },
                 { icon: 'pencil-outline', label: 'Rename', onPress: () => setForm({ mode: 'rename', folder: menuFor }) },
                 { icon: 'trash-outline', label: 'Delete', tone: 'danger', onPress: () => handleDelete(menuFor) },
               ]
@@ -245,7 +270,7 @@ function SectionTitle({ title, count }: { title: string; count: number }) {
 }
 
 /** A note in a list: its title and the first words of its text. */
-export function NoteRow({ note, subtitle }: { note: Note; subtitle?: string }) {
+export function NoteRow({ note, subtitle, tags = [] }: { note: Note; subtitle?: string; tags?: Tag[] }) {
   const cornell = note.style === 'cornell';
   const preview = subtitle ?? notePreview(note);
   return (
@@ -266,12 +291,14 @@ export function NoteRow({ note, subtitle }: { note: Note; subtitle?: string }) {
             </View>
           ) : null}
           {note.createdBy ? <AiBadge by={note.createdBy} /> : null}
+          {note.favoritedAt ? <FavoriteStar /> : null}
         </View>
         {preview ? (
           <Text className="text-sm text-muted" numberOfLines={2}>
             {preview}
           </Text>
         ) : null}
+        <TagRow tags={tags} />
       </View>
       <Icon name="chevron-forward" size={18} color={colors.muted} />
     </Pressable>
@@ -301,6 +328,15 @@ export function AiBadge({ by }: { by: string }) {
     >
       <Icon name="sparkles" size={13} color={colors.cta} />
       <Text className="text-xs font-bold text-cta-dark">AI · {by}</Text>
+    </View>
+  );
+}
+
+/** The small star next to a favourite's name. */
+export function FavoriteStar() {
+  return (
+    <View accessibilityLabel="Favourite">
+      <Icon name="star" size={16} color={colors.warning} />
     </View>
   );
 }

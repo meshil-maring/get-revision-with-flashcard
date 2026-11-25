@@ -23,7 +23,7 @@ export const TIPS = {
   },
   notes: {
     title: 'Folders inside folders',
-    text: 'Make a folder for each class, then add subjects, chapters and topics inside it. Write notes at any level.',
+    text: 'Make a folder for each class, then add subjects, chapters and topics inside it. Star favourites and tag notes to find them fast.',
     topic: 'notes',
   },
   deck: {

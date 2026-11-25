@@ -18,6 +18,7 @@ import { AttachmentList, type AttachmentItem } from '@/components/attachments';
 import { AudioRecorderModal } from '@/components/audio-recorder';
 import { FolderPath } from '@/components/folder-browser';
 import { RichTextInput } from '@/components/rich-text-input';
+import { TagPicker, type TagChoice } from '@/components/tag-picker';
 import { colors, Icon, IconButton, type IconName } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
 import {
@@ -28,7 +29,8 @@ import {
   listNoteAttachments,
   updateNote,
 } from '@/data/notes';
-import type { FolderCrumb, NoteStyle } from '@/data/types';
+import { createTag, findTagByName, listTags, listTagsForNotes, setNoteTags } from '@/data/tags';
+import type { FolderCrumb, NoteStyle, Tag } from '@/data/types';
 import {
   keepFile,
   pickAudioFile,
@@ -80,18 +82,26 @@ export default function NoteEditorScreen() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [removed, setRemoved] = useState<Draft[]>([]);
   const [recording, setRecording] = useState(false);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [tags, setTags] = useState<TagChoice[]>([]);
   const [titleFocused, setTitleFocused] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const everyTag = await listTags(db);
+      if (!cancelled) setAllTags(everyTag);
       if (!noteId) {
         const p = await getFolderPath(db, folderId ?? null);
         if (!cancelled) setPath(p);
         return;
       }
-      const [note, attachments] = await Promise.all([getNote(db, noteId), listNoteAttachments(db, noteId)]);
+      const [note, attachments, noteTags] = await Promise.all([
+        getNote(db, noteId),
+        listNoteAttachments(db, noteId),
+        listTagsForNotes(db, [noteId]),
+      ]);
       const p = await getFolderPath(db, note?.folderId ?? null);
       if (cancelled) return;
       if (note) {
@@ -102,6 +112,7 @@ export default function NoteEditorScreen() {
         setSummary(note.summary);
       }
       setPath(p);
+      setTags((noteTags.get(noteId) ?? []).map((t) => ({ id: t.id, name: t.name, color: t.color })));
       setDrafts(attachments.map((a) => ({ ...a, key: a.id, savedId: a.id })));
       setLoading(false);
     })();
@@ -153,6 +164,14 @@ export default function NoteEditorScreen() {
       let id = noteId;
       if (id) await updateNote(db, id, input);
       else id = await createNote(db, folderId ?? null, input);
+
+      // Make any new tags, then put the chosen tags on the note.
+      const tagIds: string[] = [];
+      for (const tag of tags) {
+        if (tag.id) tagIds.push(tag.id);
+        else tagIds.push((await findTagByName(db, tag.name))?.id ?? (await createTag(db, { name: tag.name, color: tag.color })));
+      }
+      await setNoteTags(db, id, tagIds);
 
       for (const draft of drafts.filter((d) => !d.savedId)) {
         const uri = await keepFile(draft);
@@ -289,6 +308,8 @@ export default function NoteEditorScreen() {
                 </View>
               </View>
             )}
+
+            <TagPicker allTags={allTags} selected={tags} onChange={setTags} />
 
             {/* Attachments */}
             <View className="gap-3 rounded-3xl border border-line bg-white p-4">

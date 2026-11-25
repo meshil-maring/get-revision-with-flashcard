@@ -43,6 +43,7 @@ export type Folder = {
   id: string;
   parentId: string | null; // null = top level
   name: string;
+  favoritedAt: string | null; // null = not a favourite
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -69,6 +70,7 @@ export type Note = {
   rows: CornellRow[]; // Cornell notes
   summary: string; // Cornell notes
   createdBy: string | null; // null = the user; else the AI app that wrote it, e.g. 'Claude'
+  favoritedAt: string | null; // null = not a favourite
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -85,8 +87,27 @@ export type NoteInput = {
 /** Who is creating a note: leave out for the user, or name the AI app (used only when creating). */
 export type NoteSource = { createdBy?: string | null };
 
+/** A note with the folders it is in (for lists that mix notes from many folders). */
+export type NoteWithPath = Note & { path: FolderCrumb[] };
 /** A note found by search, with the folders it is in. */
-export type NoteSearchResult = Note & { path: FolderCrumb[] };
+export type NoteSearchResult = NoteWithPath;
+/** A favourite folder, with what's in it and where it is. */
+export type FavoriteFolder = FolderWithCounts & { path: FolderCrumb[] };
+
+/** Colours a tag can have; the colour values are in src/lib/tags.ts. */
+export type TagColor = 'blue' | 'teal' | 'orange' | 'red' | 'amber' | 'purple' | 'pink' | 'gray';
+
+/** A label that groups notes from any folder, e.g. "Exam 1" or "Important". */
+export type Tag = {
+  id: string;
+  name: string;
+  color: TagColor;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type TagWithCount = Tag & { noteCount: number };
 /** A folder found by search, with the folders it is in. */
 export type FolderSearchResult = Folder & { path: FolderCrumb[] };
 

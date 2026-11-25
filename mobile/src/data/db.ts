@@ -106,6 +106,27 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE notes ADD COLUMN created_by TEXT;
   `,
+  // v9: favourite notes and folders, and tags (labels) that group notes from any folder
+  `
+  ALTER TABLE notes ADD COLUMN favorited_at TEXT;
+  ALTER TABLE folders ADD COLUMN favorited_at TEXT;
+  CREATE TABLE IF NOT EXISTS tags (
+    id          TEXT PRIMARY KEY NOT NULL,
+    name        TEXT NOT NULL,
+    color       TEXT NOT NULL DEFAULT 'blue',
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    deleted_at  TEXT
+  );
+  CREATE TABLE IF NOT EXISTS note_tags (
+    note_id     TEXT NOT NULL REFERENCES notes(id),
+    tag_id      TEXT NOT NULL REFERENCES tags(id),
+    created_at  TEXT NOT NULL,
+    deleted_at  TEXT, -- soft delete, like everything else, so removing a tag can be synced
+    PRIMARY KEY (note_id, tag_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_note_tags_tag_id ON note_tags(tag_id);
+  `,
 ];
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */

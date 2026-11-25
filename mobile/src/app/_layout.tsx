@@ -29,6 +29,7 @@ export default function RootLayout() {
         <Stack.Screen name="coming-soon" options={{ title: '' }} />
         <Stack.Screen name="folder/[id]" options={{ title: '' }} />
         <Stack.Screen name="note/[id]" options={{ title: '' }} />
+        <Stack.Screen name="tag/[id]" options={{ title: '' }} />
         <Stack.Screen name="note-editor" options={{ title: '', presentation: 'modal' }} />
         <Stack.Screen name="note-cards" options={{ title: 'Make flashcards', presentation: 'modal' }} />
       </Stack>

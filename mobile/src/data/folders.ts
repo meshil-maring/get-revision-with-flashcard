@@ -7,6 +7,7 @@ type FolderRow = {
   id: string;
   parent_id: string | null;
   name: string;
+  favorited_at: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -17,6 +18,7 @@ export function toFolder(row: FolderRow): Folder {
     id: row.id,
     parentId: row.parent_id,
     name: row.name,
+    favoritedAt: row.favorited_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -58,6 +60,15 @@ export async function getFolderPath(db: SQLiteDatabase, id: string | null): Prom
        SELECT f.id, f.parent_id, f.name, path.depth + 1 FROM folders f JOIN path ON f.id = path.parent_id
      )
      SELECT id, name FROM path ORDER BY depth DESC`,
+    id,
+  );
+}
+
+/** Stars a folder (or not). Doesn't change updated_at, like favourite cards. */
+export async function setFolderFavorite(db: SQLiteDatabase, id: string, favorite: boolean): Promise<void> {
+  await db.runAsync(
+    'UPDATE folders SET favorited_at = ? WHERE id = ?',
+    favorite ? new Date().toISOString() : null,
     id,
   );
 }

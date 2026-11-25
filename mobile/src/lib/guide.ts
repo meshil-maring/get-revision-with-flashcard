@@ -158,7 +158,28 @@ You can use any names and any number of levels, like Semester › Course › Uni
 
 ## Rename, delete and search
 - Tap **⋮** on a folder to rename or delete it. ==Deleting a folder also deletes everything in it.==
-- Use the search box at the top of the Notes tab to find any note or folder.`,
+- Use the search box at the top of the Notes tab to find any note, folder or tag.`,
+  },
+  {
+    id: 'note-tags',
+    section: 'Basics',
+    icon: 'pricetags-outline',
+    title: 'Favourites and tags',
+    summary: 'Keep important notes close, and group notes from different folders.',
+    body: `## Favourites
+Star the notes and folders you use most, like the chapter you are studying this week. They show under **Favourites** at the top of the Notes tab.
+- **Note**: open it and tap the **star** at the top.
+- **Folder**: tap **⋮** on the folder and choose **Add to favourites**.
+
+## Tags
+A **tag** is a coloured label, like "Exam 1", "Important" or "Revise again". A note can have several tags, and notes from any folder can share a tag.
+1. Open a note and tap **Edit**.
+2. Under **Tags**, tap a tag to add it, or type a new one and tap **Add**.
+3. Tap **Save**.
+
+All your tags show at the top of the Notes tab. Tap one to see every note with it. From there you can rename the tag, change its colour or delete it. ==Deleting a tag keeps the notes.==
+
+==Tip:== before a test, tag every note you need with the test's name. Then one tap shows everything to revise.`,
   },
   {
     id: 'cornell',
