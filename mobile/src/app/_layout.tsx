@@ -8,7 +8,7 @@ import { colors } from '@/components/ui';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/data/db';
 import { headerOptions } from '@/lib/header-options';
 
-// The bottom tabs (Home, Notes, Flashcards, Profile) live in (tabs)/.
+// The bottom tabs (Home, Notes, Flashcards, More) live in (tabs)/.
 // Screens opened from them (a deck, a study session…) are stacked on top here,
 // so the tab bar is hidden while studying.
 export default function RootLayout() {

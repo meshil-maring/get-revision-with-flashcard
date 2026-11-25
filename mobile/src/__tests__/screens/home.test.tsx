@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import HomeScreen from '@/app/(tabs)/index';
+import * as activity from '@/data/activity';
 import * as decks from '@/data/decks';
+import { addDays, dayKey } from '@/lib/dates';
 import type { DeckWithCount } from '@/data/types';
 import { mockRouter } from '@/test-utils/mock-router';
 
@@ -19,7 +21,10 @@ jest.mock('@/data/decks', () => ({
   listDecks: jest.fn(),
 }));
 
+jest.mock('@/data/activity', () => ({ listActivity: jest.fn() }));
+
 const mockedDecks = jest.mocked(decks);
+const mockedActivity = jest.mocked(activity);
 
 function deck(overrides: Partial<DeckWithCount>): DeckWithCount {
   return {
@@ -37,6 +42,7 @@ function deck(overrides: Partial<DeckWithCount>): DeckWithCount {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedActivity.listActivity.mockResolvedValue([]);
 });
 
 describe('Home screen', () => {
@@ -86,10 +92,37 @@ describe('Home screen', () => {
     await render(<HomeScreen />);
     await screen.findByText('Nothing to study yet');
 
-    await fireEvent.press(screen.getByText('AI Study'));
+    await fireEvent.press(screen.getByText('Ask AI to make notes or flashcards...'));
     expect(mockRouter.router.push).toHaveBeenCalledWith({
       pathname: '/coming-soon',
-      params: { feature: 'ai-study' },
+      params: { feature: 'ai' },
     });
+  });
+
+  it('shows the day streak and best streak', async () => {
+    mockedDecks.listDecks.mockResolvedValue([]);
+    const today = new Date();
+    mockedActivity.listActivity.mockResolvedValue([
+      { day: dayKey(addDays(today, -10)), cards: 3 },
+      { day: dayKey(addDays(today, -9)), cards: 3 },
+      { day: dayKey(addDays(today, -8)), cards: 3 },
+      { day: dayKey(addDays(today, -7)), cards: 3 },
+      { day: dayKey(addDays(today, -1)), cards: 5 },
+      { day: dayKey(today), cards: 12 },
+    ]);
+
+    await render(<HomeScreen />);
+
+    expect(await screen.findByText('2-day streak')).toBeOnTheScreen();
+    expect(screen.getByText('4 days')).toBeOnTheScreen(); // best
+    expect(screen.getByText('You studied today. Nice work!')).toBeOnTheScreen();
+  });
+
+  it('invites starting a streak when there is no study yet', async () => {
+    mockedDecks.listDecks.mockResolvedValue([]);
+
+    await render(<HomeScreen />);
+
+    expect(await screen.findByText('Study a card to start a streak')).toBeOnTheScreen();
   });
 });

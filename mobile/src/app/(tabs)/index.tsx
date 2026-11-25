@@ -13,11 +13,13 @@ import {
   scaled,
   SectionHeader,
   SubjectIcon,
-  type IconName,
 } from '@/components/ui';
+import { ActivityHeatmap } from '@/components/activity-heatmap';
+import { listActivity } from '@/data/activity';
 import { listDecks, pickContinueDeck } from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';
 import { comingSoonHref } from '@/lib/coming-soon';
+import { currentStreak, dayKey, longestStreak } from '@/lib/dates';
 
 const NEW_DECK: Href = { pathname: '/flashcards', params: { new: 'deck' } };
 
@@ -25,10 +27,13 @@ export default function HomeScreen() {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [decks, setDecks] = useState<DeckWithCount[]>([]);
+  const [activity, setActivity] = useState<Map<string, number>>(new Map());
 
+  // Reload when Home comes back into view (e.g. after a study session).
   useFocusEffect(
     useCallback(() => {
       listDecks(db).then(setDecks);
+      listActivity(db).then((rows) => setActivity(new Map(rows.map((r) => [r.day, r.cards]))));
     }, [db]),
   );
 
@@ -58,7 +63,7 @@ export default function HomeScreen() {
           <View className="absolute right-0.5 top-0 h-3 w-3 rounded-full border-2 border-page bg-alert" />
         </Pressable>
         <Pressable
-          onPress={() => router.navigate('/profile')}
+          onPress={() => router.push(comingSoonHref('profile'))}
           accessibilityRole="button"
           accessibilityLabel="Profile"
           className="h-12 w-12 items-center justify-center rounded-full bg-primary"
@@ -85,17 +90,6 @@ export default function HomeScreen() {
           <Icon name="sparkles" size={22} color={colors.white} />
         </View>
       </Pressable>
-
-      {/* Main tiles */}
-      <View className="mb-8 flex-row gap-3">
-        <Tile icon="document-text-outline" label="Notes" onPress={() => router.navigate('/notes')} />
-        <Tile icon="layers-outline" label="Flashcards" onPress={() => router.navigate('/flashcards')} />
-        <Tile
-          icon="chatbubble-ellipses-outline"
-          label="AI Study"
-          onPress={() => router.push(comingSoonHref('ai-study'))}
-        />
-      </View>
 
       {/* Continue studying */}
       <SectionHeader title="Continue Studying" onMore={() => router.navigate('/flashcards')} />
@@ -152,7 +146,46 @@ export default function HomeScreen() {
           <AddSubjectTile />
         </ScrollView>
       )}
+
+      {/* Consistency: day streak and GitHub-style activity grid */}
+      <View className="mt-8">
+        <SectionHeader title="Consistency" />
+        <Consistency activity={activity} />
+      </View>
     </ScrollView>
+  );
+}
+
+function Consistency({ activity }: { activity: Map<string, number> }) {
+  const today = new Date();
+  const studiedDays = new Set(activity.keys());
+  const streak = currentStreak(studiedDays, today);
+  const best = longestStreak(studiedDays);
+  const studiedToday = studiedDays.has(dayKey(today));
+
+  const status = studiedToday
+    ? 'You studied today. Nice work!'
+    : streak > 0
+      ? 'Study today to keep your streak going'
+      : 'Study a card to start a streak';
+
+  return (
+    <View className="rounded-3xl bg-surface p-4">
+      <View className="mb-4 flex-row items-center gap-3">
+        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
+          <Icon name="flame" size={28} color={streak > 0 ? colors.cta : colors.faint} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-2xl font-extrabold text-ink">{streak}-day streak</Text>
+          <Text className="text-sm text-muted">{status}</Text>
+        </View>
+        <View className="items-end">
+          <Text className="text-xs text-muted">Best</Text>
+          <Text className="text-base font-bold text-ink">{plural(best, 'day')}</Text>
+        </View>
+      </View>
+      <ActivityHeatmap counts={activity} today={today} />
+    </View>
   );
 }
 
@@ -186,21 +219,6 @@ function AddSubjectTile({ fill = false }: { fill?: boolean }) {
     >
       <Icon name="add" size={28} color={colors.primary} />
       <Text className="text-xs font-semibold text-ink">Add</Text>
-    </Pressable>
-  );
-}
-
-function Tile({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      className="h-28 flex-1 items-center justify-center gap-2 rounded-3xl bg-primary active:bg-primary-dark"
-    >
-      <Icon name={icon} size={34} color={colors.white} />
-      <Text className="text-base font-bold text-white" numberOfLines={1}>
-        {label}
-      </Text>
     </Pressable>
   );
 }

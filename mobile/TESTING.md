@@ -12,6 +12,9 @@ npx jest --watch    # re-run tests when files change
 | Decks data | `src/data/__tests__/decks.test.ts` | create, list with card counts, update, soft delete, last studied / continue deck, migrations |
 | Cards data | `src/data/__tests__/cards.test.ts` | create, list per deck, list for several decks, update, delete, rejects unknown deck |
 | Shuffle | `src/lib/__tests__/shuffle.test.ts` | keeps all items, doesn't change the input |
+| Streaks and dates | `src/lib/__tests__/dates.test.ts` | local day keys, current streak (incl. not-yet-studied today), best streak |
+| Study activity | `src/data/__tests__/activity.test.ts` | cards reviewed per local day |
+| Activity grid | `src/components/__tests__/activity-heatmap.test.ts` | shade level per number of cards |
 | Home screen | `src/__tests__/screens/home.test.tsx` | continue studying, subjects, empty state, coming-soon links |
 | Flashcards screen | `src/__tests__/screens/flashcards.test.tsx` | empty state, deck list, create deck, name required, open form from + menu |
 | Study screen | `src/__tests__/screens/study.test.tsx` | flip, next/previous, finish, study again, shuffle |
@@ -45,11 +48,14 @@ Before every commit: `npx tsc --noEmit && npx expo lint && npm test`
 - [ ] After the last card, "Well done!" shows; Study again restarts
 
 **Home and navigation**
-- [ ] Bottom tabs: Home, Notes, Flashcards, Profile switch screens; the active tab is a brown pill
+- [ ] Bottom tabs: Home, Notes, Flashcards, More switch screens; the active tab is a blue pill
 - [ ] The + button opens the Create menu; New deck opens the form on Flashcards
 - [ ] Continue Studying shows the last deck you studied; ▶ starts it
 - [ ] Your Subjects shows your decks with matching icons; Add opens the new-deck form
-- [ ] Ask AI, AI Study, bell, Notes and Profile show "Coming soon"
+- [ ] Consistency: after studying a few cards, today's square fills in and the streak shows 1-day
+- [ ] Next day without studying: streak still shows, with "Study today to keep your streak going"
+- [ ] The grid fits the screen width with month labels on top and Mon/Wed/Fri on the left
+- [ ] Ask AI, bell, profile avatar, Notes, and Profile/AI Study/Notifications/Settings in More show "Coming soon"; Create revision in More opens it
 - [ ] Nothing is hidden under the status bar or the phone's bottom bar
 
 **Create Revision**

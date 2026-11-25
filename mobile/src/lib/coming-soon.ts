@@ -24,6 +24,11 @@ export const COMING_SOON = {
     icon: 'notifications-outline',
     text: 'Soon you’ll get reminders when it’s time to revise.',
   },
+  settings: {
+    title: 'Settings',
+    icon: 'settings-outline',
+    text: 'Soon you can change reminders, study options and how the app looks.',
+  },
   profile: {
     title: 'Profile',
     icon: 'person-outline',

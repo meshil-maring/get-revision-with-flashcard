@@ -1,9 +1,11 @@
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { FlipCard } from '@/components/flip-card';
 import { Button, colors, EmptyState, Icon, plural, SubjectIcon } from '@/components/ui';
+import { recordReview } from '@/data/activity';
 import type { Card } from '@/data/types';
 import { shuffle } from '@/lib/shuffle';
 
@@ -31,6 +33,9 @@ export function StudySession({
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [finished, setFinished] = useState(false);
+  const db = useSQLiteContext();
+  // Cards already counted for the streak in this round (going back and forward doesn't count twice).
+  const counted = useRef(new Set<string>());
 
   function restart(nextShuffled: boolean) {
     setShuffled(nextShuffled);
@@ -38,6 +43,7 @@ export function StudySession({
     setIndex(0);
     setFlipped(false);
     setFinished(false);
+    counted.current = new Set();
   }
 
   function goTo(nextIndex: number) {
@@ -46,6 +52,12 @@ export function StudySession({
   }
 
   function next() {
+    // A card counts as reviewed when you move past it.
+    const card = order[index];
+    if (!counted.current.has(card.id)) {
+      counted.current.add(card.id);
+      recordReview(db);
+    }
     if (index < order.length - 1) {
       goTo(index + 1);
     } else {

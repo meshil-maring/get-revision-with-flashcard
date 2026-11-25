@@ -30,6 +30,13 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE decks ADD COLUMN last_studied_at TEXT;
   `,
+  // v3: cards reviewed per day (for the streak and the consistency grid on Home)
+  `
+  CREATE TABLE IF NOT EXISTS study_log (
+    day   TEXT PRIMARY KEY NOT NULL, -- local date, YYYY-MM-DD
+    cards INTEGER NOT NULL DEFAULT 0
+  );
+  `,
 ];
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */

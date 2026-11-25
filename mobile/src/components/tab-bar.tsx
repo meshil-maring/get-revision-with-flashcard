@@ -12,10 +12,10 @@ const TAB_ICONS: Record<string, { icon: IconName; activeIcon: IconName }> = {
   index: { icon: 'home-outline', activeIcon: 'home' },
   notes: { icon: 'document-text-outline', activeIcon: 'document-text' },
   flashcards: { icon: 'layers-outline', activeIcon: 'layers' },
-  profile: { icon: 'person-outline', activeIcon: 'person' },
+  more: { icon: 'grid-outline', activeIcon: 'grid' },
 };
 
-/** The bottom bar from the NoteMe design: Home, Notes, [+], Flashcards, Profile. */
+/** The bottom bar: Home, Notes, [+], Flashcards, More. */
 export function TabBar({ state, descriptors, emitter, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);

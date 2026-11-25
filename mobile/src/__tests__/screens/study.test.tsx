@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import StudyScreen from '@/app/study/[id]';
 import * as cards from '@/data/cards';
+import * as activity from '@/data/activity';
 import * as decks from '@/data/decks';
 import type { Card } from '@/data/types';
 import { mockRouter } from '@/test-utils/mock-router';
@@ -14,6 +15,7 @@ jest.mock('expo-sqlite', () => {
 });
 jest.mock('@/data/decks');
 jest.mock('@/data/cards');
+jest.mock('@/data/activity');
 // Replace the animated card with a plain one: these tests check the study flow, not the animation.
 jest.mock('@/components/flip-card', () => {
   const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
@@ -38,6 +40,7 @@ jest.mock('@/components/flip-card', () => {
 
 const mockedDecks = jest.mocked(decks);
 const mockedCards = jest.mocked(cards);
+const mockedActivity = jest.mocked(activity);
 
 function card(n: number): Card {
   return {
@@ -131,5 +134,19 @@ describe('Study screen', () => {
 
     expect(screen.getByRole('switch', { name: 'Shuffle' })).toBeChecked();
     expect(screen.getByText('1 / 3')).toBeOnTheScreen();
+  });
+
+  it('counts each card once for the streak, even when going back', async () => {
+    mockedCards.listCards.mockResolvedValue([card(1), card(2)]);
+
+    await render(<StudyScreen />);
+    await screen.findByText('Question 1');
+
+    await fireEvent.press(screen.getByText('Next')); // card 1 reviewed
+    await fireEvent.press(screen.getByLabelText('Previous'));
+    await fireEvent.press(screen.getByText('Next')); // card 1 again: not counted
+    await fireEvent.press(screen.getByText('Finish')); // card 2 reviewed
+
+    expect(mockedActivity.recordReview).toHaveBeenCalledTimes(2);
   });
 });
