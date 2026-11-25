@@ -1,15 +1,24 @@
 import { router } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native';
 
 import { colors, EmptyState, Icon } from '@/components/ui';
+import { resetTips } from '@/data/settings';
 import { GUIDE_SECTIONS, searchGuide, type GuideTopic } from '@/lib/guide';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 
 /** Help & guide: every topic of the user guide, with a search box. */
 export default function HelpScreen() {
+  const db = useSQLiteContext();
   const [query, setQuery] = useState('');
+  const [tipsReset, setTipsReset] = useState(false);
+
+  async function showTipsAgain() {
+    await resetTips(db);
+    setTipsReset(true);
+  }
   const results = searchGuide(query);
   const searching = query.trim().length > 0;
 
@@ -69,6 +78,18 @@ export default function HelpScreen() {
       >
         <Icon name="compass-outline" size={20} color={colors.primary} />
         <Text className="text-base font-semibold text-primary">Watch the quick app tour</Text>
+      </Pressable>
+
+      <Pressable
+        onPress={showTipsAgain}
+        disabled={tipsReset}
+        accessibilityRole="button"
+        className="mt-3 flex-row items-center justify-center gap-2 rounded-2xl border border-dashed border-line py-4 active:bg-surface"
+      >
+        <Icon name={tipsReset ? 'checkmark-circle' : 'bulb-outline'} size={20} color={tipsReset ? colors.calm : colors.primary} />
+        <Text className={`text-base font-semibold ${tipsReset ? 'text-calm' : 'text-primary'}`}>
+          {tipsReset ? 'Tips will show again on each screen' : 'Show tips again'}
+        </Text>
       </Pressable>
     </ScrollView>
   );

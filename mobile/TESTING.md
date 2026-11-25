@@ -73,6 +73,9 @@ Before every commit: `npx tsc --noEmit && npx expo lint && npm test`
 - [ ] More → Help & guide lists topics under Basics, Studying and Good to know
 - [ ] Search (e.g. "pdf", "streak") narrows the list; a nonsense word shows "Nothing found"
 - [ ] A topic shows headings, lists, bold and highlights; Previous/Next move through topics; back returns to the list
+- [ ] Tips show on Home, Flashcards, a deck, the card editor, Study, the end-of-session summary, Create Revision and Favourites
+- [ ] Got it (or ×) hides a tip and it stays hidden after restarting; Learn more opens the matching guide topic
+- [ ] Help & guide → Show tips again brings every tip back, including on the Home and Flashcards tabs
 
 **Create Revision**
 - [ ] Flashcards → Create revision: decks with no cards can't be selected; Select all / Clear work

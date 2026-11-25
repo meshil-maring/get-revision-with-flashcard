@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
+import { ScreenTip } from '@/components/screen-tip';
 import { Button, colors, DeckBadge, EmptyState, Icon, plural, ratingColors, ratingIcons } from '@/components/ui';
 import { listCardsForDecks } from '@/data/cards';
 import { listDecks } from '@/data/decks';
@@ -93,6 +94,7 @@ export default function NewRevisionScreen() {
                   </Text>
                 </View>
               </View>
+              <ScreenTip id="revision" className="mb-4" />
               <RevisionFilter
                 ratings={ratings}
                 onToggleRating={toggleRating}

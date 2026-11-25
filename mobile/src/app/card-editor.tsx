@@ -15,6 +15,7 @@ import {
 
 import { AttachmentList, type AttachmentItem } from '@/components/attachments';
 import { AudioRecorderModal } from '@/components/audio-recorder';
+import { ScreenTip } from '@/components/screen-tip';
 import { RichTextInput } from '@/components/rich-text-input';
 import { colors, Icon, type IconName } from '@/components/ui';
 import { addAttachment, deleteAttachment, listAttachmentsForCards } from '@/data/attachments';
@@ -144,6 +145,8 @@ export default function CardEditorScreen() {
           contentContainerClassName="w-full max-w-2xl self-center gap-6 px-5 pb-10 pt-4"
           keyboardShouldPersistTaps="handled"
         >
+          <ScreenTip id="cardEditor" />
+
           {/* Question */}
           <View>
             <SectionTitle icon="help-circle-outline" title="Question" />

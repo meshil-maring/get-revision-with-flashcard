@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
+import { ScreenTip } from '@/components/screen-tip';
 import { RichText } from '@/components/rich-text';
 import {
   Button,
@@ -102,26 +103,29 @@ export default function DeckScreen() {
         keyExtractor={(card) => card.id}
         contentContainerClassName="w-full max-w-3xl self-center gap-3 px-4 pb-32 pt-2"
         ListHeaderComponent={
-          <View className="mb-2 rounded-2xl border border-line bg-white p-4">
-            <View className="flex-row items-center gap-3">
-              <DeckBadge name={deck.name} size={52} />
-              <View className="flex-1">
-                <Text className="text-lg font-bold text-ink">{deck.name}</Text>
-                <Text className="text-sm text-muted">{plural(cards.length, 'card')}</Text>
+          <View className="mb-2 gap-3">
+            <View className="rounded-2xl border border-line bg-white p-4">
+              <View className="flex-row items-center gap-3">
+                <DeckBadge name={deck.name} size={52} />
+                <View className="flex-1">
+                  <Text className="text-lg font-bold text-ink">{deck.name}</Text>
+                  <Text className="text-sm text-muted">{plural(cards.length, 'card')}</Text>
+                </View>
               </View>
+              {deck.description ? (
+                <Text className="mt-3 text-sm leading-5 text-muted">{deck.description}</Text>
+              ) : null}
+              {cards.length > 0 ? (
+                <Button
+                  label="Study"
+                  icon="play"
+                  variant="cta"
+                  className="mt-4"
+                  onPress={() => router.push({ pathname: '/study/[id]', params: { id } })}
+                />
+              ) : null}
             </View>
-            {deck.description ? (
-              <Text className="mt-3 text-sm leading-5 text-muted">{deck.description}</Text>
-            ) : null}
-            {cards.length > 0 ? (
-              <Button
-                label="Study"
-                icon="play"
-                variant="cta"
-                className="mt-4"
-                onPress={() => router.push({ pathname: '/study/[id]', params: { id } })}
-              />
-            ) : null}
+            {cards.length > 0 ? <ScreenTip id="deck" /> : null}
           </View>
         }
         ListEmptyComponent={

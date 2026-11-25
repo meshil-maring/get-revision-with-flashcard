@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ScreenTip } from '@/components/screen-tip';
 import {
   colors,
   DeckBadge,
@@ -150,6 +151,7 @@ export default function HomeScreen() {
       {/* Consistency: day streak and GitHub-style activity grid */}
       <View className="mt-8">
         <SectionHeader title="Consistency" />
+        <ScreenTip id="home" className="mb-3" />
         <Consistency activity={activity} />
       </View>
     </ScrollView>

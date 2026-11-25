@@ -5,6 +5,7 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FormModal, type FormField } from '@/components/form-modal';
+import { ScreenTip } from '@/components/screen-tip';
 import { colors, DeckBadge, EmptyState, Icon, IconButton, plural } from '@/components/ui';
 import { createDeck, deleteDeck, listDecks, updateDeck } from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';
@@ -102,6 +103,8 @@ export default function FlashcardsScreen() {
                 <Text className="text-base font-bold text-white">New deck</Text>
               </Pressable>
             </View>
+
+            {list.length > 0 ? <ScreenTip id="flashcards" className="mb-3" /> : null}
 
             {list.some((d) => d.cardCount > 0) ? (
               <Pressable

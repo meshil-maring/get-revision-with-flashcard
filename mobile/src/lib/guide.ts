@@ -253,6 +253,9 @@ Yes. Study the card again and pick a new rating. NoteMe keeps the latest one.
 ## How do I see the welcome tour again?
 Go to **More → App tour**.
 
+## How do I get the tips back?
+Each screen shows a short tip until you tap **Got it**. To see them all again, go to **More → Help & guide** and tap **Show tips again**.
+
 ## I deleted a deck by mistake
 Deleting cannot be undone yet, which is why NoteMe always asks first.`,
   },

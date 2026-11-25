@@ -2,9 +2,15 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import HelpScreen from '@/app/help';
 import HelpTopicScreen from '@/app/help/[topic]';
+import * as settings from '@/data/settings';
 import { mockRouter } from '@/test-utils/mock-router';
 
 jest.mock('expo-router', () => jest.requireActual('@/test-utils/mock-router').mockRouter);
+jest.mock('expo-sqlite', () => {
+  const db = {};
+  return { useSQLiteContext: () => db };
+});
+jest.mock('@/data/settings');
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -38,6 +44,16 @@ describe('Help & guide', () => {
 
     await fireEvent.press(screen.getByLabelText('Clear search'));
     expect(screen.getByText('Decks')).toBeOnTheScreen();
+  });
+
+  it('brings the screen tips back', async () => {
+    jest.mocked(settings.resetTips).mockResolvedValue();
+    await render(<HelpScreen />);
+
+    await fireEvent.press(screen.getByText('Show tips again'));
+
+    expect(settings.resetTips).toHaveBeenCalled();
+    expect(await screen.findByText('Tips will show again on each screen')).toBeOnTheScreen();
   });
 
   it('opens the app tour', async () => {

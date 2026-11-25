@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { AttachmentItem } from '@/components/attachments';
+import { ScreenTip } from '@/components/screen-tip';
 import { FlipCard } from '@/components/flip-card';
 import {
   Button,
@@ -193,6 +194,8 @@ export function StudySession({
           <View className="h-full rounded-full bg-calm" style={{ width: `${((index + 1) / order.length) * 100}%` }} />
         </View>
 
+        <ScreenTip id="study" className="mb-3" />
+
         {label ? (
           <View className="mb-3 flex-row items-center gap-2 self-center rounded-full border border-line bg-white px-3 py-1.5">
             <SubjectIcon name={label} size={16} />
@@ -334,6 +337,8 @@ function Summary({
             );
           })}
         </View>
+
+        {groups.some((g) => g.rating === 'hard') ? <ScreenTip id="summary" className="mb-4" /> : null}
 
         <Text className="mb-1 text-xl font-bold text-ink">Revise again</Text>
         <Text className="mb-3 text-sm text-muted">Pick the cards for a new round. Hard ones are picked for you.</Text>

@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Pressable, SectionList, Text, View } from 'react-native';
 
+import { ScreenTip } from '@/components/screen-tip';
 import { Button, colors, DeckBadge, EmptyState, Icon, plural, RatingBadge } from '@/components/ui';
 import { listFavoriteCards, setFavorite } from '@/data/cards';
 import type { FavoriteCard } from '@/data/types';
@@ -54,9 +55,12 @@ export default function FavoritesScreen() {
         contentContainerClassName="w-full max-w-3xl self-center px-4 pb-36 pt-2"
         ListHeaderComponent={
           cards.length > 0 ? (
-            <Text className="mb-1 px-1 text-sm font-semibold text-muted">
-              {plural(cards.length, 'favourite')} from {plural(sections.length, 'deck')}
-            </Text>
+            <View className="gap-3">
+              <ScreenTip id="favorites" />
+              <Text className="mb-1 px-1 text-sm font-semibold text-muted">
+                {plural(cards.length, 'favourite')} from {plural(sections.length, 'deck')}
+              </Text>
+            </View>
           ) : undefined
         }
         ListEmptyComponent={

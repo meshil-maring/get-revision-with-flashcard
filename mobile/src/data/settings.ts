@@ -5,7 +5,8 @@ export const SETTINGS = {
   welcomeSeen: 'welcome_seen',
 } as const;
 
-type SettingKey = (typeof SETTINGS)[keyof typeof SETTINGS];
+// Screen tips are saved one key each, e.g. 'tip:study' (see components/screen-tip.tsx).
+type SettingKey = (typeof SETTINGS)[keyof typeof SETTINGS] | `tip:${string}`;
 
 export async function getSetting(db: SQLiteDatabase, key: SettingKey): Promise<string | null> {
   const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', key);
@@ -28,4 +29,18 @@ export async function hasSeenWelcome(db: SQLiteDatabase): Promise<boolean> {
 
 export async function markWelcomeSeen(db: SQLiteDatabase): Promise<void> {
   await setSetting(db, SETTINGS.welcomeSeen, '1');
+}
+
+/** Whether a screen tip was closed with "Got it". */
+export async function isTipDismissed(db: SQLiteDatabase, tipId: string): Promise<boolean> {
+  return (await getSetting(db, `tip:${tipId}`)) === '1';
+}
+
+export async function dismissTip(db: SQLiteDatabase, tipId: string): Promise<void> {
+  await setSetting(db, `tip:${tipId}`, '1');
+}
+
+/** Shows every screen tip again. */
+export async function resetTips(db: SQLiteDatabase): Promise<void> {
+  await db.runAsync("DELETE FROM settings WHERE key LIKE 'tip:%'");
 }
