@@ -2,12 +2,19 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ActionSheet } from '@/components/action-sheet';
 import { FormModal, type FormField } from '@/components/form-modal';
 import { colors, EmptyState, Icon, plural, scaled, subjectIcon } from '@/components/ui';
-import { countFolderContents, createFolder, deleteFolder, listFolders, renameFolder } from '@/data/folders';
+import {
+  countFolderContents,
+  createFolder,
+  deleteFolder,
+  FolderNameTakenError,
+  listFolders,
+  renameFolder,
+} from '@/data/folders';
 import { listNotes } from '@/data/notes';
 import type { FolderWithCounts, Note } from '@/data/types';
 import { confirm } from '@/lib/confirm';
@@ -92,8 +99,18 @@ export function FolderBrowser({
   );
 
   async function handleSave(values: Record<string, string>) {
-    if (form.mode === 'create') await createFolder(db, { parentId: folderId, name: values.name });
-    else if (form.mode === 'rename') await renameFolder(db, form.folder.id, values.name);
+    try {
+      if (form.mode === 'create') await createFolder(db, { parentId: folderId, name: values.name });
+      else if (form.mode === 'rename') await renameFolder(db, form.folder.id, values.name);
+    } catch (error) {
+      // Keep the form open so the name can be changed.
+      if (!(error instanceof FolderNameTakenError)) throw error;
+      if (Platform.OS === 'web') window.alert(`Name already used
+
+${error.message}`);
+      else Alert.alert('Name already used', error.message);
+      return;
+    }
     setForm({ mode: 'closed' });
     await refresh();
   }
@@ -248,6 +265,7 @@ export function NoteRow({ note, subtitle }: { note: Note; subtitle?: string }) {
               <Text className="text-xs font-bold text-calm">Cornell</Text>
             </View>
           ) : null}
+          {note.createdBy ? <AiBadge by={note.createdBy} /> : null}
         </View>
         {preview ? (
           <Text className="text-sm text-muted" numberOfLines={2}>
@@ -270,6 +288,19 @@ export function FolderPath({ path, prefix }: { path: { id: string; name: string 
       <Text className="flex-1 text-sm text-muted" numberOfLines={1}>
         {[prefix, ...names].filter(Boolean).join(' › ')}
       </Text>
+    </View>
+  );
+}
+
+/** Marks a note an AI app wrote (through MCP), e.g. "AI · Claude". */
+export function AiBadge({ by }: { by: string }) {
+  return (
+    <View
+      className="flex-row items-center gap-1 rounded-full bg-cta/15 px-2 py-0.5"
+      accessibilityLabel={`Written by ${by}`}
+    >
+      <Icon name="sparkles" size={13} color={colors.cta} />
+      <Text className="text-xs font-bold text-cta-dark">AI · {by}</Text>
     </View>
   );
 }

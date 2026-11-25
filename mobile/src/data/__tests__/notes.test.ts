@@ -4,6 +4,8 @@ import {
   countFolderContents,
   createFolder,
   deleteFolder,
+  ensureFolderPath,
+  FolderNameTakenError,
   getFolder,
   getFolderPath,
   listFolders,
@@ -75,6 +77,43 @@ describe('folders', () => {
     expect((await getFolder(db, id))?.name).toBe('Class 10');
   });
 
+  it('does not allow two folders with the same name in one place', async () => {
+    const { classId } = await makeTree();
+    await expect(createFolder(db, { parentId: classId, name: ' PHYSICS ' })).rejects.toBeInstanceOf(FolderNameTakenError);
+    // Same name somewhere else is fine.
+    await expect(createFolder(db, { parentId: null, name: 'Physics' })).resolves.toMatch(/^[0-9a-f-]{36}$/);
+
+    const maths = await createFolder(db, { parentId: classId, name: 'Maths' });
+    await expect(renameFolder(db, maths, 'physics')).rejects.toBeInstanceOf(FolderNameTakenError);
+    await renameFolder(db, maths, 'MATHS'); // changing only the case of its own name is fine
+    expect((await getFolder(db, maths))?.name).toBe('MATHS');
+  });
+
+  it('frees a name again once that folder is deleted', async () => {
+    const id = await createFolder(db, { parentId: null, name: 'Class 10' });
+    await deleteFolder(db, id);
+    await expect(createFolder(db, { parentId: null, name: 'Class 10' })).resolves.toBeTruthy();
+  });
+
+  it('finds or makes the folders on a path of names', async () => {
+    const { classId, subject, chapter } = await makeTree();
+
+    // Existing folders are reused (any case); missing ones are made.
+    const topic = await ensureFolderPath(db, ['class 10', ' Physics', 'CHAPTER 1', 'Forces']);
+    expect(await getFolderPath(db, topic)).toEqual([
+      { id: classId, name: 'Class 10' },
+      { id: subject, name: 'Physics' },
+      { id: chapter, name: 'Chapter 1' },
+      { id: topic, name: 'Forces' },
+    ]);
+    // Running it again makes nothing new.
+    expect(await ensureFolderPath(db, ['Class 10', 'Physics', 'Chapter 1', 'Forces'])).toBe(topic);
+    expect(await listFolders(db, chapter)).toHaveLength(2); // Motion and Forces
+
+    expect(await ensureFolderPath(db, [])).toBeNull();
+    expect(await ensureFolderPath(db, ['', '  '])).toBeNull();
+  });
+
   it('deletes a folder with everything inside it, at any depth', async () => {
     const { classId, subject, topic } = await makeTree();
     const other = await createFolder(db, { parentId: null, name: 'Class 11' });
@@ -129,6 +168,17 @@ describe('notes', () => {
       rows: [{ cue: 'What is inertia?', notes: 'Objects keep doing what they are doing.' }],
       summary: 'Newton 1',
     });
+  });
+
+  it('remembers which AI app wrote a note, and keeps it when the user edits it', async () => {
+    const byAi = await createNote(db, null, { title: 'Summary', style: 'plain', createdBy: ' Claude ' });
+    const byUser = await createNote(db, null, { title: 'Mine', style: 'plain' });
+
+    expect((await getNote(db, byAi))?.createdBy).toBe('Claude');
+    expect((await getNote(db, byUser))?.createdBy).toBeNull();
+
+    await updateNote(db, byAi, { title: 'Summary (edited)', style: 'plain' });
+    expect((await getNote(db, byAi))?.createdBy).toBe('Claude');
   });
 
   it('updates and deletes a note', async () => {

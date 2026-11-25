@@ -68,6 +68,7 @@ export type Note = {
   body: string; // plain notes, light formatting (see src/lib/rich-text.ts)
   rows: CornellRow[]; // Cornell notes
   summary: string; // Cornell notes
+  createdBy: string | null; // null = the user; else the AI app that wrote it, e.g. 'Claude'
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -80,6 +81,9 @@ export type NoteInput = {
   rows?: CornellRow[];
   summary?: string;
 };
+
+/** Who is creating a note: leave out for the user, or name the AI app (used only when creating). */
+export type NoteSource = { createdBy?: string | null };
 
 /** A note found by search, with the folders it is in. */
 export type NoteSearchResult = Note & { path: FolderCrumb[] };

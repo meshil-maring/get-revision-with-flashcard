@@ -81,10 +81,46 @@ export function pathFromFolders(byId: Map<string, Folder>, id: string | null): F
   return path;
 }
 
+/** Thrown when a folder already has a folder with that name inside it. */
+export class FolderNameTakenError extends Error {
+  constructor(name: string) {
+    super(`There is already a folder called "${name}" here.`);
+    this.name = 'FolderNameTakenError';
+  }
+}
+
+/**
+ * The folder with this name directly inside a parent (null = top level), ignoring case
+ * and spaces at the ends. If there is more than one (from before names had to be
+ * different), the oldest is used.
+ */
+export async function findFolderByName(
+  db: SQLiteDatabase,
+  parentId: string | null,
+  name: string,
+): Promise<Folder | null> {
+  const row = await db.getFirstAsync<FolderRow>(
+    `SELECT * FROM folders
+      WHERE parent_id IS ? AND deleted_at IS NULL AND lower(trim(name)) = lower(?)
+      ORDER BY created_at ASC, id ASC
+      LIMIT 1`,
+    parentId,
+    name.trim(),
+  );
+  return row ? toFolder(row) : null;
+}
+
+async function assertNameFree(db: SQLiteDatabase, parentId: string | null, name: string, exceptId?: string) {
+  const existing = await findFolderByName(db, parentId, name);
+  if (existing && existing.id !== exceptId) throw new FolderNameTakenError(name.trim());
+}
+
+/** Creates a folder. Names must be different among folders in the same place. */
 export async function createFolder(
   db: SQLiteDatabase,
   input: { parentId: string | null; name: string },
 ): Promise<string> {
+  await assertNameFree(db, input.parentId, input.name);
   const id = randomUUID();
   const now = new Date().toISOString();
   await db.runAsync(
@@ -99,12 +135,31 @@ export async function createFolder(
 }
 
 export async function renameFolder(db: SQLiteDatabase, id: string, name: string): Promise<void> {
+  const folder = await getFolder(db, id);
+  if (folder) await assertNameFree(db, folder.parentId, name, id);
   await db.runAsync(
     'UPDATE folders SET name = ?, updated_at = ? WHERE id = ?',
     name.trim(),
     new Date().toISOString(),
     id,
   );
+}
+
+/**
+ * The folder at a path of names, e.g. ["Class 10", "Physics", "Chapter 1"], making any
+ * folders that don't exist yet. Names are matched ignoring case. An empty path is the
+ * top level (null). This is how an AI app (through MCP) says where a note goes,
+ * without having to know folder ids.
+ */
+export async function ensureFolderPath(db: SQLiteDatabase, names: string[]): Promise<string | null> {
+  let parentId: string | null = null;
+  for (const raw of names) {
+    const name = raw.trim();
+    if (!name) continue;
+    const existing = await findFolderByName(db, parentId, name);
+    parentId = existing ? existing.id : await createFolder(db, { parentId, name });
+  }
+  return parentId;
 }
 
 // The folder and every folder inside it, at any depth.

@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import { Alert } from 'react-native';
+
 import NotesScreen from '@/app/(tabs)/notes';
 import NoteCardsScreen from '@/app/note-cards';
 import NoteEditorScreen from '@/app/note-editor';
@@ -67,6 +69,7 @@ function note(overrides: Partial<Note>): Note {
     body: '',
     rows: [],
     summary: '',
+    createdBy: null,
     createdAt: NOW,
     updatedAt: NOW,
     deletedAt: null,
@@ -103,6 +106,7 @@ describe('Notes tab', () => {
     expect(screen.getByText('Speed')).toBeOnTheScreen();
     expect(screen.getByText('Cornell')).toBeOnTheScreen();
     expect(screen.getByText('Inertia: Keeps moving')).toBeOnTheScreen();
+    expect(screen.queryByText(/^AI ·/)).toBeNull();
 
     await fireEvent.press(screen.getByLabelText('Class 10, 3 folders · 1 note'));
     expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/folder/[id]', params: { id: 'f-1' } });
@@ -115,6 +119,28 @@ describe('Notes tab', () => {
     await fireEvent.press(screen.getByText('Save'));
 
     expect(folders.createFolder).toHaveBeenCalledWith(expect.anything(), { parentId: null, name: 'Class 10' });
+  });
+
+  it('marks notes an AI app wrote', async () => {
+    jest.mocked(notes.listNotes).mockResolvedValue([note({ createdBy: 'Claude' })]);
+    await render(<NotesScreen />);
+    expect(await screen.findByText('AI · Claude')).toBeOnTheScreen();
+  });
+
+  it('keeps the form open when the folder name is already used', async () => {
+    const { FolderNameTakenError } = jest.requireActual('@/data/folders');
+    jest.mocked(folders.createFolder).mockRejectedValue(new FolderNameTakenError('Class 10'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+    await render(<NotesScreen />);
+    await fireEvent.press(await screen.findByText('New folder'));
+    await fireEvent.changeText(screen.getByPlaceholderText(/e\.g\. Class 10/), 'class 10');
+    await fireEvent.press(screen.getByText('Save'));
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith('Name already used', 'There is already a folder called "Class 10" here.'),
+    );
+    expect(screen.getByDisplayValue('class 10')).toBeOnTheScreen();
   });
 
   it('warns how much is inside before deleting a folder', async () => {

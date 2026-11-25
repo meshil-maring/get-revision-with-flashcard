@@ -102,6 +102,10 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS idx_note_attachments_note_id ON note_attachments(note_id);
   `,
+  // v8: who made a note: null = the user, else the AI app's name (e.g. 'Claude'), for notes added through MCP
+  `
+  ALTER TABLE notes ADD COLUMN created_by TEXT;
+  `,
 ];
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */

@@ -5,7 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AttachmentList } from '@/components/attachments';
-import { FolderPath } from '@/components/folder-browser';
+import { AiBadge, FolderPath } from '@/components/folder-browser';
 import { RichText } from '@/components/rich-text';
 import { Button, colors, EmptyState, Icon, IconButton } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
@@ -80,11 +80,14 @@ export default function NoteScreen() {
         <View className="gap-1">
           <FolderPath path={path} prefix="Notes" />
           <Text className="text-3xl font-extrabold text-ink">{current.title}</Text>
-          {cornell ? (
-            <View className="mt-1 flex-row">
-              <View className="rounded-full bg-calm-soft px-2.5 py-0.5">
-                <Text className="text-xs font-bold text-calm">Cornell notes</Text>
-              </View>
+          {cornell || current.createdBy ? (
+            <View className="mt-1 flex-row gap-2">
+              {cornell ? (
+                <View className="rounded-full bg-calm-soft px-2.5 py-0.5">
+                  <Text className="text-xs font-bold text-calm">Cornell notes</Text>
+                </View>
+              ) : null}
+              {current.createdBy ? <AiBadge by={current.createdBy} /> : null}
             </View>
           ) : null}
         </View>

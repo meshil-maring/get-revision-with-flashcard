@@ -11,6 +11,7 @@ import type {
   NoteAttachment,
   NoteInput,
   NoteSearchResult,
+  NoteSource,
 } from './types';
 
 type NoteRow = {
@@ -21,6 +22,7 @@ type NoteRow = {
   body: string;
   cornell_rows: string;
   summary: string;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -48,6 +50,7 @@ function toNote(row: NoteRow): Note {
     body: row.body,
     rows: parseRows(row.cornell_rows),
     summary: row.summary,
+    createdBy: row.created_by ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -82,13 +85,18 @@ export async function getNote(db: SQLiteDatabase, id: string): Promise<Note | nu
   return row ? toNote(row) : null;
 }
 
-export async function createNote(db: SQLiteDatabase, folderId: string | null, input: NoteInput): Promise<string> {
+/** Creates a note. Pass `createdBy` (e.g. 'Claude') when an AI app writes it. */
+export async function createNote(
+  db: SQLiteDatabase,
+  folderId: string | null,
+  input: NoteInput & NoteSource,
+): Promise<string> {
   const id = randomUUID();
   const now = new Date().toISOString();
   const note = cleanInput(input);
   await db.runAsync(
-    `INSERT INTO notes (id, folder_id, title, style, body, cornell_rows, summary, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO notes (id, folder_id, title, style, body, cornell_rows, summary, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     folderId,
     note.title,
@@ -96,6 +104,7 @@ export async function createNote(db: SQLiteDatabase, folderId: string | null, in
     note.body,
     note.rows,
     note.summary,
+    input.createdBy?.trim() || null,
     now,
     now,
   );
