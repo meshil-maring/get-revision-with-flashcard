@@ -67,6 +67,9 @@ Before every commit: `npx tsc --noEmit && npx expo lint && npm test`
 - [ ] The grid fits the screen width with month labels on top and Mon/Wed/Fri on the left
 - [ ] Ask AI, bell, profile avatar, Notes, and Profile/AI Study/Notifications/Settings in More show "Coming soon"; Create revision in More opens it
 - [ ] Nothing is hidden under the status bar or the phone's bottom bar
+- [ ] Fresh install: the welcome tour opens by itself; Next/Back/dots move between the 4 steps
+- [ ] Skip or Get started closes it, and it doesn't come back after restarting the app
+- [ ] More → App tour opens the tour again
 
 **Create Revision**
 - [ ] Flashcards → Create revision: decks with no cards can't be selected; Select all / Clear work

@@ -55,6 +55,13 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS idx_attachments_card_id ON attachments(card_id);
   `,
+  // v5: small app settings, e.g. whether the welcome tour has been seen
+  `
+  CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  );
+  `,
 ];
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */
