@@ -1,11 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import StudyScreen from '@/app/study/[id]';
 import * as cards from '@/data/cards';
 import * as activity from '@/data/activity';
 import * as attachments from '@/data/attachments';
 import * as decks from '@/data/decks';
+import * as settings from '@/data/settings';
 import type { Card } from '@/data/types';
+import { shuffle } from '@/lib/shuffle';
 import { mockRouter } from '@/test-utils/mock-router';
 
 jest.mock('expo-router', () => jest.requireActual('@/test-utils/mock-router').mockRouter);
@@ -18,6 +20,9 @@ jest.mock('@/data/decks');
 jest.mock('@/data/cards');
 jest.mock('@/data/activity');
 jest.mock('@/data/attachments');
+jest.mock('@/data/settings');
+// Shuffle is on by default; keep the order in tests so they can check which card shows.
+jest.mock('@/lib/shuffle', () => ({ shuffle: jest.fn((items: unknown[]) => [...items]) }));
 // Replace the animated card with a plain one: these tests check the study flow, not the animation.
 jest.mock('@/components/flip-card', () => {
   const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
@@ -27,15 +32,24 @@ jest.mock('@/components/flip-card', () => {
       back,
       flipped,
       onPress,
+      onEdit,
     }: {
       front: string;
       back: string;
       flipped: boolean;
       onPress: () => void;
+      onEdit?: () => void;
     }) => (
-      <Pressable onPress={onPress} testID="flip-card">
-        <Text>{flipped ? back : front}</Text>
-      </Pressable>
+      <>
+        <Pressable onPress={onPress} testID="flip-card">
+          <Text>{flipped ? back : front}</Text>
+        </Pressable>
+        {onEdit ? (
+          <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit card">
+            <Text>Edit</Text>
+          </Pressable>
+        ) : null}
+      </>
     ),
   };
 });
@@ -44,6 +58,7 @@ const mockedDecks = jest.mocked(decks);
 const mockedCards = jest.mocked(cards);
 const mockedActivity = jest.mocked(activity);
 const mockedAttachments = jest.mocked(attachments);
+const mockedSettings = jest.mocked(settings);
 
 function card(n: number): Card {
   return {
@@ -64,6 +79,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockRouter.useLocalSearchParams.mockReturnValue({ id: 'deck-1' });
   mockedAttachments.listAttachmentsForCards.mockResolvedValue(new Map());
+  mockedSettings.getAutoNext.mockResolvedValue(0);
+  mockedSettings.getAutoNextPauseOnAnswer.mockResolvedValue(false);
+  mockedSettings.isTipDismissed.mockResolvedValue(true);
   mockedDecks.getDeck.mockResolvedValue({
     id: 'deck-1',
     name: 'Biology',
@@ -72,6 +90,7 @@ beforeEach(() => {
     updatedAt: '2026-01-01T00:00:00.000Z',
     deletedAt: null,
     lastStudiedAt: null,
+    studySeconds: 0,
   });
 });
 
@@ -84,11 +103,26 @@ describe('Study screen', () => {
     expect(await screen.findByText('Question 1')).toBeOnTheScreen();
     expect(screen.queryByText('Answer 1')).toBeNull();
     expect(screen.getByText('1 / 2')).toBeOnTheScreen();
-    // No rating buttons before the answer is shown.
-    expect(screen.queryByRole('button', { name: 'Hard' })).toBeNull();
+    // Rating is locked until the answer is shown.
+    expect(screen.getByRole('button', { name: 'Hard' })).toBeDisabled();
 
     await fireEvent.press(screen.getByText('Show answer'));
     expect(screen.getByText('Answer 1')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Hard' })).toBeEnabled();
+  });
+
+  it('skips to the next card without rating, and finishes after the last', async () => {
+    mockedCards.listCards.mockResolvedValue([card(1), card(2)]);
+
+    await render(<StudyScreen />);
+    await screen.findByText('Question 1');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Question 2')).toBeOnTheScreen();
+    expect(mockedCards.rateCard).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
+    expect(screen.getByText('Well done!')).toBeOnTheScreen();
   });
 
   it('flips the card by tapping it too', async () => {
@@ -186,19 +220,22 @@ describe('Study screen', () => {
     expect(mockRouter.router.back).toHaveBeenCalled();
   });
 
-  it('turns shuffle on and restarts from the first card', async () => {
+  it('shuffles by default, and shuffle can be turned off (restarting from the first card)', async () => {
     mockedCards.listCards.mockResolvedValue([card(1), card(2), card(3)]);
 
     await render(<StudyScreen />);
     await screen.findByText('Question 1');
+    expect(shuffle).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('switch', { name: 'Shuffle' })).toBeChecked();
+
     await fireEvent.press(screen.getByText('Show answer'));
     await fireEvent.press(screen.getByRole('button', { name: 'OK' }));
+    expect(screen.getByText('2 / 3')).toBeOnTheScreen();
 
-    expect(screen.getByRole('switch', { name: 'Shuffle' })).not.toBeChecked();
     await fireEvent.press(screen.getByRole('switch', { name: 'Shuffle' }));
-
-    expect(screen.getByRole('switch', { name: 'Shuffle' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Shuffle' })).not.toBeChecked();
     expect(screen.getByText('1 / 3')).toBeOnTheScreen();
+    expect(shuffle).toHaveBeenCalledTimes(1); // the original order now
   });
 
   it('counts each card once for the streak, even when rated again', async () => {
@@ -216,5 +253,141 @@ describe('Study screen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Hard' })); // card 2 reviewed
 
     expect(mockedActivity.recordReview).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens the editor for the card on screen', async () => {
+    mockedCards.listCards.mockResolvedValue([card(1), card(2)]);
+    await render(<StudyScreen />);
+    await screen.findByText('Question 1');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Next' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit card' }));
+
+    expect(mockRouter.router.push).toHaveBeenCalledWith({
+      pathname: '/card-editor',
+      params: { deckId: 'deck-1', cardId: 'card-2' },
+    });
+  });
+
+  it('groups skipped cards as Unmarked, then Easy, OK and Hard', async () => {
+    mockedCards.listCards.mockResolvedValue([card(1), card(2), card(3)]);
+    await render(<StudyScreen />);
+    await screen.findByText('Question 1');
+
+    await fireEvent.press(screen.getByText('Show answer'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Hard' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Next' })); // card 2 skipped
+    await fireEvent.press(screen.getByText('Show answer'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Easy' }));
+
+    expect(screen.getByLabelText('Unmarked: 1')).toBeOnTheScreen();
+    const headings = screen.getAllByText(/ · \d$/).map((t) => t.props.children.join(''));
+    expect(headings).toEqual(['Unmarked · 1', 'Easy · 1', 'Hard · 1']);
+  });
+
+  describe('time ranking', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('stays hidden until Show, ranks the slowest first, and ticks cards to revise', async () => {
+      mockedCards.listCards.mockResolvedValue([card(1), card(2)]);
+      await render(<StudyScreen />);
+      await screen.findByText('Question 1');
+
+      await act(() => jest.advanceTimersByTime(4000)); // card 1: 4 s
+      await fireEvent.press(screen.getByText('Show answer'));
+      await fireEvent.press(screen.getByRole('button', { name: 'Easy' }));
+      await act(() => jest.advanceTimersByTime(12000)); // card 2: 12 s
+      await fireEvent.press(screen.getByText('Show answer'));
+      await fireEvent.press(screen.getByRole('button', { name: 'Easy' }));
+
+      expect(screen.getByText('Well done!')).toBeOnTheScreen();
+      expect(screen.queryByLabelText(/^1\. /)).toBeNull();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Show time ranking' }));
+      expect(screen.getByLabelText('1. Question 2, 0:12')).toBeOnTheScreen();
+      expect(screen.getByLabelText('2. Question 1, 0:04')).toBeOnTheScreen();
+      expect(screen.getByText('0:08')).toBeOnTheScreen(); // average
+
+      expect(screen.getByText('Select cards to revise')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByLabelText('1. Question 2, 0:12'));
+      expect(screen.getByText('Revise selected (1)')).toBeOnTheScreen();
+    });
+  });
+
+  describe('time per card', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('moves to the next card when the time runs out, and finishes after the last', async () => {
+      mockedSettings.getAutoNext.mockResolvedValue(10);
+      mockedCards.listCards.mockResolvedValue([card(1), card(2)]);
+
+      await render(<StudyScreen />);
+      await screen.findByText('Question 1');
+      expect(screen.getByText('0:10')).toBeOnTheScreen();
+
+      await act(() => jest.advanceTimersByTime(4000));
+      expect(screen.getByText('0:06')).toBeOnTheScreen();
+
+      await act(() => jest.advanceTimersByTime(6000));
+      expect(screen.getByText('Question 2')).toBeOnTheScreen();
+      expect(screen.getByText('0:10')).toBeOnTheScreen(); // a fresh countdown
+      expect(mockedCards.rateCard).not.toHaveBeenCalled();
+
+      await act(() => jest.advanceTimersByTime(10000));
+      expect(screen.getByText('Well done!')).toBeOnTheScreen();
+    });
+
+    it('can be paused', async () => {
+      mockedSettings.getAutoNext.mockResolvedValue(10);
+      mockedCards.listCards.mockResolvedValue([card(1), card(2)]);
+
+      await render(<StudyScreen />);
+      await screen.findByText('Question 1');
+
+      await fireEvent.press(screen.getByLabelText(/^Pause auto next/));
+      await act(() => jest.advanceTimersByTime(30000));
+      expect(screen.getByText('Question 1')).toBeOnTheScreen();
+      expect(screen.getByText('Paused')).toBeOnTheScreen();
+    });
+
+    it('waits while the answer shows, when Pause on answer is on', async () => {
+      mockedSettings.getAutoNext.mockResolvedValue(10);
+      mockedSettings.getAutoNextPauseOnAnswer.mockResolvedValue(true);
+      mockedCards.listCards.mockResolvedValue([card(1), card(2)]);
+
+      await render(<StudyScreen />);
+      await screen.findByText('Question 1');
+      await act(() => jest.advanceTimersByTime(3000));
+
+      await fireEvent.press(screen.getByText('Show answer'));
+      await act(() => jest.advanceTimersByTime(30000));
+      expect(screen.getByText('Answer 1')).toBeOnTheScreen();
+      expect(screen.getByText('0:07')).toBeOnTheScreen();
+
+      // Back to the question: the countdown carries on.
+      await fireEvent.press(screen.getByText('Show question'));
+      await act(() => jest.advanceTimersByTime(7000));
+      expect(screen.getByText('Question 2')).toBeOnTheScreen();
+    });
+
+    it('keeps counting on the answer when Pause on answer is off', async () => {
+      mockedSettings.getAutoNext.mockResolvedValue(10);
+      mockedCards.listCards.mockResolvedValue([card(1), card(2)]);
+
+      await render(<StudyScreen />);
+      await screen.findByText('Question 1');
+      await fireEvent.press(screen.getByText('Show answer'));
+      await act(() => jest.advanceTimersByTime(10000));
+      expect(screen.getByText('Question 2')).toBeOnTheScreen();
+    });
+
+    it('is not shown when off', async () => {
+      mockedCards.listCards.mockResolvedValue([card(1)]);
+      await render(<StudyScreen />);
+      await screen.findByText('Question 1');
+      expect(screen.queryByLabelText(/auto next/)).toBeNull();
+    });
   });
 });

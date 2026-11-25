@@ -56,8 +56,27 @@ NoteMe picks an icon from the name, so a deck called "Chemistry" gets a flask an
 - Tap the **pencil** on a deck to rename it or change its description.
 - Tap the **bin** to delete it. You will be asked first, because ==deleting a deck also deletes all its cards==.
 
+## Inside a deck
+The blue panel at the top is the deck itself. Your cards are listed under **Cards**.
+- **Cards**: how many cards the deck has
+- **Studied**: your total study time on this deck, like "1 h 05 min studied"
+- **Rating bar**: how your cards are rated, from Easy (teal) to Hard (red). Faint white means New, not rated yet
+- **Study**: start going through the cards
+- **Timer**: the clock button next to Study, for a time limit on each card
+
+==Goal:== turn the whole bar teal. Study the Hard and New cards until they feel Easy.
+
 ## Study a deck
-Tap the orange **▶** next to a deck, or open the deck and tap **Study**.`,
+Tap the orange **▶** next to a deck, or open the deck and tap **Study**. A clock at the top of the study screen shows how long you have been studying. The time is added to the deck's total when you finish or leave.
+
+## Time per card
+Give each card a time limit, so you practise answering quickly, like in an exam.
+1. Open the deck and tap the **clock** next to **Study**.
+2. Choose a time, like **30 sec** or **1 min**. Choose **Off** to turn it off.
+3. For any other time, tap **Custom**, type the minutes and seconds, and tap **Set**. Anything from 5 seconds to 30 minutes works.
+4. Tap **Study**. A countdown shows next to the card number, and the next card shows by itself when it reaches zero.
+
+Tap the countdown to **pause** it if you need longer on a card, and tap again to carry on. Turn on **Pause on answer** in the same popup to stop the countdown while you read each answer. Each deck keeps its own time, and your last custom time is offered first next time.`,
   },
   {
     id: 'cards',
@@ -83,7 +102,10 @@ In the deck, each card has buttons along the bottom:
 - **Bin**: delete it (you will be asked first)
 
 ## Answers stay hidden
-In the card list the answers are covered, so you can test yourself just by reading the questions. Tap **Tap to show answer** to see one, and tap again to hide it.`,
+In the card list the answers are covered, so you can test yourself just by reading the questions. Tap **Tap to show answer** to see one, and tap again to hide it.
+
+## Coloured edges
+The coloured strip down the left of each card shows how it felt last time: teal for **Easy**, amber for **OK**, red for **Hard** and grey for **New**. Scan the list for red to see what needs more practice.`,
   },
   {
     id: 'attachments',
@@ -125,8 +147,10 @@ Files are copied into NoteMe, so they stay even if you delete the original from 
 3. Rate how well you knew it: **Hard**, **OK** or **Easy**. The next card appears.
 
 ## Other controls
-- **← (back)**: go to the previous card
-- **Shuffle**: mix the cards into a random order and start again
+- **Prev**: go to the previous card
+- **Next**: skip a card without rating it (on the last card it says **Finish**)
+- **Shuffle**: cards come in a random order by default. Tap it to go through them in order instead, and again to mix them
+- **Timer**: in a deck, tap the clock next to **Study** to give each card a time limit, or choose **Custom** to type your own. When it runs out, the next card shows by itself. Tap the countdown to pause it.
 - **Star**: add the card to your favourites
 - The bar at the top shows how far you are.
 
@@ -176,8 +200,12 @@ The name of the deck appears above each card, so you know which subject it is fr
     title: 'End of a session',
     summary: 'See how it went and revise the cards you pick again.',
     body: `When you finish the last card you see a summary:
-- How many cards you rated **Hard**, **OK** and **Easy**
-- Your cards, grouped by rating
+- How many cards you rated **Easy**, **OK** and **Hard**, and how many you skipped (**Unmarked**)
+- Your cards, grouped as **Unmarked**, **Easy**, **OK** and **Hard**
+- How long each card took, kept hidden until you ask for it
+
+## Time per card
+NoteMe times how long each card is on screen. Tap **Show** on the **Time per card** box to see your cards from slowest to fastest, with your average. Slow cards are often the ones you are unsure of: tick them, or tap **Select slowest 3**, to add them to your next round.
 
 ## Revise again straight away
 Your **Hard** cards are already ticked. Tick or untick any card, or tap **Select all** / **Clear** on a group. Then tap **Revise selected** to start a new round with just those cards.

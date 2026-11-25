@@ -6,9 +6,15 @@ import { Text } from 'react-native';
 import { Centered, StudySession } from '@/components/study-session';
 import { listCards } from '@/data/cards';
 import { getDeck, markDeckStudied } from '@/data/decks';
+import { getAutoNext, getAutoNextPauseOnAnswer } from '@/data/settings';
 import type { Card, Deck } from '@/data/types';
 
-type Loaded = { deck: Deck | null; cards: Card[] };
+type Loaded = {
+  deck: Deck | null;
+  cards: Card[];
+  autoNext: number;
+  pauseOnAnswer: boolean;
+};
 
 /** Study one deck. */
 export default function StudyScreen() {
@@ -18,9 +24,14 @@ export default function StudyScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getDeck(db, id), listCards(db, id)]).then(([deck, cards]) => {
+    Promise.all([
+      getDeck(db, id),
+      listCards(db, id),
+      getAutoNext(db, id),
+      getAutoNextPauseOnAnswer(db, id),
+    ]).then(([deck, cards, autoNext, pauseOnAnswer]) => {
       if (cancelled) return;
-      setLoaded({ deck, cards });
+      setLoaded({ deck, cards, autoNext, pauseOnAnswer });
       // Shown under "Continue Studying" on Home.
       if (deck && cards.length > 0) markDeckStudied(db, deck.id);
     });
@@ -47,6 +58,8 @@ export default function StudyScreen() {
       cards={loaded.cards}
       emptyText="Add some cards to this deck first."
       backLabel="Back to deck"
+      autoNextSeconds={loaded.autoNext}
+      pauseOnAnswer={loaded.pauseOnAnswer}
     />
   );
 }

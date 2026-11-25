@@ -62,6 +62,10 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // v6: total time spent studying each deck, in seconds
+  `
+  ALTER TABLE decks ADD COLUMN study_seconds INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */

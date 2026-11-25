@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { RichText } from '@/components/rich-text';
+import { GuideBody } from '@/components/guide-body';
 import { colors, EmptyState, Icon } from '@/components/ui';
 import { findTopic, GUIDE_TOPICS } from '@/lib/guide';
 
@@ -32,21 +32,21 @@ export default function HelpTopicScreen() {
     <ScrollView className="flex-1 bg-page" contentContainerClassName="w-full max-w-2xl self-center px-5 pb-10 pt-4">
       <Stack.Screen options={{ title: topic.section }} />
 
-      <View className="mb-5 flex-row items-center gap-3">
-        <View className="h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft">
-          <Icon name={topic.icon} size={30} color={colors.primary} />
+      <View className="mb-5 flex-row items-center gap-4">
+        <View className="h-20 w-20 items-center justify-center rounded-3xl bg-primary-soft">
+          <Icon name={topic.icon} size={40} color={colors.primary} />
         </View>
-        <View className="flex-1">
-          <Text className="text-3xl font-extrabold text-ink">{topic.title}</Text>
-          <Text className="text-sm text-muted">{topic.summary}</Text>
+        <View className="flex-1 gap-0.5">
+          <Text className="text-3xl font-extrabold text-ink" accessibilityRole="header">
+            {topic.title}
+          </Text>
+          <Text className="text-base leading-5 text-muted">{topic.summary}</Text>
         </View>
       </View>
 
-      <View className="rounded-3xl border border-line bg-white p-5">
-        <RichText text={topic.body} />
-      </View>
+      <GuideBody text={topic.body} />
 
-      <View className="mt-6 flex-row gap-3">
+      <View className="mt-6 flex-row items-stretch gap-3">
         {previous ? (
           <NavButton direction="previous" title={previous.title} onPress={() => open(previous.id)} />
         ) : (
@@ -77,16 +77,16 @@ function NavButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${isNext ? 'Next' : 'Previous'}: ${title}`}
-      className={`flex-1 gap-1 rounded-2xl border border-line bg-white p-3.5 active:bg-surface ${
-        isNext ? 'items-end' : 'items-start'
+      className={`flex-1 justify-center gap-1 rounded-2xl p-4 ${
+        isNext ? 'items-end bg-primary shadow-md active:bg-primary-dark' : 'items-start border border-line bg-white active:bg-surface'
       }`}
     >
       <View className="flex-row items-center gap-1">
-        {isNext ? null : <Icon name="arrow-back" size={14} color={colors.muted} />}
-        <Text className="text-xs font-semibold uppercase tracking-wider text-muted">{isNext ? 'Next' : 'Previous'}</Text>
-        {isNext ? <Icon name="arrow-forward" size={14} color={colors.muted} /> : null}
+        {isNext ? null : <Icon name="chevron-back" size={16} color={colors.muted} />}
+        <Text className={`text-sm font-semibold ${isNext ? 'text-white/80' : 'text-muted'}`}>{isNext ? 'Next' : 'Previous'}</Text>
+        {isNext ? <Icon name="chevron-forward" size={16} color={colors.white} /> : null}
       </View>
-      <Text className={`text-base font-bold text-primary ${isNext ? 'text-right' : ''}`} numberOfLines={2}>
+      <Text className={`text-lg font-bold ${isNext ? 'text-right text-white' : 'text-primary'}`} numberOfLines={2}>
         {title}
       </Text>
     </Pressable>

@@ -1,5 +1,5 @@
 import type { Card, Rating } from '@/data/types';
-import { filterCards, groupByRating, parseRatingFilters } from '@/lib/revision';
+import { filterCards, groupByRating, parseRatingFilters, rankByTime } from '@/lib/revision';
 
 function card(id: string, rating: Rating | null, favorite = false): Card {
   return {
@@ -42,15 +42,32 @@ describe('parseRatingFilters', () => {
 });
 
 describe('groupByRating', () => {
-  it('groups hard first and skips empty groups and unrated cards', () => {
+  it('groups Unmarked, Easy, OK, Hard and skips empty groups', () => {
     const ratings = new Map<string, Rating>([
       ['a', 'easy'],
       ['b', 'hard'],
       ['c', 'easy'],
     ]);
     expect(groupByRating(cards, ratings)).toEqual([
-      { rating: 'hard', cards: [cards[1]] },
+      { rating: 'new', cards: [cards[3]] },
       { rating: 'easy', cards: [cards[0], cards[2]] },
+      { rating: 'hard', cards: [cards[1]] },
+    ]);
+  });
+});
+
+describe('rankByTime', () => {
+  it('puts the slowest cards first', () => {
+    const times = new Map([
+      ['a', 2000],
+      ['b', 9000],
+      ['c', 500],
+    ]);
+    expect(rankByTime(cards, times).map((r) => [r.card.id, r.ms])).toEqual([
+      ['b', 9000],
+      ['a', 2000],
+      ['c', 500],
+      ['d', 0],
     ]);
   });
 });

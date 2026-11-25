@@ -27,10 +27,12 @@ type Props = {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  /** Border colour while typing (defaults to the primary blue). */
+  accent?: string;
 };
 
 /** A text box with a formatting toolbar (headings, bold, underline, highlight, lists) and a preview. */
-export function RichTextInput({ value, onChangeText, placeholder }: Props) {
+export function RichTextInput({ value, onChangeText, placeholder, accent = colors.primary }: Props) {
   const selection = useRef<Selection>({ start: value.length, end: value.length });
   // Set only right after a toolbar edit, to put the cursor in the right place; then let the user move it.
   const [forcedSelection, setForcedSelection] = useState<Selection | undefined>(undefined);
@@ -47,7 +49,7 @@ export function RichTextInput({ value, onChangeText, placeholder }: Props) {
   return (
     <View
       className="overflow-hidden rounded-xl"
-      style={{ borderWidth: 1.5, borderColor: focused ? colors.primary : colors.line }}
+      style={{ borderWidth: 1.5, borderColor: focused ? accent : colors.line }}
     >
       <View className="flex-row items-center border-b border-line bg-surface">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="px-1" keyboardShouldPersistTaps="always">
@@ -69,9 +71,10 @@ export function RichTextInput({ value, onChangeText, placeholder }: Props) {
           accessibilityRole="switch"
           accessibilityLabel="Preview"
           accessibilityState={{ checked: preview }}
-          className={`mx-1 rounded-lg px-2.5 py-1.5 ${preview ? 'bg-primary' : 'bg-white'}`}
+          className={`mx-1 flex-row items-center gap-1 rounded-full border px-2.5 py-1.5 ${preview ? 'border-primary bg-primary' : 'border-line bg-white'}`}
         >
-          <Text className={`text-xs font-bold ${preview ? 'text-white' : 'text-primary'}`}>Preview</Text>
+          <MaterialCommunityIcons name={preview ? 'pencil-outline' : 'eye-outline'} size={scaled(24)} color={preview ? colors.white : colors.primary} />
+          <Text className={`text-xs font-bold ${preview ? 'text-white' : 'text-primary'}`}>{preview ? 'Edit' : 'Preview'}</Text>
         </Pressable>
       </View>
 

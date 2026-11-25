@@ -1,11 +1,12 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, Text, View } from 'react-native';
 
 import { colors, Icon, scaled } from '@/components/ui';
 import type { AttachmentKind } from '@/data/types';
 import { openFile } from '@/lib/attachment-files';
+import { claimAudio, releaseAudio } from '@/lib/audio-focus';
 
 /** What's needed to show an attachment, saved or not yet saved. */
 export type AttachmentItem = { key: string; kind: AttachmentKind; uri: string; name: string; mimeType: string | null };
@@ -131,6 +132,8 @@ function AudioChip({ item, tone }: { item: AttachmentItem; tone: Tone }) {
   const text = tone === 'onDark' ? 'text-white' : 'text-ink';
   const progress = status.duration > 0 ? Math.min(1, status.currentTime / status.duration) : 0;
 
+  useEffect(() => () => releaseAudio(player), [player]);
+
   async function toggle() {
     if (status.playing) {
       player.pause();
@@ -140,6 +143,7 @@ function AudioChip({ item, tone }: { item: AttachmentItem; tone: Tone }) {
     if (status.didJustFinish || (status.duration > 0 && status.currentTime >= status.duration - 0.1)) {
       await player.seekTo(0);
     }
+    claimAudio(player); // pauses any other clip, so only one plays at a time
     player.play();
   }
 

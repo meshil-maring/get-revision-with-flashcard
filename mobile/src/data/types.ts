@@ -9,6 +9,7 @@ export type Deck = {
   updatedAt: string;
   deletedAt: string | null; // soft delete: set instead of removing the row
   lastStudiedAt: string | null; // when a study session last opened this deck
+  studySeconds: number; // total time spent studying this deck's cards
 };
 
 export type DeckWithCount = Deck & { cardCount: number };

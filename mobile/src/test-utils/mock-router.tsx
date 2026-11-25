@@ -12,10 +12,9 @@ export const mockRouter = {
     canGoBack: jest.fn(() => true),
   },
   useLocalSearchParams: jest.fn(() => ({})),
-  // Run the focus callback once, like a screen opening.
-  useFocusEffect: (callback: () => void) => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(callback, []);
+  // The screen is always focused in tests: run the callback on open and whenever it changes.
+  useFocusEffect: (callback: () => void | (() => void)) => {
+    useEffect(callback, [callback]);
   },
   Stack: { Screen: () => null },
 };

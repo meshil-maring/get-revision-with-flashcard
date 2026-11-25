@@ -11,6 +11,7 @@ type DeckRow = {
   updated_at: string;
   deleted_at: string | null;
   last_studied_at: string | null;
+  study_seconds: number;
 };
 
 function toDeck(row: DeckRow): Deck {
@@ -22,6 +23,7 @@ function toDeck(row: DeckRow): Deck {
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     lastStudiedAt: row.last_studied_at,
+    studySeconds: row.study_seconds ?? 0,
   };
 }
 
@@ -79,6 +81,12 @@ export async function updateDeck(
  * Records that the deck was just studied. Doesn't change updated_at, so the deck
  * list order (and future sync) isn't affected by studying.
  */
+/** Adds study time to a deck's total (time spent while one of its cards was on screen). */
+export async function addStudyTime(db: SQLiteDatabase, id: string, seconds: number): Promise<void> {
+  if (seconds <= 0) return;
+  await db.runAsync('UPDATE decks SET study_seconds = study_seconds + ? WHERE id = ?', Math.round(seconds), id);
+}
+
 export async function markDeckStudied(db: SQLiteDatabase, id: string): Promise<void> {
   await db.runAsync('UPDATE decks SET last_studied_at = ? WHERE id = ?', new Date().toISOString(), id);
 }

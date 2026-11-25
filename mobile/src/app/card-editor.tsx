@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -12,6 +12,7 @@ import {
   View,
   type TextStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AttachmentList, type AttachmentItem } from '@/components/attachments';
 import { AudioRecorderModal } from '@/components/audio-recorder';
@@ -20,6 +21,7 @@ import { RichTextInput } from '@/components/rich-text-input';
 import { colors, Icon, type IconName } from '@/components/ui';
 import { addAttachment, deleteAttachment, listAttachmentsForCards } from '@/data/attachments';
 import { createCard, getCard, updateCard } from '@/data/cards';
+import { getDeck } from '@/data/decks';
 import type { CardSide } from '@/data/types';
 import {
   keepFile,
@@ -51,6 +53,7 @@ export default function CardEditorScreen() {
   const { deckId, cardId } = useLocalSearchParams<{ deckId: string; cardId?: string }>();
   const db = useSQLiteContext();
   const editing = Boolean(cardId);
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(editing);
   const [front, setFront] = useState('');
@@ -60,6 +63,18 @@ export default function CardEditorScreen() {
   const [frontFocused, setFrontFocused] = useState(false);
   const [recordingSide, setRecordingSide] = useState<CardSide | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deckName, setDeckName] = useState('');
+
+  useEffect(() => {
+    if (!deckId) return;
+    let cancelled = false;
+    getDeck(db, deckId).then((deck) => {
+      if (!cancelled && deck) setDeckName(deck.name);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, deckId]);
 
   useEffect(() => {
     if (!cardId) return;
@@ -136,83 +151,125 @@ export default function CardEditorScreen() {
 
   const sideItems = (side: CardSide) => drafts.filter((d) => d.side === side);
 
+  const missing = !front.trim() ? 'a question' : !back.trim() ? 'an answer' : null;
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 bg-page">
-      <Stack.Screen options={{ title: editing ? 'Edit card' : 'New card' }} />
+      <Stack.Screen
+        options={{
+          title: editing ? 'Edit card' : 'New card',
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push({ pathname: '/help/[topic]', params: { topic: 'cards' } })}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Help with cards"
+              className="h-10 w-10 items-center justify-center rounded-full active:bg-surface"
+            >
+              <Icon name="help-circle-outline" size={30} color={colors.ink} />
+            </Pressable>
+          ),
+        }}
+      />
 
       {loading ? null : (
-        <ScrollView
-          contentContainerClassName="w-full max-w-2xl self-center gap-6 px-5 pb-10 pt-4"
-          keyboardShouldPersistTaps="handled"
-        >
-          <ScreenTip id="cardEditor" />
+        <>
+          <ScrollView
+            className="flex-1"
+            contentContainerClassName="w-full max-w-2xl self-center gap-4 px-4 pb-8 pt-1"
+            keyboardShouldPersistTaps="handled"
+          >
+            {deckName ? (
+              <View className="flex-row items-center gap-1.5 px-1">
+                <Icon name="albums-outline" size={18} color={colors.muted} />
+                <Text className="flex-1 text-sm text-muted" numberOfLines={1}>
+                  {editing ? 'In ' : 'Adding to '}
+                  <Text className="font-semibold text-ink">{deckName}</Text>
+                </Text>
+              </View>
+            ) : null}
 
-          {/* Question */}
-          <View>
-            <SectionTitle icon="help-circle-outline" title="Question" />
-            <TextInput
-              value={front}
-              onChangeText={setFront}
-              placeholder="e.g. What is mitosis?"
-              placeholderTextColor={colors.faint}
-              multiline
-              autoFocus={!editing}
-              textAlignVertical="top"
-              accessibilityLabel="Question"
-              onFocus={() => setFrontFocused(true)}
-              onBlur={() => setFrontFocused(false)}
-              style={{
-                ...NO_WEB_FOCUS_RING,
-                borderWidth: 1.5,
-                borderColor: frontFocused ? colors.primary : colors.line,
-              }}
-              className="min-h-20 rounded-xl bg-white px-4 py-3 text-base text-ink"
-            />
-            <AttachSection
-              side="front"
-              items={sideItems('front')}
-              onRemove={remove}
-              onAttach={attach}
-              onRecord={() => setRecordingSide('front')}
-            />
-          </View>
+            <ScreenTip id="cardEditor" />
 
-          {/* Answer */}
-          <View>
-            <SectionTitle icon="bulb-outline" title="Answer" />
-            <RichTextInput
-              value={back}
-              onChangeText={setBack}
-              placeholder="e.g. Cell division into two identical cells. Use the toolbar for headings, **bold**, lists…"
-            />
-            <AttachSection
-              side="back"
-              items={sideItems('back')}
-              onRemove={remove}
-              onAttach={attach}
-              onRecord={() => setRecordingSide('back')}
-            />
-          </View>
+            {/* Question */}
+            <SectionCard icon="help" title="Question" accent="primary" filled={front.trim().length > 0}>
+              <TextInput
+                value={front}
+                onChangeText={setFront}
+                placeholder="e.g. What is mitosis?"
+                placeholderTextColor={colors.faint}
+                multiline
+                autoFocus={!editing}
+                textAlignVertical="top"
+                accessibilityLabel="Question"
+                onFocus={() => setFrontFocused(true)}
+                onBlur={() => setFrontFocused(false)}
+                style={{
+                  ...NO_WEB_FOCUS_RING,
+                  borderWidth: 1.5,
+                  borderColor: frontFocused ? colors.primary : colors.line,
+                }}
+                className="min-h-20 rounded-xl bg-white px-4 py-3 text-lg text-ink"
+              />
+              <AttachSection
+                side="front"
+                items={sideItems('front')}
+                onRemove={remove}
+                onAttach={attach}
+                onRecord={() => setRecordingSide('front')}
+              />
+            </SectionCard>
 
-          <View className="flex-row gap-3">
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              className="flex-1 items-center rounded-xl border border-line bg-white py-3.5 active:bg-surface"
-            >
-              <Text className="text-base font-semibold text-ink">Cancel</Text>
-            </Pressable>
-            <Pressable
-              disabled={!canSave}
-              onPress={save}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !canSave }}
-              className={`flex-1 items-center rounded-xl py-3.5 ${canSave ? 'bg-cta active:bg-cta-dark' : 'bg-cta/40'}`}
-            >
-              <Text className="text-base font-semibold text-white">{saving ? 'Saving…' : 'Save'}</Text>
-            </Pressable>
+            {/* Answer */}
+            <SectionCard icon="chatbox-ellipses" title="Answer" accent="calm" filled={back.trim().length > 0}>
+              <RichTextInput
+                value={back}
+                onChangeText={setBack}
+                accent={colors.calm}
+                placeholder="e.g. Cell division into two identical cells. Select text and use the toolbar to format it."
+              />
+              <AttachSection
+                side="back"
+                items={sideItems('back')}
+                onRemove={remove}
+                onAttach={attach}
+                onRecord={() => setRecordingSide('back')}
+              />
+            </SectionCard>
+          </ScrollView>
+
+          {/* Actions stay on screen while you scroll and type. */}
+          <View className="border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+            <View className="w-full max-w-2xl self-center">
+              {missing ? (
+                <Text className="mb-2 text-center text-xs text-muted">Add {missing} to save this card</Text>
+              ) : null}
+              <View className="flex-row gap-3">
+                <Pressable
+                  onPress={() => router.back()}
+                  accessibilityRole="button"
+                  className="flex-1 items-center justify-center rounded-2xl border border-line bg-white py-4 active:bg-surface"
+                >
+                  <Text className="text-base font-semibold text-ink">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  disabled={!canSave}
+                  onPress={save}
+                  accessibilityRole="button"
+                  accessibilityLabel="Save"
+                  accessibilityState={{ disabled: !canSave }}
+                  style={{ flex: 1.4 }}
+                  className={`flex-row items-center justify-center gap-2 rounded-2xl py-4 ${
+                    canSave ? 'bg-cta active:bg-cta-dark' : 'bg-cta/40'
+                  }`}
+                >
+                  <Icon name={saving ? 'hourglass-outline' : 'checkmark'} size={24} color={colors.white} />
+                  <Text className="text-base font-semibold text-white">{saving ? 'Saving…' : 'Save'}</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
-        </ScrollView>
+        </>
       )}
 
       <AudioRecorderModal
@@ -227,11 +284,41 @@ export default function CardEditorScreen() {
   );
 }
 
-function SectionTitle({ icon, title }: { icon: IconName; title: string }) {
+type Accent = 'primary' | 'calm';
+
+const ACCENTS: Record<Accent, { color: string; chip: string }> = {
+  primary: { color: colors.primary, chip: 'bg-primary-soft active:bg-primary/20' },
+  calm: { color: colors.calm, chip: 'bg-calm-soft active:bg-calm/20' },
+};
+
+/** A white card holding one side of the flashcard, with a coloured icon and a tick once it's filled in. */
+function SectionCard({
+  icon,
+  title,
+  accent,
+  filled,
+  children,
+}: {
+  icon: IconName;
+  title: string;
+  accent: Accent;
+  filled: boolean;
+  children: ReactNode;
+}) {
   return (
-    <View className="mb-2 flex-row items-center gap-1.5">
-      <Icon name={icon} size={20} color={colors.primary} />
-      <Text className="text-base font-bold text-ink">{title}</Text>
+    <View className="rounded-3xl border border-line bg-white p-4 shadow-sm">
+      <View className="mb-3 flex-row items-center gap-2.5">
+        <View className="h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: ACCENTS[accent].color }}>
+          <Icon name={icon} size={22} color={colors.white} />
+        </View>
+        <Text className="flex-1 text-lg font-bold text-ink">{title}</Text>
+        {filled ? (
+          <Icon name="checkmark-circle" size={24} color={colors.calm} />
+        ) : (
+          <Text className="text-xs font-semibold text-muted">Required</Text>
+        )}
+      </View>
+      {children}
     </View>
   );
 }
@@ -257,6 +344,7 @@ function AttachSection({
   onRecord: () => void;
 }) {
   const sideName = side === 'front' ? 'question' : 'answer';
+  const accent = ACCENTS[side === 'front' ? 'primary' : 'calm'];
   return (
     <View className="mt-3 gap-3">
       <View className="flex-row flex-wrap gap-2">
@@ -266,9 +354,9 @@ function AttachSection({
             onPress={() => (button.pick ? onAttach(side, button.pick) : onRecord())}
             accessibilityRole="button"
             accessibilityLabel={`Add ${button.label.toLowerCase()} to ${sideName}`}
-            className="flex-row items-center gap-1.5 rounded-full border border-line bg-white px-3 py-2 active:bg-surface"
+            className={`flex-row items-center gap-1.5 rounded-full px-3.5 py-2 ${accent.chip}`}
           >
-            <Icon name={button.icon} size={18} color={colors.primary} />
+            <Icon name={button.icon} size={18} color={accent.color} />
             <Text className="text-sm font-semibold text-ink">{button.label}</Text>
           </Pressable>
         ))}

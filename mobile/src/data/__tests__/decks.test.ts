@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { createCard } from '@/data/cards';
 import { migrateDbIfNeeded } from '@/data/db';
 import {
+  addStudyTime,
   createDeck,
   deleteDeck,
   getDeck,
@@ -124,11 +125,24 @@ describe('continue studying', () => {
 describe('migrations', () => {
   it('sets the schema version and can run again safely', async () => {
     const before = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    expect(before?.user_version).toBe(5);
+    expect(before?.user_version).toBe(6);
 
     await migrateDbIfNeeded(db); // second run should do nothing
 
     const after = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    expect(after?.user_version).toBe(5);
+    expect(after?.user_version).toBe(6);
+  });
+});
+
+describe('study time', () => {
+  it('adds up the time spent studying a deck', async () => {
+    const id = await createDeck(db, { name: 'Bio' });
+    expect((await getDeck(db, id))?.studySeconds).toBe(0);
+
+    await addStudyTime(db, id, 42);
+    await addStudyTime(db, id, 18);
+    await addStudyTime(db, id, 0);
+
+    expect((await getDeck(db, id))?.studySeconds).toBe(60);
   });
 });

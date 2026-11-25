@@ -2,11 +2,15 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import {
   dismissTip,
+  getAutoNext,
+  getAutoNextPauseOnAnswer,
   getSetting,
   hasSeenWelcome,
   isTipDismissed,
   markWelcomeSeen,
   resetTips,
+  setAutoNext,
+  setAutoNextPauseOnAnswer,
   setSetting,
   SETTINGS,
 } from '@/data/settings';
@@ -49,5 +53,29 @@ describe('settings', () => {
     expect(await isTipDismissed(db, 'deck')).toBe(false);
     // Other settings are kept.
     expect(await hasSeenWelcome(db)).toBe(true);
+  });
+});
+
+describe('time per card', () => {
+  it('is off until set, and is saved per deck', async () => {
+    expect(await getAutoNext(db, 'deck-1')).toBe(0);
+
+    await setAutoNext(db, 'deck-1', 30);
+    expect(await getAutoNext(db, 'deck-1')).toBe(30);
+    expect(await getAutoNext(db, 'deck-2')).toBe(0);
+
+    await setAutoNext(db, 'deck-1', 0);
+    expect(await getAutoNext(db, 'deck-1')).toBe(0);
+  });
+});
+
+describe('pause on answer', () => {
+  it('is off until turned on, per deck', async () => {
+    expect(await getAutoNextPauseOnAnswer(db, 'deck-1')).toBe(false);
+    await setAutoNextPauseOnAnswer(db, 'deck-1', true);
+    expect(await getAutoNextPauseOnAnswer(db, 'deck-1')).toBe(true);
+    expect(await getAutoNextPauseOnAnswer(db, 'deck-2')).toBe(false);
+    await setAutoNextPauseOnAnswer(db, 'deck-1', false);
+    expect(await getAutoNextPauseOnAnswer(db, 'deck-1')).toBe(false);
   });
 });
