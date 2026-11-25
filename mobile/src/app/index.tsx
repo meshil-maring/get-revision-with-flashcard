@@ -1,12 +1,22 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
-import { DeckFormModal } from '@/components/deck-form-modal';
+import { FormModal, type FormField } from '@/components/form-modal';
 import { createDeck, deleteDeck, listDecks, updateDeck } from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';
 import { confirm } from '@/lib/confirm';
+
+const DECK_FIELDS: FormField[] = [
+  { key: 'name', label: 'Name', placeholder: 'e.g. Biology – Cells', required: true },
+  {
+    key: 'description',
+    label: 'Description',
+    placeholder: 'What is this deck about?',
+    multiline: true,
+  },
+];
 
 type FormState = { mode: 'closed' } | { mode: 'create' } | { mode: 'edit'; deck: DeckWithCount };
 
@@ -26,11 +36,12 @@ export default function HomeScreen() {
     }, [refresh]),
   );
 
-  async function handleSave(values: { name: string; description: string }) {
+  async function handleSave(values: Record<string, string>) {
+    const input = { name: values.name, description: values.description };
     if (form.mode === 'create') {
-      await createDeck(db, values);
+      await createDeck(db, input);
     } else if (form.mode === 'edit') {
-      await updateDeck(db, form.deck.id, values);
+      await updateDeck(db, form.deck.id, input);
     }
     setForm({ mode: 'closed' });
     await refresh();
@@ -61,7 +72,10 @@ export default function HomeScreen() {
           </View>
         }
         renderItem={({ item: deck }) => (
-          <View className="rounded-2xl border border-slate-200 bg-white p-4">
+          <Pressable
+            onPress={() => router.push({ pathname: '/deck/[id]', params: { id: deck.id } })}
+            className="rounded-2xl border border-slate-200 bg-white p-4 active:bg-slate-100"
+          >
             <Text className="text-lg font-semibold text-slate-900">{deck.name}</Text>
             {deck.description ? (
               <Text className="mt-1 text-slate-600" numberOfLines={2}>
@@ -81,7 +95,7 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </Pressable>
         )}
       />
 
@@ -92,11 +106,13 @@ export default function HomeScreen() {
         <Text className="text-base font-semibold text-white">+ New deck</Text>
       </Pressable>
 
-      <DeckFormModal
+      <FormModal
         visible={form.mode !== 'closed'}
         title={form.mode === 'edit' ? 'Edit deck' : 'New deck'}
-        initialName={form.mode === 'edit' ? form.deck.name : ''}
-        initialDescription={form.mode === 'edit' ? form.deck.description : ''}
+        fields={DECK_FIELDS}
+        initialValues={
+          form.mode === 'edit' ? { name: form.deck.name, description: form.deck.description } : {}
+        }
         onCancel={() => setForm({ mode: 'closed' })}
         onSave={handleSave}
       />
