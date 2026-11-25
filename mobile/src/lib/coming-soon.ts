@@ -14,11 +14,6 @@ export const COMING_SOON = {
     icon: 'chatbubble-ellipses-outline',
     text: 'Soon an AI tutor will quiz you and explain what you got wrong.',
   },
-  notes: {
-    title: 'Notes',
-    icon: 'document-text-outline',
-    text: 'Soon you can write study notes here and turn them into flashcards.',
-  },
   notifications: {
     title: 'Notifications',
     icon: 'notifications-outline',

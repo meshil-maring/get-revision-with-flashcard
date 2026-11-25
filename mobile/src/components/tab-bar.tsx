@@ -100,7 +100,7 @@ function CreateMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
       icon: 'document-text-outline',
       title: 'New note',
       subtitle: 'Write study notes',
-      onPress: () => router.push(comingSoonHref('notes')),
+      onPress: () => router.push('/note-editor'),
     },
     {
       icon: 'sparkles-outline',

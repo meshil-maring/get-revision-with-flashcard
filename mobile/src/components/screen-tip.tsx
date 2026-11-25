@@ -21,6 +21,11 @@ export const TIPS = {
     text: 'Tap a deck to add cards, ▶ to study it, or Create revision to mix several decks together.',
     topic: 'decks',
   },
+  notes: {
+    title: 'Folders inside folders',
+    text: 'Make a folder for each class, then add subjects, chapters and topics inside it. Write notes at any level.',
+    topic: 'notes',
+  },
   deck: {
     title: 'Test yourself here too',
     text: 'Answers stay hidden until you tap them. Use the star to save a card to Favourites.',

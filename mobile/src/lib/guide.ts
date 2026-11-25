@@ -31,8 +31,9 @@ export const GUIDE_TOPICS: GuideTopic[] = [
 
 ## Finding your way
 - **Home**: continue your last deck, your subjects, and your study streak
+- **Notes**: study notes in folders, like Class 10 › Physics › Chapter 1
 - **Flashcards**: all your decks, Create revision and Favourites
-- **+ button**: quick shortcuts to make a new deck or a revision
+- **+ button**: quick shortcuts to make a new deck, a revision or a note
 - **More**: favourites, the app tour, and this guide
 
 ==Tip:== short, focused cards work best. One fact per card is easier to remember than a long paragraph.`,
@@ -132,6 +133,64 @@ Remove one before saving with the red **×** next to it. Tap **Save** to keep yo
 ==Ideas:== label a diagram as the question, record how to pronounce a word in a new language, or attach the page of notes the card comes from.
 
 Files are copied into NoteMe, so they stay even if you delete the original from your phone.`,
+  },
+  {
+    id: 'notes',
+    section: 'Basics',
+    icon: 'document-text-outline',
+    title: 'Notes and folders',
+    summary: 'Write study notes and keep them in folders inside folders.',
+    body: `The **Notes** tab keeps your study notes in **folders**. A folder can hold other folders, as many levels deep as you need.
+
+## Set up your folders
+For school, one way that works well:
+1. **Class**: make a folder like "Class 10".
+2. **Subject**: open it and add a folder for each subject, like "Physics".
+3. **Chapter**: inside a subject, add a folder for each chapter.
+4. **Topic**: inside a chapter, add a folder for each topic, then write notes in it.
+
+You can use any names and any number of levels, like Semester › Course › Unit.
+
+## Write a note
+1. Open a folder and tap **New note**.
+2. Give it a title and write. Use the toolbar for headings, **bold**, highlights and lists.
+3. Add pictures, PDFs or a voice note under **Attachments**, then tap **Save**.
+
+## Rename, delete and search
+- Tap **⋮** on a folder to rename or delete it. ==Deleting a folder also deletes everything in it.==
+- Use the search box at the top of the Notes tab to find any note or folder.`,
+  },
+  {
+    id: 'cornell',
+    section: 'Basics',
+    icon: 'grid-outline',
+    title: 'Cornell notes',
+    summary: 'A note-taking layout that is made for revising.',
+    body: `**Cornell notes** split a page into three parts:
+- **Cues** on the left: keywords or questions
+- **Notes** on the right: the details for each cue
+- **Summary** at the bottom: the main ideas in a few lines, in your own words
+
+## Use them
+1. In a new note, choose **Cornell** at the top.
+2. Write a cue and its notes in each row. Tap **Add row** for more.
+3. Write the summary after class, while it is fresh.
+
+==Tip:== to revise, cover the notes side and answer each cue from memory.
+
+You can switch a note between Plain and Cornell at any time. Nothing you wrote is lost.`,
+  },
+  {
+    id: 'notes-to-cards',
+    section: 'Basics',
+    icon: 'copy-outline',
+    title: 'Turn notes into flashcards',
+    summary: 'Make cards from a note in a few taps.',
+    body: `Open a note and tap **Make flashcards**. NoteMe finds cards in your note:
+- **Cornell notes**: each cue becomes a question, and its notes become the answer.
+- **Plain notes**: a line like "Speed: distance ÷ time" becomes a card, and so does each heading with the text under it.
+
+Check the cards, change any you like, and untick the ones you do not want. You can also add cards of your own. Then choose a deck (or make a new one) and tap **Add**.`,
   },
   {
     id: 'studying',
@@ -251,14 +310,13 @@ A card counts once per session when you rate it.
     icon: 'phone-portrait-outline',
     title: 'Your data',
     summary: 'Where your decks are kept, and what is coming next.',
-    body: `Right now you use NoteMe as a **guest**. Your decks, cards, files and progress are saved ==only on this device==.
+    body: `Right now you use NoteMe as a **guest**. Your decks, cards, notes, files and progress are saved ==only on this device==.
 - They stay when you close the app or restart your phone.
 - They are deleted if you uninstall the app or clear its data.
 
 ## Coming soon
 - **Sign in** to back up your decks and use them on other devices
-- **AI**: ask Claude, ChatGPT or Gemini to make notes and flashcards for you
-- **Notes**: write study notes next to your flashcards`,
+- **AI**: ask Claude, ChatGPT or Gemini to make notes and flashcards for you`,
   },
   {
     id: 'faq',

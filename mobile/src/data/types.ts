@@ -36,6 +36,66 @@ export type FavoriteCard = Card & { deckName: string };
 export type AttachmentKind = 'image' | 'pdf' | 'audio';
 export type CardSide = 'front' | 'back';
 
+// --- Notes ---------------------------------------------------------------------
+
+/** A folder of notes. Folders can hold folders, to any depth (Class → Subject → Chapter → Topic). */
+export type Folder = {
+  id: string;
+  parentId: string | null; // null = top level
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+/** A folder with how many folders and notes are directly inside it. */
+export type FolderWithCounts = Folder & { folderCount: number; noteCount: number };
+
+/** A folder on the way to another one, for showing "Class 10 › Physics". */
+export type FolderCrumb = { id: string; name: string };
+
+/** plain = one page of text; cornell = cue / notes rows with a summary at the bottom. */
+export type NoteStyle = 'plain' | 'cornell';
+
+/** One row of a Cornell note: a cue (keyword or question) and the notes next to it. */
+export type CornellRow = { cue: string; notes: string };
+
+export type Note = {
+  id: string;
+  folderId: string | null; // null = top level
+  title: string;
+  style: NoteStyle;
+  body: string; // plain notes, light formatting (see src/lib/rich-text.ts)
+  rows: CornellRow[]; // Cornell notes
+  summary: string; // Cornell notes
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type NoteInput = {
+  title: string;
+  style: NoteStyle;
+  body?: string;
+  rows?: CornellRow[];
+  summary?: string;
+};
+
+/** A note found by search, with the folders it is in. */
+export type NoteSearchResult = Note & { path: FolderCrumb[] };
+/** A folder found by search, with the folders it is in. */
+export type FolderSearchResult = Folder & { path: FolderCrumb[] };
+
+export type NoteAttachment = {
+  id: string;
+  noteId: string;
+  kind: AttachmentKind;
+  uri: string;
+  name: string;
+  mimeType: string | null;
+  createdAt: string;
+};
+
 export type Attachment = {
   id: string;
   cardId: string;

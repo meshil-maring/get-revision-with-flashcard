@@ -29,10 +29,22 @@ type Props = {
   placeholder?: string;
   /** Border colour while typing (defaults to the primary blue). */
   accent?: string;
+  /** What screen readers call the text box. */
+  label?: string;
+  /** Smaller box, for several of them on one screen (Cornell note rows). */
+  compact?: boolean;
 };
 
 /** A text box with a formatting toolbar (headings, bold, underline, highlight, lists) and a preview. */
-export function RichTextInput({ value, onChangeText, placeholder, accent = colors.primary }: Props) {
+export function RichTextInput({
+  value,
+  onChangeText,
+  placeholder,
+  accent = colors.primary,
+  label = 'Answer',
+  compact = false,
+}: Props) {
+  const minHeight = compact ? 'min-h-20' : 'min-h-32';
   const selection = useRef<Selection>({ start: value.length, end: value.length });
   // Set only right after a toolbar edit, to put the cursor in the right place; then let the user move it.
   const [forcedSelection, setForcedSelection] = useState<Selection | undefined>(undefined);
@@ -79,7 +91,7 @@ export function RichTextInput({ value, onChangeText, placeholder, accent = color
       </View>
 
       {preview ? (
-        <View className="min-h-32 bg-white px-4 py-3">
+        <View className={`${minHeight} bg-white px-4 py-3`}>
           {value.trim() ? <RichText text={value} /> : <Text className="text-base text-muted">Nothing to preview yet</Text>}
         </View>
       ) : (
@@ -97,9 +109,9 @@ export function RichTextInput({ value, onChangeText, placeholder, accent = color
           }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          accessibilityLabel="Answer"
+          accessibilityLabel={label}
           style={NO_WEB_FOCUS_RING}
-          className="min-h-32 bg-white px-4 py-3 text-base text-ink"
+          className={`${minHeight} bg-white px-4 py-3 text-base text-ink`}
         />
       )}
     </View>

@@ -66,6 +66,42 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE decks ADD COLUMN study_seconds INTEGER NOT NULL DEFAULT 0;
   `,
+  // v7: notes in folders that can be nested to any depth (e.g. Class → Subject → Chapter → Topic)
+  `
+  CREATE TABLE IF NOT EXISTS folders (
+    id          TEXT PRIMARY KEY NOT NULL,
+    parent_id   TEXT REFERENCES folders(id), -- null = top level
+    name        TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    deleted_at  TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders(parent_id);
+  CREATE TABLE IF NOT EXISTS notes (
+    id           TEXT PRIMARY KEY NOT NULL,
+    folder_id    TEXT REFERENCES folders(id), -- null = top level
+    title        TEXT NOT NULL,
+    style        TEXT NOT NULL DEFAULT 'plain', -- 'plain' | 'cornell'
+    body         TEXT NOT NULL DEFAULT '',      -- plain notes (light formatting)
+    cornell_rows TEXT NOT NULL DEFAULT '[]',    -- Cornell notes: JSON [{ "cue": "", "notes": "" }]
+    summary      TEXT NOT NULL DEFAULT '',      -- Cornell notes: summary at the bottom
+    created_at   TEXT NOT NULL,
+    updated_at   TEXT NOT NULL,
+    deleted_at   TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_notes_folder_id ON notes(folder_id);
+  CREATE TABLE IF NOT EXISTS note_attachments (
+    id          TEXT PRIMARY KEY NOT NULL,
+    note_id     TEXT NOT NULL REFERENCES notes(id),
+    kind        TEXT NOT NULL, -- 'image' | 'pdf' | 'audio'
+    uri         TEXT NOT NULL,
+    name        TEXT NOT NULL DEFAULT '',
+    mime_type   TEXT,
+    created_at  TEXT NOT NULL,
+    deleted_at  TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_note_attachments_note_id ON note_attachments(note_id);
+  `,
 ];
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */
