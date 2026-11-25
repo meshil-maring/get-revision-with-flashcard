@@ -56,7 +56,7 @@ jest.mock('@/data/cards');
 jest.mock('@/data/settings', () => ({ ...jest.requireActual('@/data/settings'), isTipDismissed: jest.fn() }));
 jest.mock('@/lib/confirm', () => ({ confirm: jest.fn(() => Promise.resolve(true)) }));
 // The recorder needs the microphone; it isn't opened in these tests.
-jest.mock('@/components/audio-recorder', () => ({ AudioRecorderModal: () => null }));
+jest.mock('@/components/cards/audio-recorder', () => ({ AudioRecorderModal: () => null }));
 
 const NOW = '2026-01-01T00:00:00.000Z';
 

@@ -19,6 +19,20 @@ Tables are created/upgraded on start-up.
 
 Point the app at the server with `EXPO_PUBLIC_API_URL` in `mobile/.env` (see `mobile/.env.example`).
 
+## Folders
+
+```
+src/
+  server.ts       starts the server
+  app.ts          the Hono app: CORS, health, mounts the routes below
+  env.ts          settings from environment variables
+  auth/           Better Auth setup, requireSession middleware
+  sync/           POST /api/sync: request checks (routes.ts) and the sync itself (sync.ts)
+  db/             Drizzle: connection + migrations (client.ts), tables (schema.ts, auth-schema.ts)
+drizzle/          generated SQL migrations
+test/             API tests (Vitest, in-memory Postgres)
+```
+
 ## API
 
 | Route | What it does |

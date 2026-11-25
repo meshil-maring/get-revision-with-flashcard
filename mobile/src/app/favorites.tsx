@@ -3,7 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Pressable, SectionList, Text, View } from 'react-native';
 
-import { ScreenTip } from '@/components/screen-tip';
+import { ScreenTip } from '@/components/ui/screen-tip';
 import { Button, colors, DeckBadge, EmptyState, Icon, plural, RatingBadge } from '@/components/ui';
 import { listFavoriteCards, setFavorite } from '@/data/cards';
 import type { FavoriteCard } from '@/data/types';

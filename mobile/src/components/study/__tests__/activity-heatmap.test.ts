@@ -1,4 +1,4 @@
-import { activityLevel } from '@/components/activity-heatmap';
+import { activityLevel } from '@/components/study/activity-heatmap';
 
 describe('activityLevel', () => {
   it('maps cards studied to a shade from 0 to 4', () => {

@@ -3,7 +3,7 @@ import { createAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import { API_URL } from './api';
+import { API_URL } from '@/services/api';
 
 // Sign-in with the NoteMe server. On phones the session is kept in the secure store.
 export const authClient = createAuthClient({

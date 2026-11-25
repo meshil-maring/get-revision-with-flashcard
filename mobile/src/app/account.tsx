@@ -12,11 +12,11 @@ import {
 } from 'react-native';
 
 import { Button, colors, Icon } from '@/components/ui';
-import { useAccount } from '@/lib/account';
-import { authClient } from '@/lib/auth-client';
+import { useAccount } from '@/providers/account';
+import { authClient } from '@/services/auth-client';
 import { confirm } from '@/lib/confirm';
 import { syncedAgo } from '@/lib/dates';
-import { fetchServerConfig } from '@/lib/sync-api';
+import { fetchServerConfig } from '@/services/sync-api';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 

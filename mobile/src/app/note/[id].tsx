@@ -4,10 +4,10 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AttachmentList } from '@/components/attachments';
-import { AiBadge, FolderPath } from '@/components/folder-browser';
-import { RichText } from '@/components/rich-text';
-import { TagChip } from '@/components/tag-chip';
+import { AttachmentList } from '@/components/cards/attachments';
+import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
+import { RichText } from '@/components/ui/rich-text';
+import { TagChip } from '@/components/tags/tag-chip';
 import { Button, colors, EmptyState, Icon, IconButton } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
 import { deleteNote, getNote, listNoteAttachments, setNoteFavorite } from '@/data/notes';

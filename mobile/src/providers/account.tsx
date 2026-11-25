@@ -4,8 +4,8 @@ import { AppState } from 'react-native';
 
 import { clearAccountData, countPendingChanges, getLastSyncedAt, runSync } from '@/data/sync';
 
-import { authClient } from './auth-client';
-import { postSync } from './sync-api';
+import { authClient } from '@/services/auth-client';
+import { postSync } from '@/services/sync-api';
 
 /** How often to sync while the app is open. */
 const SYNC_EVERY_MS = 2 * 60 * 1000;

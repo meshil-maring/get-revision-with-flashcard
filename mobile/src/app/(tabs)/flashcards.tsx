@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FormModal, type FormField } from '@/components/form-modal';
-import { ScreenTip } from '@/components/screen-tip';
+import { FormModal, type FormField } from '@/components/ui/form-modal';
+import { ScreenTip } from '@/components/ui/screen-tip';
 import { colors, DeckBadge, EmptyState, Icon, IconButton, plural } from '@/components/ui';
 import { createDeck, deleteDeck, listDecks, updateDeck } from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';

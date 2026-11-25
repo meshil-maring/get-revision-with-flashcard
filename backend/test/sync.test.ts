@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { Change, SyncResponse } from '../src/sync.ts';
+import type { Change, SyncResponse } from '../src/sync/sync.ts';
 import { createTestServer } from './helpers.ts';
 
 let server: Awaited<ReturnType<typeof createTestServer>>;

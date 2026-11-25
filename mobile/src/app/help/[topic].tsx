@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { GuideBody } from '@/components/guide-body';
+import { GuideBody } from '@/components/help/guide-body';
 import { colors, EmptyState, Icon } from '@/components/ui';
 import { findTopic, GUIDE_TOPICS } from '@/lib/guide';
 

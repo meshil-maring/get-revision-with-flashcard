@@ -24,7 +24,7 @@ jest.mock('@/data/settings');
 // Shuffle is on by default; keep the order in tests so they can check which card shows.
 jest.mock('@/lib/shuffle', () => ({ shuffle: jest.fn((items: unknown[]) => [...items]) }));
 // Replace the animated card with a plain one: these tests check the study flow, not the animation.
-jest.mock('@/components/flip-card', () => {
+jest.mock('@/components/cards/flip-card', () => {
   const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
   return {
     FlipCard: ({

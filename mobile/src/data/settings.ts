@@ -6,7 +6,7 @@ export const SETTINGS = {
   lastCustomAutoNext: 'last_custom_auto_next',
 } as const;
 
-// Screen tips are saved one key each, e.g. 'tip:study' (see components/screen-tip.tsx).
+// Screen tips are saved one key each, e.g. 'tip:study' (see components/ui/screen-tip.tsx).
 // Auto-next time per deck is saved as 'autoNext:<deckId>'.
 type SettingKey =
   | (typeof SETTINGS)[keyof typeof SETTINGS]

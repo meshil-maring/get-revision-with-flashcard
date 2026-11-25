@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { AutoNextPicker, autoNextShort, parseCustomTime } from '@/components/auto-next-picker';
+import { AutoNextPicker, autoNextShort, parseCustomTime } from '@/components/study/auto-next-picker';
 
 describe('parseCustomTime', () => {
   it('turns minutes and seconds into seconds, within 5 sec and 30 min', () => {

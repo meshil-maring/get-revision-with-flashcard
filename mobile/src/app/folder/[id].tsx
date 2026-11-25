@@ -3,7 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { FolderBadge, FolderBrowser, FolderPath } from '@/components/folder-browser';
+import { FolderBadge, FolderBrowser, FolderPath } from '@/components/notes/folder-browser';
 import { EmptyState } from '@/components/ui';
 import { getFolder, getFolderPath } from '@/data/folders';
 import type { Folder, FolderCrumb } from '@/data/types';

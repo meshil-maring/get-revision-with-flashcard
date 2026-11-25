@@ -1,5 +1,5 @@
 import { createApp } from '../src/app.ts';
-import { createAuth } from '../src/auth.ts';
+import { createAuth } from '../src/auth/auth.ts';
 import { openDatabase } from '../src/db/client.ts';
 import { readEnv } from '../src/env.ts';
 

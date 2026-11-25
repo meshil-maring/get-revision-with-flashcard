@@ -3,7 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 
-import { Centered, StudySession } from '@/components/study-session';
+import { Centered, StudySession } from '@/components/study/study-session';
 import { listCards } from '@/data/cards';
 import { getDeck, markDeckStudied } from '@/data/decks';
 import { getAutoNext, getAutoNextPauseOnAnswer } from '@/data/settings';

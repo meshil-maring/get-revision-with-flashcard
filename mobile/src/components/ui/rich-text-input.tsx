@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native';
 
-import { RichText } from '@/components/rich-text';
+import { RichText } from '@/components/ui/rich-text';
 import { colors, scaled } from '@/components/ui';
 import { toggleLinePrefix, wrapSelection, type Edit, type Selection } from '@/lib/rich-text';
 

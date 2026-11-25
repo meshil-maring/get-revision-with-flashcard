@@ -14,10 +14,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AttachmentList, type AttachmentItem } from '@/components/attachments';
-import { AudioRecorderModal } from '@/components/audio-recorder';
-import { ScreenTip } from '@/components/screen-tip';
-import { RichTextInput } from '@/components/rich-text-input';
+import { AttachmentList, type AttachmentItem } from '@/components/cards/attachments';
+import { AudioRecorderModal } from '@/components/cards/audio-recorder';
+import { ScreenTip } from '@/components/ui/screen-tip';
+import { RichTextInput } from '@/components/ui/rich-text-input';
 import { colors, Icon, type IconName } from '@/components/ui';
 import { addAttachment, deleteAttachment, listAttachmentsForCards } from '@/data/attachments';
 import { createCard, getCard, updateCard } from '@/data/cards';

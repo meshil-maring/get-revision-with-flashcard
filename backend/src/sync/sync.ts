@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import type { Db } from './db/client.ts';
+import type { Db } from '../db/client.ts';
 
 /** The app tables that are kept in step between devices and the server. */
 export const SYNCED_TABLES = ['decks', 'cards', 'folders', 'notes', 'tags', 'note_tags'] as const;

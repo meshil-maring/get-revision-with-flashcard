@@ -23,7 +23,7 @@ export type SyncResponse = {
   more: boolean;
 };
 
-/** Sends a sync request to the server (see lib/sync-api.ts). */
+/** Sends a sync request to the server (see services/sync-api.ts). */
 export type SyncTransport = (request: SyncRequest) => Promise<SyncResponse>;
 
 /** Rows per request; matches the server's limit. */

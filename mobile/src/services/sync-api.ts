@@ -1,7 +1,7 @@
 import type { SyncRequest, SyncResponse } from '@/data/sync';
 
-import { API_URL } from './api';
-import { authFetchOptions } from './auth-client';
+import { API_URL } from '@/services/api';
+import { authFetchOptions } from '@/services/auth-client';
 
 export class SyncHttpError extends Error {
   constructor(readonly status: number) {

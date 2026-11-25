@@ -3,8 +3,8 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Alert, Platform, ScrollView, Text, View } from 'react-native';
 
-import { NoteRow } from '@/components/folder-browser';
-import { TagFormModal } from '@/components/tag-form';
+import { NoteRow } from '@/components/notes/folder-browser';
+import { TagFormModal } from '@/components/tags/tag-form';
 import { EmptyState, Icon, IconButton, plural } from '@/components/ui';
 import { listNotesWithTag } from '@/data/notes';
 import { deleteTag, getTag, listTagsForNotes, TagNameTakenError, updateTag } from '@/data/tags';

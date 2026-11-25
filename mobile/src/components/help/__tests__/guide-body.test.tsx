@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react-native';
 
-import { GuideBody } from '@/components/guide-body';
+import { GuideBody } from '@/components/help/guide-body';
 
 const TEXT = `Intro with **flashcards** here.
 

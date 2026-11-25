@@ -1,56 +1,45 @@
-# Welcome to your Expo app 👋
+# NoteMe app
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo (React Native) + TypeScript, Expo Router, Uniwind (Tailwind), expo-sqlite.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run it
 
 ```bash
-npm run reset-project
+cd mobile
+npm install
+cp .env.example .env     # set EXPO_PUBLIC_API_URL if the server isn't on localhost
+npx expo start           # needs a development build: eas build --profile development
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+The app works without the server (guest mode). Sign-in and sync need `backend/` running.
 
-### Other setup steps
+```bash
+npm test                 # Jest (see TESTING.md)
+npx tsc --noEmit         # typecheck
+npx expo lint            # lint
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Folders
 
-## Learn more
+```
+src/
+  app/          screens; each file is a route (Expo Router). (tabs)/ is the bottom tab bar
+  components/
+    ui/         the shared kit: buttons, icons, colours (index.tsx), sheets, forms, rich text, tips
+    cards/      flashcard pieces: flip card, attachments, audio recorder
+    study/      study session, auto-next picker, activity grid
+    notes/      folder browser
+    tags/       tag chip, form and picker
+    help/       the in-app guide
+  data/         everything stored on the device (SQLite): one file per table, db.ts = migrations,
+                sync.ts = sync with the account
+  lib/          plain helpers with no React: dates, shuffle, revision, rich text, guide content…
+  hooks/        React hooks
+  services/     talking to the server: API URL, sign-in client, sync requests
+  providers/    app-wide React context: the signed-in account and its sync
+  test-utils/   in-memory database and router mock for tests
+  __tests__/screens/   screen tests (tests can't live in app/, every file there is a route)
+```
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Unit tests sit next to their code in `__tests__/` folders. Import with the `@/` alias (`@/components/ui`,
+`@/data/decks`), not relative paths.

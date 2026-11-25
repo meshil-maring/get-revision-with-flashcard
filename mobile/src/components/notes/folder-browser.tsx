@@ -4,9 +4,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { ActionSheet } from '@/components/action-sheet';
-import { TagRow } from '@/components/tag-chip';
-import { FormModal, type FormField } from '@/components/form-modal';
+import { ActionSheet } from '@/components/ui/action-sheet';
+import { TagRow } from '@/components/tags/tag-chip';
+import { FormModal, type FormField } from '@/components/ui/form-modal';
 import { colors, EmptyState, Icon, plural, scaled, subjectIcon } from '@/components/ui';
 import {
   countFolderContents,

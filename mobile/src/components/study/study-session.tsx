@@ -3,9 +3,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, Text, View } from 'react-native';
 
-import type { AttachmentItem } from '@/components/attachments';
-import { ScreenTip } from '@/components/screen-tip';
-import { FlipCard } from '@/components/flip-card';
+import type { AttachmentItem } from '@/components/cards/attachments';
+import { ScreenTip } from '@/components/ui/screen-tip';
+import { FlipCard } from '@/components/cards/flip-card';
 import {
   Button,
   colors,
@@ -24,7 +24,7 @@ import { addStudyTime } from '@/data/decks';
 import type { Attachment, Card, Rating } from '@/data/types';
 import { groupByRating, rankByTime, RATING_LABELS, SESSION_GROUP_LABELS, SESSION_GROUP_ORDER } from '@/lib/revision';
 import { shuffle } from '@/lib/shuffle';
-import { formatDuration, useStudyTimer } from '@/lib/use-study-timer';
+import { formatDuration, useStudyTimer } from '@/hooks/use-study-timer';
 
 type Props = {
   title: string;

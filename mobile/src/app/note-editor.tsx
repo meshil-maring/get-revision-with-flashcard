@@ -14,11 +14,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AttachmentList, type AttachmentItem } from '@/components/attachments';
-import { AudioRecorderModal } from '@/components/audio-recorder';
-import { FolderPath } from '@/components/folder-browser';
-import { RichTextInput } from '@/components/rich-text-input';
-import { TagPicker, type TagChoice } from '@/components/tag-picker';
+import { AttachmentList, type AttachmentItem } from '@/components/cards/attachments';
+import { AudioRecorderModal } from '@/components/cards/audio-recorder';
+import { FolderPath } from '@/components/notes/folder-browser';
+import { RichTextInput } from '@/components/ui/rich-text-input';
+import { TagPicker, type TagChoice } from '@/components/tags/tag-picker';
 import { colors, Icon, IconButton, type IconName } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
 import {

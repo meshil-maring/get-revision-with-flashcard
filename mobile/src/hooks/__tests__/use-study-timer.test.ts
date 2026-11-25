@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 
-import { formatDuration, formatStudyTotal, useStudyTimer } from '@/lib/use-study-timer';
+import { formatDuration, formatStudyTotal, useStudyTimer } from '@/hooks/use-study-timer';
 
 describe('formatDuration', () => {
   it('shows minutes and seconds, and hours once past an hour', () => {

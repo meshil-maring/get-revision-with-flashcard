@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect } from 'react';
 
-import { TabBar } from '@/components/tab-bar';
+import { TabBar } from '@/components/ui/tab-bar';
 import { colors } from '@/components/ui';
 import { hasSeenWelcome } from '@/data/settings';
 

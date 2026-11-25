@@ -3,9 +3,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
-import { AutoNextPicker, autoNextLabel, autoNextShort } from '@/components/auto-next-picker';
-import { ScreenTip } from '@/components/screen-tip';
-import { RichText } from '@/components/rich-text';
+import { AutoNextPicker, autoNextLabel, autoNextShort } from '@/components/study/auto-next-picker';
+import { ScreenTip } from '@/components/ui/screen-tip';
+import { RichText } from '@/components/ui/rich-text';
 import {
   Button,
   colors,
@@ -34,7 +34,7 @@ import {
 import type { Attachment, AttachmentKind, Card, Deck } from '@/data/types';
 import { confirm } from '@/lib/confirm';
 import { RATING_LABELS, ratingOf, type RatingFilter } from '@/lib/revision';
-import { formatStudyTotal } from '@/lib/use-study-timer';
+import { formatStudyTotal } from '@/hooks/use-study-timer';
 
 const KIND_ICONS: Record<AttachmentKind, IconName> = {
   image: 'image-outline',

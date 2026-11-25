@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { ScreenTip, TIPS } from '@/components/screen-tip';
+import { ScreenTip, TIPS } from '@/components/ui/screen-tip';
 import * as settings from '@/data/settings';
 import { GUIDE_TOPICS } from '@/lib/guide';
 import { mockRouter } from '@/test-utils/mock-router';

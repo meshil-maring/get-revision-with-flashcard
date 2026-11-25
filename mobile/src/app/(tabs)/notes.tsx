@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FavoriteStar, FolderBadge, FolderBrowser, folderSummary, NoteRow } from '@/components/folder-browser';
-import { ScreenTip } from '@/components/screen-tip';
-import { TagChip } from '@/components/tag-chip';
+import { FavoriteStar, FolderBadge, FolderBrowser, folderSummary, NoteRow } from '@/components/notes/folder-browser';
+import { ScreenTip } from '@/components/ui/screen-tip';
+import { TagChip } from '@/components/tags/tag-chip';
 import { colors, EmptyState, Icon } from '@/components/ui';
 import { listFavorites, noteText, searchNotes } from '@/data/notes';
 import { listTags, listTagsForNotes, searchTags } from '@/data/tags';

@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ScreenTip } from '@/components/screen-tip';
+import { ScreenTip } from '@/components/ui/screen-tip';
 import {
   colors,
   DeckBadge,
@@ -15,7 +15,7 @@ import {
   SectionHeader,
   SubjectIcon,
 } from '@/components/ui';
-import { ActivityHeatmap } from '@/components/activity-heatmap';
+import { ActivityHeatmap } from '@/components/study/activity-heatmap';
 import { listActivity } from '@/data/activity';
 import { listDecks, pickContinueDeck } from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';

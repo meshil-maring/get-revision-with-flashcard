@@ -4,10 +4,10 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import AccountScreen from '@/app/account';
 import { createDeck, listDecks } from '@/data/decks';
 import { countPendingChanges } from '@/data/sync';
-import { AccountProvider } from '@/lib/account';
-import { authClient } from '@/lib/auth-client';
+import { AccountProvider } from '@/providers/account';
+import { authClient } from '@/services/auth-client';
 import { confirm } from '@/lib/confirm';
-import { fetchServerConfig, postSync } from '@/lib/sync-api';
+import { fetchServerConfig, postSync } from '@/services/sync-api';
 import { mockRouter } from '@/test-utils/mock-router';
 import { createTestDb } from '@/test-utils/test-db';
 
@@ -16,7 +16,7 @@ let mockSession: { user: { id: string; name: string; email: string } } | null = 
 
 jest.mock('expo-router', () => jest.requireActual('@/test-utils/mock-router').mockRouter);
 jest.mock('expo-sqlite', () => ({ useSQLiteContext: () => mockDb }));
-jest.mock('@/lib/auth-client', () => ({
+jest.mock('@/services/auth-client', () => ({
   authClient: {
     useSession: () => ({ data: mockSession, isPending: false }),
     signIn: { email: jest.fn(), social: jest.fn() },
@@ -24,7 +24,7 @@ jest.mock('@/lib/auth-client', () => ({
     signOut: jest.fn(async () => ({})),
   },
 }));
-jest.mock('@/lib/sync-api', () => ({
+jest.mock('@/services/sync-api', () => ({
   postSync: jest.fn(async () => ({ cursor: 1, changes: [], more: false })),
   fetchServerConfig: jest.fn(async () => ({ google: false })),
 }));

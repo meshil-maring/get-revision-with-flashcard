@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { AttachmentList, type AttachmentItem } from '@/components/attachments';
-import { RichText } from '@/components/rich-text';
+import { AttachmentList, type AttachmentItem } from '@/components/cards/attachments';
+import { RichText } from '@/components/ui/rich-text';
 import { colors, Icon } from '@/components/ui';
 
 type Props = {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View, type TextStyle } from 'react-native';
 
-import { TagChip } from '@/components/tag-chip';
+import { TagChip } from '@/components/tags/tag-chip';
 import { colors, Icon } from '@/components/ui';
 import type { Tag, TagColor } from '@/data/types';
 import { nextTagColor } from '@/lib/tags';

@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { colors } from '@/components/ui';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/data/db';
-import { AccountProvider } from '@/lib/account';
+import { AccountProvider } from '@/providers/account';
 import { headerOptions } from '@/lib/header-options';
 
 // The bottom tabs (Home, Notes, Flashcards, More) live in (tabs)/.
@@ -15,7 +15,7 @@ import { headerOptions } from '@/lib/header-options';
 export default function RootLayout() {
   return (
     <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
-      {/* Signed-in user and sync with their account (lib/account.tsx). */}
+      {/* Signed-in user and sync with their account (providers/account.tsx). */}
       <AccountProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ ...headerOptions, contentStyle: { backgroundColor: colors.page } }}>

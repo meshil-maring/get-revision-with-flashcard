@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 
 import { createApp } from './app.ts';
-import { createAuth } from './auth.ts';
+import { createAuth } from './auth/auth.ts';
 import { openDatabase } from './db/client.ts';
 import { readEnv } from './env.ts';
 

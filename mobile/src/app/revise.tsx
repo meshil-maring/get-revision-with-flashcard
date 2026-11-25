@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 
-import { StudySession } from '@/components/study-session';
+import { StudySession } from '@/components/study/study-session';
 import { listCardsForDecks, listFavoriteCards } from '@/data/cards';
 import { listDecks } from '@/data/decks';
 import type { Card } from '@/data/types';

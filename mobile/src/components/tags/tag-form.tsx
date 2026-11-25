@@ -10,7 +10,7 @@ import {
   type TextStyle,
 } from 'react-native';
 
-import { TagChip } from '@/components/tag-chip';
+import { TagChip } from '@/components/tags/tag-chip';
 import { colors, Icon } from '@/components/ui';
 import type { TagColor } from '@/data/types';
 import { TAG_COLORS } from '@/lib/tags';

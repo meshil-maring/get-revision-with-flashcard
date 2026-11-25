@@ -34,7 +34,7 @@
 /*
  * App size. Everything is drawn smaller than Tailwind's defaults to keep the
  * screens compact. To make the whole app bigger or smaller, change these values
- * and SCALE in src/components/ui.tsx (icons) together.
+ * and SCALE in src/components/ui/index.tsx (icons) together.
  */
 @theme {
   /* Spacing: padding, margins, gaps, widths/heights like w-12. Default 0.25rem (60% of it). */

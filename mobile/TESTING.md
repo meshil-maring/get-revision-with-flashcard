@@ -14,7 +14,9 @@ npx jest --watch    # re-run tests when files change
 | Shuffle | `src/lib/__tests__/shuffle.test.ts` | keeps all items, doesn't change the input |
 | Streaks and dates | `src/lib/__tests__/dates.test.ts` | local day keys, current streak (incl. not-yet-studied today), best streak |
 | Study activity | `src/data/__tests__/activity.test.ts` | cards reviewed per local day |
-| Activity grid | `src/components/__tests__/activity-heatmap.test.ts` | shade level per number of cards |
+| Sync | `src/data/__tests__/sync.test.ts` | outbox triggers, guest data moves into the account, only changes are sent, newest edit wins, soft deletes, clear on sign-out, failed request keeps the outbox |
+| Activity grid | `src/components/study/__tests__/activity-heatmap.test.ts` | shade level per number of cards |
+| Account screen | `src/__tests__/screens/account.test.tsx` | sign in, server errors, sign-up checks, Google only when available, sync on sign-in, sync errors, sign out clears the device, warns about unsent changes |
 | Home screen | `src/__tests__/screens/home.test.tsx` | continue studying, subjects, empty state, coming-soon links |
 | Flashcards screen | `src/__tests__/screens/flashcards.test.tsx` | empty state, deck list, create deck, name required, open form from + menu |
 | Study screen | `src/__tests__/screens/study.test.tsx` | flip, next/previous, finish, study again, shuffle |

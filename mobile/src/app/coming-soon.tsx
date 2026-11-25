@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 
-import { ComingSoon } from '@/components/coming-soon';
+import { ComingSoon } from '@/components/ui/coming-soon';
 import { COMING_SOON, type ComingSoonFeature } from '@/lib/coming-soon';
 
 /** URL: /coming-soon?feature=ai */
