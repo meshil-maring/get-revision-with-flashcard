@@ -22,6 +22,8 @@ export default function RootLayout() {
           name="welcome"
           options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
         />
+        <Stack.Screen name="help/index" options={{ title: 'Help & guide' }} />
+        <Stack.Screen name="help/[topic]" options={{ title: 'Help' }} />
         <Stack.Screen name="favorites" options={{ title: 'Favourites' }} />
         <Stack.Screen name="card-editor" options={{ title: '', presentation: 'modal' }} />
         <Stack.Screen name="coming-soon" options={{ title: '' }} />

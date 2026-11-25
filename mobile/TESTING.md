@@ -70,6 +70,9 @@ Before every commit: `npx tsc --noEmit && npx expo lint && npm test`
 - [ ] Fresh install: the welcome tour opens by itself; Next/Back/dots move between the 4 steps
 - [ ] Skip or Get started closes it, and it doesn't come back after restarting the app
 - [ ] More → App tour opens the tour again
+- [ ] More → Help & guide lists topics under Basics, Studying and Good to know
+- [ ] Search (e.g. "pdf", "streak") narrows the list; a nonsense word shows "Nothing found"
+- [ ] A topic shows headings, lists, bold and highlights; Previous/Next move through topics; back returns to the list
 
 **Create Revision**
 - [ ] Flashcards → Create revision: decks with no cards can't be selected; Select all / Clear work
