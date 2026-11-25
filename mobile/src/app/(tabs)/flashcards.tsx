@@ -119,6 +119,23 @@ export default function FlashcardsScreen() {
                 <Icon name="chevron-forward" size={20} color={colors.white} />
               </Pressable>
             ) : null}
+
+            {list.some((d) => d.cardCount > 0) ? (
+              <Pressable
+                onPress={() => router.push('/favorites')}
+                accessibilityRole="button"
+                className="mb-2 flex-row items-center gap-4 rounded-3xl border border-line bg-white p-4 active:bg-surface"
+              >
+                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-warning/20">
+                  <Icon name="star" size={24} color={colors.warning} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-lg font-bold text-ink">Favourites</Text>
+                  <Text className="text-sm text-muted">Your starred cards from every deck</Text>
+                </View>
+                <Icon name="chevron-forward" size={20} color={colors.muted} />
+              </Pressable>
+            ) : null}
           </View>
         }
         ListEmptyComponent={

@@ -1,7 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import type { Card } from './types';
+import type { Card, FavoriteCard, Rating } from './types';
 
 type CardRow = {
   id: string;
@@ -11,7 +11,12 @@ type CardRow = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  favorited_at: string | null;
+  rating: string | null;
+  rated_at: string | null;
 };
+
+const RATINGS: Rating[] = ['hard', 'ok', 'easy'];
 
 function toCard(row: CardRow): Card {
   return {
@@ -22,6 +27,9 @@ function toCard(row: CardRow): Card {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    favoritedAt: row.favorited_at,
+    rating: RATINGS.includes(row.rating as Rating) ? (row.rating as Rating) : null,
+    ratedAt: row.rated_at,
   };
 }
 
@@ -31,6 +39,11 @@ export async function listCards(db: SQLiteDatabase, deckId: string): Promise<Car
     deckId,
   );
   return rows.map(toCard);
+}
+
+export async function getCard(db: SQLiteDatabase, id: string): Promise<Card | null> {
+  const row = await db.getFirstAsync<CardRow>('SELECT * FROM cards WHERE id = ? AND deleted_at IS NULL', id);
+  return row ? toCard(row) : null;
 }
 
 /** Cards from several decks, grouped in the order the deck ids are given. */
@@ -83,4 +96,38 @@ export async function updateCard(
 export async function deleteCard(db: SQLiteDatabase, id: string): Promise<void> {
   const now = new Date().toISOString();
   await db.runAsync('UPDATE cards SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);
+}
+
+/**
+ * Marks a card as a favourite (or not). Like studying, this doesn't change
+ * updated_at, so the card's place in lists isn't affected.
+ */
+export async function setFavorite(db: SQLiteDatabase, id: string, favorite: boolean): Promise<void> {
+  await db.runAsync(
+    'UPDATE cards SET favorited_at = ? WHERE id = ?',
+    favorite ? new Date().toISOString() : null,
+    id,
+  );
+}
+
+/** Remembers how hard the card felt, for choosing cards in the next revision. */
+export async function rateCard(db: SQLiteDatabase, id: string, rating: Rating): Promise<void> {
+  await db.runAsync(
+    'UPDATE cards SET rating = ?, rated_at = ? WHERE id = ?',
+    rating,
+    new Date().toISOString(),
+    id,
+  );
+}
+
+/** Favourite cards from every deck, with their deck's name, newest favourite first. */
+export async function listFavoriteCards(db: SQLiteDatabase): Promise<FavoriteCard[]> {
+  const rows = await db.getAllAsync<CardRow & { deck_name: string }>(
+    `SELECT c.*, d.name AS deck_name
+       FROM cards c
+       JOIN decks d ON d.id = c.deck_id
+      WHERE c.favorited_at IS NOT NULL AND c.deleted_at IS NULL AND d.deleted_at IS NULL
+      ORDER BY c.favorited_at DESC`,
+  );
+  return rows.map((row) => ({ ...toCard(row), deckName: row.deck_name }));
 }

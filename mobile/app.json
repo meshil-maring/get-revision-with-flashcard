@@ -36,7 +36,19 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow NoteMe to record audio for your flashcards."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow NoteMe to add pictures from your library to your flashcards."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

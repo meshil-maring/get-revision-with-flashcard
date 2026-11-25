@@ -37,6 +37,24 @@ const MIGRATIONS: string[] = [
     cards INTEGER NOT NULL DEFAULT 0
   );
   `,
+  // v4: favourite cards, how hard a card felt last time, and files attached to cards
+  `
+  ALTER TABLE cards ADD COLUMN favorited_at TEXT;
+  ALTER TABLE cards ADD COLUMN rating TEXT; -- 'hard' | 'ok' | 'easy', null = not rated yet
+  ALTER TABLE cards ADD COLUMN rated_at TEXT;
+  CREATE TABLE IF NOT EXISTS attachments (
+    id          TEXT PRIMARY KEY NOT NULL,
+    card_id     TEXT NOT NULL REFERENCES cards(id),
+    side        TEXT NOT NULL, -- 'front' | 'back'
+    kind        TEXT NOT NULL, -- 'image' | 'pdf' | 'audio'
+    uri         TEXT NOT NULL,
+    name        TEXT NOT NULL DEFAULT '',
+    mime_type   TEXT,
+    created_at  TEXT NOT NULL,
+    deleted_at  TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_attachments_card_id ON attachments(card_id);
+  `,
 ];
 
 /** Runs once when the app opens the database (SQLiteProvider onInit). */

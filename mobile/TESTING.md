@@ -36,16 +36,26 @@ Before every commit: `npx tsc --noEmit && npx expo lint && npm test`
 
 **Cards**
 - [ ] Tap a deck: the Deck screen opens with its name in the header
-- [ ] Add a card: Save is disabled until both front and back are filled
+- [ ] Add a card: Save is disabled until both question and answer are filled
 - [ ] Edit and delete a card
+- [ ] Answers in the card list are hidden until you tap "Tap to show answer"
+- [ ] Star a card in the list: the star turns amber
+- [ ] Card editor toolbar: heading, subheading, bold, italic, underline, highlight, bullet and numbered list work; Preview shows the formatting
+- [ ] Attach an image, a PDF, a recorded voice note and an audio file to the question and to the answer; remove one before saving
+- [ ] After saving, the card shows small icons for its attachments
 - [ ] Go back to Home: the deck's card count is correct
 
 **Study**
 - [ ] The Study button only shows when the deck has cards
-- [ ] Tap the card: it flips to the answer and back
-- [ ] Next/Previous work, and every new card starts on the question
+- [ ] Only the question shows (no answer showing through) until Show answer or a tap on the card
+- [ ] After showing the answer, Hard / OK / Easy appear; rating moves to the next question
+- [ ] Previous works, and every new card starts on the question
+- [ ] Images open full screen, PDFs open in a viewer, audio plays and pauses
+- [ ] The star marks the card as a favourite
 - [ ] Shuffle on: the order changes and starts again at 1
-- [ ] After the last card, "Well done!" shows; Study again restarts
+- [ ] After the last card, the summary shows Hard/OK/Easy counts and the cards grouped by rating
+- [ ] Hard cards are pre-selected; Revise selected starts a round with just the picked cards; Study all again restarts
+- [ ] The deck list shows each card's latest rating
 
 **Home and navigation**
 - [ ] Bottom tabs: Home, Notes, Flashcards, More switch screens; the active tab is a blue pill
@@ -62,6 +72,8 @@ Before every commit: `npx tsc --noEmit && npx expo lint && npm test`
 - [ ] Flashcards → Create revision: decks with no cards can't be selected; Select all / Clear work
 - [ ] Start revision: cards from all picked decks appear, shuffled, with the deck name above each card
 - [ ] Back from the revision keeps the deck selection
+- [ ] Which cards? Turning ratings off (e.g. only Hard) and Favourites only change the card count and the cards in the revision
+- [ ] Flashcards → Favourites (and More → Favourite cards) lists starred cards grouped by deck; unstar removes one; Revise favourites starts them
 
 **Data and device**
 - [ ] Close the app completely and reopen it: decks and cards are still there

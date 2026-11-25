@@ -18,6 +18,8 @@ export default function RootLayout() {
       <Stack screenOptions={{ ...headerOptions, contentStyle: { backgroundColor: colors.page } }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="new-revision" options={{ title: 'Create Revision' }} />
+        <Stack.Screen name="favorites" options={{ title: 'Favourites' }} />
+        <Stack.Screen name="card-editor" options={{ title: '', presentation: 'modal' }} />
         <Stack.Screen name="coming-soon" options={{ title: '' }} />
       </Stack>
     </SQLiteProvider>

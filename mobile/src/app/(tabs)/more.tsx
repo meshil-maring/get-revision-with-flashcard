@@ -31,6 +31,12 @@ const SECTIONS: { title: string; items: MenuItem[] }[] = [
         href: '/new-revision',
       },
       {
+        icon: 'star-outline',
+        title: 'Favourite cards',
+        subtitle: 'Cards you starred, grouped by deck',
+        href: '/favorites',
+      },
+      {
         icon: 'chatbubble-ellipses-outline',
         title: 'AI Study',
         subtitle: 'An AI tutor that quizzes you',

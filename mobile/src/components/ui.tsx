@@ -5,6 +5,8 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import type { ComponentProps, ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { RATING_LABELS, type RatingFilter } from '@/lib/revision';
+
 export type IconName = ComponentProps<typeof Ionicons>['name'];
 type SubjectIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -93,7 +95,7 @@ export function IconButton({
   icon: IconName;
   onPress: () => void;
   label: string; // for screen readers
-  tone?: 'default' | 'danger';
+  tone?: 'default' | 'danger' | 'favorite';
 }) {
   return (
     <Pressable
@@ -103,7 +105,7 @@ export function IconButton({
       accessibilityLabel={label}
       className="h-12 w-12 items-center justify-center rounded-full active:bg-surface"
     >
-      <Icon name={icon} size={26} color={tone === 'danger' ? colors.alert : colors.muted} />
+      <Icon name={icon} size={26} color={tone === 'danger' ? colors.alert : tone === 'favorite' ? colors.warning : colors.muted} />
     </Pressable>
   );
 }
@@ -210,6 +212,36 @@ export function DeckBadge({ name, size = 48 }: { name: string; size?: number }) 
       style={{ width: scaled(size), height: scaled(size) }}
     >
       <SubjectIcon name={name} size={size * 0.52} />
+    </View>
+  );
+}
+
+// --- Ratings -----------------------------------------------------------------------
+
+/** Colour per rating: red = hard, amber = OK, teal = easy, gray = not rated yet. */
+export const ratingColors: Record<RatingFilter, string> = {
+  hard: colors.alert,
+  ok: colors.warning,
+  easy: colors.calm,
+  new: colors.faint,
+};
+
+export const ratingIcons: Record<RatingFilter, IconName> = {
+  hard: 'alert-circle',
+  ok: 'remove-circle',
+  easy: 'checkmark-circle',
+  new: 'ellipse-outline',
+};
+
+/** A small coloured tag like "Hard". */
+export function RatingBadge({ rating }: { rating: RatingFilter }) {
+  const color = ratingColors[rating];
+  return (
+    <View className="flex-row items-center gap-1 rounded-full px-2 py-0.5" style={{ backgroundColor: `${color}22` }}>
+      <Icon name={ratingIcons[rating]} size={13} color={color} />
+      <Text className="text-xs font-bold" style={{ color }}>
+        {RATING_LABELS[rating]}
+      </Text>
     </View>
   );
 }

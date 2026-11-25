@@ -3,26 +3,43 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
+import { Button, colors, DeckBadge, EmptyState, Icon, plural, ratingColors, ratingIcons } from '@/components/ui';
+import { listCardsForDecks } from '@/data/cards';
 import { listDecks } from '@/data/decks';
-import { Button, DeckBadge, EmptyState, Icon, plural } from '@/components/ui';
-import type { DeckWithCount } from '@/data/types';
+import type { Card, DeckWithCount } from '@/data/types';
+import { filterCards, RATING_FILTERS, RATING_LABELS, type RatingFilter } from '@/lib/revision';
 
-/** Pick several decks and revise all their cards in one session. */
+/**
+ * Pick several decks and revise their cards in one session. You can also choose
+ * which cards: by how hard they felt last time (Hard / OK / Easy / New) and favourites.
+ */
 export default function NewRevisionScreen() {
   const db = useSQLiteContext();
   const [decks, setDecks] = useState<DeckWithCount[] | null>(null); // null = loading
+  const [cards, setCards] = useState<Card[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [ratings, setRatings] = useState<Set<RatingFilter>>(new Set(RATING_FILTERS));
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      listDecks(db).then(setDecks);
+      (async () => {
+        const list = await listDecks(db);
+        setCards((await listCardsForDecks(db, list.map((d) => d.id))) ?? []);
+        setDecks(list);
+      })();
     }, [db]),
   );
 
   const studyable = (decks ?? []).filter((d) => d.cardCount > 0);
   // Ignore selections for decks that were deleted or emptied since they were picked.
   const selected = studyable.filter((d) => selectedIds.has(d.id));
-  const cardTotal = selected.reduce((sum, d) => sum + d.cardCount, 0);
+  const filter = { ratings: [...ratings], favoritesOnly };
+  const filterActive = ratings.size < RATING_FILTERS.length || favoritesOnly;
+  const matching = filterCards(cards, filter);
+  const matchCount = (deckId: string) => matching.filter((c) => c.deckId === deckId).length;
+  // With no card details (still loading), fall back to the deck's card count.
+  const cardTotal = selected.reduce((sum, d) => sum + (filterActive ? matchCount(d.id) : d.cardCount), 0);
   const allSelected = studyable.length > 0 && selected.length === studyable.length;
 
   function toggle(id: string) {
@@ -38,8 +55,20 @@ export default function NewRevisionScreen() {
     setSelectedIds(allSelected ? new Set() : new Set(studyable.map((d) => d.id)));
   }
 
+  function toggleRating(rating: RatingFilter) {
+    setRatings((prev) => {
+      const next = new Set(prev);
+      if (next.has(rating)) next.delete(rating);
+      else next.add(rating);
+      return next;
+    });
+  }
+
   function start() {
-    router.push({ pathname: '/revise', params: { decks: selected.map((d) => d.id).join(',') } });
+    const params: Record<string, string> = { decks: selected.map((d) => d.id).join(',') };
+    if (ratings.size < RATING_FILTERS.length) params.ratings = RATING_FILTERS.filter((r) => ratings.has(r)).join(',');
+    if (favoritesOnly) params.favorites = '1';
+    router.push({ pathname: '/revise', params });
   }
 
   if (decks === null) return <View className="flex-1 bg-page" />;
@@ -64,6 +93,12 @@ export default function NewRevisionScreen() {
                   </Text>
                 </View>
               </View>
+              <RevisionFilter
+                ratings={ratings}
+                onToggleRating={toggleRating}
+                favoritesOnly={favoritesOnly}
+                onToggleFavorites={() => setFavoritesOnly((f) => !f)}
+              />
               <View className="flex-row items-center justify-between px-1">
                 <Text className="text-sm font-semibold text-muted">
                   {selected.length > 0 ? `${selected.length} selected` : 'Your decks'}
@@ -106,7 +141,11 @@ export default function NewRevisionScreen() {
                   {deck.name}
                 </Text>
                 <Text className="text-sm text-muted">
-                  {empty ? 'No cards yet' : plural(deck.cardCount, 'card')}
+                  {empty
+                    ? 'No cards yet'
+                    : filterActive
+                      ? `${matchCount(deck.id)} of ${plural(deck.cardCount, 'card')} match`
+                      : plural(deck.cardCount, 'card')}
                 </Text>
               </View>
               <View
@@ -125,14 +164,71 @@ export default function NewRevisionScreen() {
         <View className="absolute bottom-0 left-0 right-0 border-t border-line bg-white px-4 pb-5 pt-3">
           <View className="w-full max-w-184 self-center">
             <Text className="mb-2 text-center text-sm text-muted">
-              {cardTotal === 0
+              {selected.length === 0
                 ? 'Select at least one deck'
+                : cardTotal === 0
+                  ? 'No cards match the filter'
                 : `${plural(selected.length, 'deck')} · ${plural(cardTotal, 'card')}`}
             </Text>
             <Button label="Start revision" icon="play" variant="cta" disabled={cardTotal === 0} onPress={start} />
           </View>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/** Which cards to include: chips for each rating, plus "Favourites only". */
+function RevisionFilter({
+  ratings,
+  onToggleRating,
+  favoritesOnly,
+  onToggleFavorites,
+}: {
+  ratings: Set<RatingFilter>;
+  onToggleRating: (rating: RatingFilter) => void;
+  favoritesOnly: boolean;
+  onToggleFavorites: () => void;
+}) {
+  return (
+    <View className="mb-4 rounded-2xl border border-line bg-white p-3.5">
+      <Text className="mb-1 text-base font-bold text-ink">Which cards?</Text>
+      <Text className="mb-3 text-sm text-muted">Based on how you rated them last time.</Text>
+      <View className="mb-3 flex-row flex-wrap gap-2">
+        {RATING_FILTERS.map((rating) => {
+          const on = ratings.has(rating);
+          const color = ratingColors[rating];
+          return (
+            <Pressable
+              key={rating}
+              onPress={() => onToggleRating(rating)}
+              accessibilityRole="checkbox"
+              accessibilityLabel={RATING_LABELS[rating]}
+              accessibilityState={{ checked: on }}
+              className="flex-row items-center gap-1.5 rounded-full px-3 py-2"
+              style={{ backgroundColor: on ? color : colors.surface }}
+            >
+              <Icon name={ratingIcons[rating]} size={16} color={on ? colors.white : colors.muted} />
+              <Text className={`text-sm font-semibold ${on ? 'text-white' : 'text-muted'}`}>
+                {RATING_LABELS[rating]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Pressable
+        onPress={onToggleFavorites}
+        accessibilityRole="switch"
+        accessibilityLabel="Favourites only"
+        accessibilityState={{ checked: favoritesOnly }}
+        className="flex-row items-center gap-2 border-t border-line pt-3"
+      >
+        <Icon name={favoritesOnly ? 'star' : 'star-outline'} size={20} color={favoritesOnly ? colors.warning : colors.muted} />
+        <Text className="flex-1 text-sm font-semibold text-ink">Favourites only</Text>
+        <View className={`h-6 w-11 justify-center rounded-full px-0.5 ${favoritesOnly ? 'bg-primary' : 'bg-line'}`}>
+          <View className={`h-5 w-5 rounded-full bg-white ${favoritesOnly ? 'self-end' : 'self-start'}`} />
+        </View>
+      </Pressable>
     </View>
   );
 }
