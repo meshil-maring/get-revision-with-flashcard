@@ -1,4 +1,4 @@
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
@@ -77,9 +77,19 @@ export default function DeckScreen() {
         ListHeaderComponent={
           <View className="mb-1">
             {deck.description ? <Text className="mb-2 text-slate-600">{deck.description}</Text> : null}
-            <Text className="text-sm text-slate-500">
-              {cards.length} {cards.length === 1 ? 'card' : 'cards'}
-            </Text>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-sm text-slate-500">
+                {cards.length} {cards.length === 1 ? 'card' : 'cards'}
+              </Text>
+              {cards.length > 0 ? (
+                <Pressable
+                  onPress={() => router.push({ pathname: '/study/[id]', params: { id } })}
+                  className="rounded-full bg-indigo-600 px-5 py-2 active:bg-indigo-700"
+                >
+                  <Text className="font-semibold text-white">▶ Study</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         }
         ListEmptyComponent={
