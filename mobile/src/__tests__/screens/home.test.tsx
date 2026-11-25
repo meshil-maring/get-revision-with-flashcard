@@ -104,12 +104,12 @@ describe('Home screen', () => {
     mockedDecks.listDecks.mockResolvedValue([]);
     const today = new Date();
     mockedActivity.listActivity.mockResolvedValue([
-      { day: dayKey(addDays(today, -10)), cards: 3 },
-      { day: dayKey(addDays(today, -9)), cards: 3 },
-      { day: dayKey(addDays(today, -8)), cards: 3 },
-      { day: dayKey(addDays(today, -7)), cards: 3 },
-      { day: dayKey(addDays(today, -1)), cards: 5 },
-      { day: dayKey(today), cards: 12 },
+      { day: dayKey(addDays(today, -10)), cards: 3, seconds: 0 },
+      { day: dayKey(addDays(today, -9)), cards: 3, seconds: 0 },
+      { day: dayKey(addDays(today, -8)), cards: 3, seconds: 0 },
+      { day: dayKey(addDays(today, -7)), cards: 3, seconds: 0 },
+      { day: dayKey(addDays(today, -1)), cards: 5, seconds: 0 },
+      { day: dayKey(today), cards: 12, seconds: 0 },
     ]);
 
     await render(<HomeScreen />);
@@ -117,6 +117,29 @@ describe('Home screen', () => {
     expect(await screen.findByText('2-day streak')).toBeOnTheScreen();
     expect(screen.getByText('4 days')).toBeOnTheScreen(); // best
     expect(screen.getByText('You studied today. Nice work!')).toBeOnTheScreen();
+  });
+
+  it('shows how long you studied on the day you tap', async () => {
+    mockedDecks.listDecks.mockResolvedValue([]);
+    const today = new Date();
+    mockedActivity.listActivity.mockResolvedValue([
+      { day: dayKey(addDays(today, -1)), cards: 8, seconds: 3900 },
+      { day: dayKey(today), cards: 3, seconds: 600 },
+    ]);
+
+    await render(<HomeScreen />);
+    await screen.findByText('2-day streak');
+    await fireEvent(screen.getByTestId('activity-heatmap'), 'layout', {
+      nativeEvent: { layout: { width: 400, height: 200 } },
+    });
+
+    // Today is shown until another day is tapped.
+    expect(screen.getByText('10 min · 3 cards')).toBeOnTheScreen();
+    expect(screen.getByText('2 of', { exact: false })).toHaveTextContent(/1 h 15 min/);
+
+    await fireEvent.press(screen.getByLabelText('Yesterday: 1 h 05 min · 8 cards'));
+    expect(screen.getByText('Yesterday')).toBeOnTheScreen();
+    expect(screen.getByText('1 h 05 min · 8 cards')).toBeOnTheScreen();
   });
 
   it('invites starting a streak when there is no study yet', async () => {

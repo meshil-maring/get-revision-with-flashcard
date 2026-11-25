@@ -16,7 +16,7 @@ import {
   SubjectIcon,
 } from '@/components/ui';
 import { ActivityHeatmap } from '@/components/study/activity-heatmap';
-import { listActivity } from '@/data/activity';
+import { listActivity, type DayActivity } from '@/data/activity';
 import { listDecks, pickContinueDeck } from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';
 import { comingSoonHref } from '@/lib/coming-soon';
@@ -28,13 +28,13 @@ export default function HomeScreen() {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [decks, setDecks] = useState<DeckWithCount[]>([]);
-  const [activity, setActivity] = useState<Map<string, number>>(new Map());
+  const [activity, setActivity] = useState<Map<string, DayActivity>>(new Map());
 
   // Reload when Home comes back into view (e.g. after a study session).
   useFocusEffect(
     useCallback(() => {
       listDecks(db).then(setDecks);
-      listActivity(db).then((rows) => setActivity(new Map(rows.map((r) => [r.day, r.cards]))));
+      listActivity(db).then((rows) => setActivity(new Map(rows.map((r) => [r.day, r]))));
     }, [db]),
   );
 
@@ -158,7 +158,7 @@ export default function HomeScreen() {
   );
 }
 
-function Consistency({ activity }: { activity: Map<string, number> }) {
+function Consistency({ activity }: { activity: Map<string, DayActivity> }) {
   const today = new Date();
   const studiedDays = new Set(activity.keys());
   const streak = currentStreak(studiedDays, today);
@@ -186,7 +186,7 @@ function Consistency({ activity }: { activity: Map<string, number> }) {
           <Text className="text-base font-bold text-ink">{plural(best, 'day')}</Text>
         </View>
       </View>
-      <ActivityHeatmap counts={activity} today={today} />
+      <ActivityHeatmap activity={activity} today={today} />
     </View>
   );
 }

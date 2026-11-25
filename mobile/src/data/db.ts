@@ -148,6 +148,10 @@ const MIGRATIONS: string[] = [
   ${syncTriggers('tags', 'NEW.id')}
   ${syncTriggers('note_tags', "NEW.note_id || ':' || NEW.tag_id")}
   `,
+  // v11: time studied per day, in seconds (shown when you tap a day in the consistency grid)
+  `
+  ALTER TABLE study_log ADD COLUMN seconds INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 // An upsert, not INSERT OR REPLACE: inside a trigger, OR REPLACE is overridden by the

@@ -17,7 +17,7 @@ import {
   ratingIcons,
   SubjectIcon,
 } from '@/components/ui';
-import { recordReview } from '@/data/activity';
+import { recordReview, recordStudyTime } from '@/data/activity';
 import { listAttachmentsForCards } from '@/data/attachments';
 import { getCard, rateCard, setFavorite } from '@/data/cards';
 import { addStudyTime } from '@/data/decks';
@@ -475,7 +475,10 @@ function useDeckStudyTime(db: ReturnType<typeof useSQLiteContext>, seconds: numb
   const pending = useRef(new Map<string, number>());
 
   const flush = useCallback(() => {
-    for (const [id, secs] of pending.current) addStudyTime(db, id, secs);
+    for (const [id, secs] of pending.current) {
+      addStudyTime(db, id, secs);
+      recordStudyTime(db, secs); // for the day's total on Home
+    }
     pending.current = new Map();
   }, [db]);
 
