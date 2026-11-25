@@ -18,6 +18,12 @@ const SECTIONS: { title: string; items: MenuItem[] }[] = [
         subtitle: 'Sign in, back up and sync your decks and notes',
         href: '/account',
       },
+      {
+        icon: 'sparkles-outline',
+        title: 'Connect AI',
+        subtitle: 'Let ChatGPT or Claude make notes and flashcards for you',
+        href: '/connect-ai',
+      },
     ],
   },
   {

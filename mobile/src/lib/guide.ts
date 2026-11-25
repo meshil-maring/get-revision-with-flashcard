@@ -330,14 +330,41 @@ A card counts once per session when you rate it.
     section: 'Good to know',
     icon: 'phone-portrait-outline',
     title: 'Your data',
-    summary: 'Where your decks are kept, and what is coming next.',
-    body: `Right now you use NoteMe as a **guest**. Your decks, cards, notes, files and progress are saved ==only on this device==.
+    summary: 'Where your decks and notes are kept, and how backup works.',
+    body: `As a **guest**, your decks, cards, notes, files and progress are saved ==only on this device==.
 - They stay when you close the app or restart your phone.
 - They are deleted if you uninstall the app or clear its data.
 
-## Coming soon
-- **Sign in** to back up your decks and use them on other devices
-- **AI**: ask Claude, ChatGPT or Gemini to make notes and flashcards for you`,
+## Sign in to back up
+Open **More → Account** and sign in. Everything you made as a guest moves into your account and is kept the same on every device you sign in on.
+- Decks, cards, notes, folders and tags are backed up.
+- Pictures and recordings stay on the device for now.`,
+  },
+  {
+    id: 'ai-apps',
+    section: 'Good to know',
+    icon: 'sparkles-outline',
+    title: 'AI apps (ChatGPT, Claude)',
+    summary: 'Let ChatGPT or Claude make notes and flashcards for you.',
+    body: `You can connect **ChatGPT** or **Claude** to your NoteMe account. Then ask it in a chat to make a deck or write notes, and they appear in NoteMe on the next sync.
+
+## Set it up
+1. Sign in to NoteMe (**More → Account**).
+2. Open **More → Connect AI** and copy the connector link.
+3. Add it as a custom connector in ChatGPT or Claude. The Connect AI screen shows the steps.
+4. Sign in with your NoteMe account and tap **Allow**.
+
+## What it can do
+- See your decks, notes, folders and tags
+- Make new decks, add cards to a deck, and write notes (plain or Cornell) in any folder
+- It **can't** change or delete what you already have.
+
+Notes an AI writes show its name, like **ChatGPT**, so you can tell them apart.
+
+==Tip:== be specific. "Make 15 cards on the French Revolution for my History deck" works better than "make some cards".
+
+## Stop it
+Remove NoteMe from the AI app's connector settings.`,
   },
   {
     id: 'faq',

@@ -8,6 +8,13 @@
       "when": 1795609267248,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795627517115,
+      "tag": "0001_oauth_mcp",
+      "breakpoints": true
     }
   ]
 }

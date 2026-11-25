@@ -33,6 +33,36 @@ function toChange(row: Row): Change {
   return { table: row.table_name, id: row.row_id, data: row.data, modifiedAt };
 }
 
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/**
+ * Saves changes to a user's rows, each only if it is at least as new as the stored copy.
+ * Call inside a transaction that holds the user's lock (see `lockUser`).
+ * Returns the changes that lost to a newer stored copy.
+ */
+export async function writeChanges(tx: Tx, userId: string, changes: Change[]): Promise<{ table: string; id: string }[]> {
+  const rejected: { table: string; id: string }[] = [];
+  for (const c of changes) {
+    const result = await tx.execute(sql`
+      INSERT INTO synced_rows (user_id, table_name, row_id, data, modified_at, rev)
+      VALUES (${userId}, ${c.table}, ${c.id}, ${JSON.stringify(c.data)}::jsonb, ${c.modifiedAt}, nextval('sync_rev'))
+      ON CONFLICT (user_id, table_name, row_id) DO UPDATE
+        SET data = excluded.data, modified_at = excluded.modified_at, rev = excluded.rev
+        WHERE synced_rows.modified_at <= excluded.modified_at
+      RETURNING row_id`);
+    if (result.rows.length === 0) rejected.push({ table: c.table, id: c.id });
+  }
+  return rejected;
+}
+
+/**
+ * One writer per user at a time, so revision numbers become visible in order
+ * and a device never skips past a row that another request is still writing.
+ */
+export async function lockUser(tx: Tx, userId: string): Promise<void> {
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
+}
+
 /**
  * Takes a user's changes and returns everything that changed since their cursor.
  * For each row the newest `modifiedAt` wins; a change that loses comes back with the
@@ -40,21 +70,9 @@ function toChange(row: Row): Change {
  */
 export async function sync(db: Db, userId: string, request: SyncRequest): Promise<SyncResponse> {
   return db.transaction(async (tx) => {
-    // One sync per user at a time, so revision numbers become visible in order
-    // and a device never skips past a row that another request is still writing.
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
+    await lockUser(tx, userId);
 
-    const rejected: { table: string; id: string }[] = [];
-    for (const c of request.changes) {
-      const result = await tx.execute(sql`
-        INSERT INTO synced_rows (user_id, table_name, row_id, data, modified_at, rev)
-        VALUES (${userId}, ${c.table}, ${c.id}, ${JSON.stringify(c.data)}::jsonb, ${c.modifiedAt}, nextval('sync_rev'))
-        ON CONFLICT (user_id, table_name, row_id) DO UPDATE
-          SET data = excluded.data, modified_at = excluded.modified_at, rev = excluded.rev
-          WHERE synced_rows.modified_at <= excluded.modified_at
-        RETURNING row_id`);
-      if (result.rows.length === 0) rejected.push({ table: c.table, id: c.id });
-    }
+    const rejected = await writeChanges(tx, userId, request.changes);
 
     const result = await tx.execute(sql`
       SELECT table_name, row_id, data, modified_at, rev FROM synced_rows

@@ -5,7 +5,6 @@ import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, Icon, scaled, type IconName } from '@/components/ui';
-import { comingSoonHref } from '@/lib/coming-soon';
 
 // Icons per tab route (outline when inactive, filled when active).
 const TAB_ICONS: Record<string, { icon: IconName; activeIcon: IconName }> = {
@@ -106,7 +105,7 @@ function CreateMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
       icon: 'sparkles-outline',
       title: 'Ask AI',
       subtitle: 'Make notes or flashcards with AI',
-      onPress: () => router.push(comingSoonHref('ai')),
+      onPress: () => router.push('/connect-ai'),
     },
   ];
 

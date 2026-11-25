@@ -4,11 +4,6 @@ import type { IconName } from '@/components/ui';
 
 // Features in the design that aren't built yet. Each opens a "Coming soon" screen.
 export const COMING_SOON = {
-  ai: {
-    title: 'Ask AI',
-    icon: 'sparkles-outline',
-    text: 'Soon you can ask AI to write notes or make flashcards for any topic.',
-  },
   'ai-study': {
     title: 'AI Study',
     icon: 'chatbubble-ellipses-outline',

@@ -87,17 +87,14 @@ describe('Home screen', () => {
     });
   });
 
-  it('opens Coming soon for features that are not built yet', async () => {
+  it('opens Connect AI from the Ask AI bar', async () => {
     mockedDecks.listDecks.mockResolvedValue([]);
 
     await render(<HomeScreen />);
     await screen.findByText('Nothing to study yet');
 
     await fireEvent.press(screen.getByText('Ask AI to make notes or flashcards...'));
-    expect(mockRouter.router.push).toHaveBeenCalledWith({
-      pathname: '/coming-soon',
-      params: { feature: 'ai' },
-    });
+    expect(mockRouter.router.push).toHaveBeenCalledWith('/connect-ai');
   });
 
   it('shows the day streak and best streak', async () => {

@@ -31,6 +31,7 @@ export default function RootLayout() {
           <Stack.Screen name="card-editor" options={{ title: '', presentation: 'modal' }} />
           <Stack.Screen name="coming-soon" options={{ title: '' }} />
           <Stack.Screen name="account" options={{ title: 'Account' }} />
+          <Stack.Screen name="connect-ai" options={{ title: 'Connect AI' }} />
           <Stack.Screen name="folder/[id]" options={{ title: '' }} />
           <Stack.Screen name="note/[id]" options={{ title: '' }} />
           <Stack.Screen name="tag/[id]" options={{ title: '' }} />

@@ -16,6 +16,8 @@ export type OAuthClient = { clientId: string; clientSecret: string };
 export type Env = {
   port: number;
   baseURL: string;
+  /** The MCP server's URL, which AI apps are given: {baseURL}/mcp. */
+  mcpResource: string;
   secret: string;
   databaseUrl: string;
   corsOrigins: string[];
@@ -40,9 +42,11 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     const clientSecret = source[`${prefix}_CLIENT_SECRET`];
     if (clientId && clientSecret) social[provider] = { clientId, clientSecret };
   }
+  const baseURL = (source.BETTER_AUTH_URL || `http://localhost:${source.PORT ?? 4000}`).replace(/\/+$/, '');
   return {
     port: Number(source.PORT ?? 4000),
-    baseURL: source.BETTER_AUTH_URL ?? `http://localhost:${source.PORT ?? 4000}`,
+    baseURL,
+    mcpResource: `${baseURL}/mcp`,
     secret: secret || 'dev-only-secret-change-me-in-production-0123456789',
     databaseUrl: source.DATABASE_URL ?? '',
     corsOrigins: list(source.CORS_ORIGINS ?? 'http://localhost:8081'),

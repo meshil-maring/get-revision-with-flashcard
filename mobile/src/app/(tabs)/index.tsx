@@ -79,7 +79,7 @@ export default function HomeScreen() {
 
       {/* Ask AI */}
       <Pressable
-        onPress={() => router.push(comingSoonHref('ai'))}
+        onPress={() => router.push('/connect-ai')}
         accessibilityRole="search"
         className="mb-7 flex-row items-center gap-3 rounded-2xl bg-surface py-2 pl-4 pr-2"
       >
