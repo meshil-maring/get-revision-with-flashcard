@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
-import HomeScreen from '@/app/index';
+import HomeScreen from '@/app/(revision)/index';
 import * as decks from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';
 

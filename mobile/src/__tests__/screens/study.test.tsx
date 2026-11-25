@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import StudyScreen from '@/app/study/[id]';
+import StudyScreen from '@/app/(revision)/study/[id]';
 import * as cards from '@/data/cards';
 import * as decks from '@/data/decks';
 import type { Card } from '@/data/types';
