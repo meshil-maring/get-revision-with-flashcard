@@ -30,6 +30,7 @@ src/
   env.ts          settings from environment variables
   auth/           Better Auth setup, requireSession middleware
   sync/           POST /api/sync: request checks (routes.ts) and the sync itself (sync.ts)
+  files/          attachment files: R2 and dev-folder storage (storage.ts), upload/download links (routes.ts)
   mcp/            the MCP server: /mcp route (routes.ts), tools (tools.ts), reading/writing the user's
                   rows (store.ts), and the sign-in / allow-access pages AI apps open (pages.ts)
   db/             Drizzle: connection + migrations (client.ts), tables (schema.ts, auth-schema.ts)
@@ -67,6 +68,9 @@ email that already has an account; that person signs in the way they first did.
 | `GET /api/config` | `{ providers: ['google', 'microsoft', 'facebook'] }`, the sign-in providers that are set up |
 | `/api/auth/*` | Better Auth: `sign-up/email`, `sign-in/email`, `sign-in/social`, `get-session`, `sign-out`, … |
 | `POST /api/sync` | Signed-in only. Body `{ cursor, changes[] }` → `{ cursor, changes[], more }` |
+| `POST /api/files/uploads` | Signed-in only. `{ id, size, mimeType }` → `{ key, url }`: PUT the file to `url` |
+| `POST /api/files/uploads/complete` | Signed-in only. `{ id }` → `{ key }`, once the server has checked the uploaded file |
+| `POST /api/files/download-urls` | Signed-in only. `{ keys[] }` → `{ urls: { key: url } }`, for the user's own files |
 | `POST /mcp` | MCP (Streamable HTTP, stateless). Needs an OAuth access token from the flow below |
 | `GET /.well-known/oauth-protected-resource/mcp` | Where AI apps find the authorization server (RFC 9728) |
 | `GET /.well-known/oauth-authorization-server/api/auth` | Authorization server metadata (RFC 8414) |
@@ -117,7 +121,51 @@ To try the tools without an AI app or a tunnel: `npx @modelcontextprotocol/inspe
 - When the same record changed in two places, the newer `modifiedAt` wins. A device whose change lost gets the
   server's copy back in the same response.
 - Syncs for one user run one at a time (Postgres advisory lock), so a device never skips a row.
-- Synced: decks, cards, folders, notes, tags, note tags. Not yet: attachments (files), the study log.
+- Synced: decks, cards, folders, notes, tags, note tags, card and note attachments. Not yet: the study log.
+- An attachment's row syncs like the others, but its file goes to file storage (below). `remote_key` in the row
+  says where; the device's own `uri` never leaves the device.
+
+## File storage
+
+Images, PDFs and audio attached to cards and notes are kept in **Cloudflare R2**. The server never handles file
+bytes: it checks the user and their quota, then hands the app a link valid for 15 minutes to upload to (or
+download from) R2 directly.
+
+1. The app asks `POST /api/files/uploads` for a link. The key is `u/<user id>/<attachment id>`, so retrying an upload
+   replaces the earlier try instead of storing it twice.
+2. The app PUTs the file to the link, then calls `POST /api/files/uploads/complete`. The server looks at the stored
+   file's real size (a link can't limit it) and deletes it if it is over `MAX_FILE_MB` or the user's `FILE_QUOTA_MB`.
+3. The app sets the attachment's `remote_key` and syncs. Other devices ask `POST /api/files/download-urls` and keep
+   a copy, so attachments still open offline. An attachment shows up once its file has arrived.
+4. When a deleted attachment syncs (deleting its card, note, deck or folder deletes it too), the server removes the
+   file. A deletion that loses to a newer edit removes nothing.
+
+The `files` table records who owns each stored file and its size.
+
+**Without R2** (development, tests) files go to `FILES_DIR` (default `./data/files`) and the server serves the
+signed links itself under `/api/local-files/`. In production the server refuses to start without R2, unless
+`FILES_DIR` is set on purpose.
+
+### Set up R2
+
+1. Cloudflare dashboard → **R2** → *Create bucket* (e.g. `noteme-files`). Keep it private: no public access.
+2. R2 → **Manage API tokens** → *Create API token*, permission **Object Read & Write**, only this bucket.
+3. In `.env`: `R2_ACCOUNT_ID` (shown on the R2 page), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+4. For the **web** app, the browser uploads to R2 itself, so the bucket needs a CORS policy
+   (bucket → Settings → CORS policy). The Android app doesn't need this.
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:8081", "https://your-web-app.example"],
+    "AllowedMethods": ["GET", "PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Removing a user deletes their `files` rows but not their objects in R2 yet.
 
 ## Database changes
 

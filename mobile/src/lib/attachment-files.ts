@@ -3,7 +3,7 @@
 // original is deleted). On web there is no file storage, so files are kept as data: URLs.
 import { randomUUID } from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
-import { Directory, File, Paths } from 'expo-file-system';
+import { Directory, File, Paths, UploadType } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
@@ -92,13 +92,61 @@ export async function openFile(uri: string, mimeType: string | null, title: stri
   await new File(uri).preview({ title, mimeType: mimeType ?? undefined });
 }
 
-async function toDataUrl(uri: string): Promise<string> {
-  if (uri.startsWith('data:')) return uri;
-  const blob = await (await fetch(uri)).blob();
+/** The file's type, guessed from its name or kind when it wasn't recorded (e.g. voice notes). */
+export function mimeTypeFor(file: { uri: string; name: string; kind: string; mimeType: string | null }): string {
+  if (file.mimeType) return file.mimeType;
+  if (file.uri.startsWith('data:')) {
+    const fromDataUrl = /^data:([^;,]+)/.exec(file.uri)?.[1];
+    if (fromDataUrl) return fromDataUrl;
+  }
+  const extension = (/\.([a-z0-9]{1,5})$/i.exec(file.name)?.[1] ?? /\.([a-z0-9]{1,5})$/i.exec(file.uri)?.[1] ?? '').toLowerCase();
+  const fromExtension = Object.entries(EXTENSIONS).find(([, ext]) => ext === extension)?.[0];
+  if (fromExtension) return fromExtension;
+  return file.kind === 'pdf' ? 'application/pdf' : file.kind === 'audio' ? 'audio/mp4' : 'image/jpeg';
+}
+
+/** A kept file's bytes, for uploading. */
+export async function readFileBlob(uri: string): Promise<Blob> {
+  if (Platform.OS === 'web') return (await fetch(uri)).blob();
+  return new File(uri);
+}
+
+/** PUTs a kept file to an upload link. */
+export async function putFile(url: string, uri: string, mimeType: string): Promise<void> {
+  const headers = { 'Content-Type': mimeType };
+  if (Platform.OS === 'web') {
+    const res = await fetch(url, { method: 'PUT', headers, body: await readFileBlob(uri) });
+    if (!res.ok) throw new Error(`Upload failed (${res.status}).`);
+    return;
+  }
+  const result = await new File(uri).upload(url, { httpMethod: 'PUT', uploadType: UploadType.BINARY_CONTENT, headers });
+  if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed (${result.status}).`);
+}
+
+/** Downloads a file from the account and keeps it like an attached one; returns its uri. */
+export async function downloadToDevice(url: string, file: { id: string; name: string; mimeType: string | null }): Promise<string> {
+  if (Platform.OS === 'web') {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Download failed (${res.status}).`);
+    return blobToDataUrl(await res.blob());
+  }
+  const folder = new Directory(Paths.document, 'attachments');
+  folder.create({ idempotent: true, intermediates: true });
+  const target = new File(folder, `${file.id}.${extensionFor({ name: file.name, uri: '', mimeType: file.mimeType })}`);
+  const saved = await File.downloadFileAsync(url, target, { idempotent: true });
+  return saved.uri;
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
+}
+
+async function toDataUrl(uri: string): Promise<string> {
+  if (uri.startsWith('data:')) return uri;
+  return blobToDataUrl(await (await fetch(uri)).blob());
 }

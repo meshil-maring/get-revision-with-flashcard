@@ -152,15 +152,49 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE study_log ADD COLUMN seconds INTEGER NOT NULL DEFAULT 0;
   `,
+  // v12: attachments sync too. The file itself goes to the account's file storage; remote_key
+  // is where (null = not uploaded yet). uri is this device's copy ('' = not downloaded yet), so
+  // it never syncs and changing it doesn't count as a change.
+  `
+  ALTER TABLE attachments ADD COLUMN remote_key TEXT;
+  ALTER TABLE note_attachments ADD COLUMN remote_key TEXT;
+  ${syncTriggers('attachments', 'NEW.id', ['card_id', 'side', 'kind', 'name', 'mime_type', 'deleted_at', 'remote_key'])}
+  ${syncTriggers('note_attachments', 'NEW.id', ['note_id', 'kind', 'name', 'mime_type', 'deleted_at', 'remote_key'])}
+  -- Deleting a card or note (also through its deck or folder) deletes its attachments, so their
+  -- stored files are removed from the account too.
+  CREATE TRIGGER IF NOT EXISTS cards_delete_attachments AFTER UPDATE OF deleted_at ON cards
+  WHEN NEW.deleted_at IS NOT NULL AND OLD.deleted_at IS NULL
+  BEGIN
+    UPDATE attachments SET deleted_at = NEW.deleted_at WHERE card_id = NEW.id AND deleted_at IS NULL;
+  END;
+  CREATE TRIGGER IF NOT EXISTS notes_delete_attachments AFTER UPDATE OF deleted_at ON notes
+  WHEN NEW.deleted_at IS NOT NULL AND OLD.deleted_at IS NULL
+  BEGIN
+    UPDATE note_attachments SET deleted_at = NEW.deleted_at WHERE note_id = NEW.id AND deleted_at IS NULL;
+  END;
+  UPDATE attachments SET deleted_at = (SELECT deleted_at FROM cards WHERE cards.id = attachments.card_id)
+   WHERE deleted_at IS NULL AND card_id IN (SELECT id FROM cards WHERE deleted_at IS NOT NULL);
+  UPDATE note_attachments SET deleted_at = (SELECT deleted_at FROM notes WHERE notes.id = note_attachments.note_id)
+   WHERE deleted_at IS NULL AND note_id IN (SELECT id FROM notes WHERE deleted_at IS NOT NULL);
+  INSERT OR IGNORE INTO sync_outbox (table_name, row_id, changed_at)
+    SELECT 'attachments', id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now') FROM attachments
+     WHERE EXISTS (SELECT 1 FROM sync_state WHERE key = 'user_id');
+  INSERT OR IGNORE INTO sync_outbox (table_name, row_id, changed_at)
+    SELECT 'note_attachments', id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now') FROM note_attachments
+     WHERE EXISTS (SELECT 1 FROM sync_state WHERE key = 'user_id');
+  `,
 ];
 
 // An upsert, not INSERT OR REPLACE: inside a trigger, OR REPLACE is overridden by the
 // conflict rule of the statement that fired it (e.g. setNoteTags's ON CONFLICT … DO UPDATE).
-function syncTriggers(table: string, rowId: string): string {
+// `updateColumns`: only updates to these columns count (default: any column).
+function syncTriggers(table: string, rowId: string, updateColumns?: string[]): string {
   return ['INSERT', 'UPDATE']
     .map(
       (event) => `
-  CREATE TRIGGER IF NOT EXISTS sync_${table}_${event.toLowerCase()} AFTER ${event} ON ${table}
+  CREATE TRIGGER IF NOT EXISTS sync_${table}_${event.toLowerCase()} AFTER ${event}${
+    event === 'UPDATE' && updateColumns ? ` OF ${updateColumns.join(', ')}` : ''
+  } ON ${table}
   WHEN NOT EXISTS (SELECT 1 FROM sync_state WHERE key = 'applying')
   BEGIN
     INSERT INTO sync_outbox (table_name, row_id, changed_at)

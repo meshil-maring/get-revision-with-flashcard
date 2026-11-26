@@ -261,7 +261,7 @@ type NoteAttachmentRow = {
 
 export async function listNoteAttachments(db: SQLiteDatabase, noteId: string): Promise<NoteAttachment[]> {
   const rows = await db.getAllAsync<NoteAttachmentRow>(
-    'SELECT * FROM note_attachments WHERE note_id = ? AND deleted_at IS NULL ORDER BY created_at ASC',
+    `SELECT * FROM note_attachments WHERE note_id = ? AND deleted_at IS NULL AND uri != '' ORDER BY created_at ASC`,
     noteId,
   );
   return rows.map((row) => ({

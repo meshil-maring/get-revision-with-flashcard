@@ -4,6 +4,8 @@ import { cors } from 'hono/cors';
 import type { Auth } from './auth/auth.ts';
 import type { Db } from './db/client.ts';
 import { SOCIAL_PROVIDERS, type Env } from './env.ts';
+import { fileRoutes, localFileRoutes } from './files/routes.ts';
+import { diskStorage, LOCAL_FILES_PATH, r2Storage, type FileStorage } from './files/storage.ts';
 import { oauthPages } from './mcp/pages.ts';
 import { mcpRoutes } from './mcp/routes.ts';
 import { syncRoutes } from './sync/routes.ts';
@@ -26,7 +28,24 @@ function isOAuthClientEndpoint(path: string): boolean {
   return OAUTH_CLIENT_ENDPOINTS.has(path) || path.startsWith('/api/auth/.well-known/');
 }
 
-export function createApp({ db, auth, env }: { db: Db; auth: Auth; env: Env }) {
+/** R2 when it is set up, else a folder on this machine. */
+export function createStorage(env: Env) {
+  if (env.files.r2) return { storage: r2Storage(env.files.r2), disk: null };
+  const disk = diskStorage(env.files.dir, env.baseURL, env.secret);
+  return { storage: disk, disk };
+}
+
+export function createApp({
+  db,
+  auth,
+  env,
+  files = createStorage(env),
+}: {
+  db: Db;
+  auth: Auth;
+  env: Env;
+  files?: { storage: FileStorage; disk: ReturnType<typeof diskStorage> | null };
+}) {
   const app = new Hono();
 
   // The app (web build) calls the API with its session cookie, so only its own origins may.
@@ -34,7 +53,7 @@ export function createApp({ db, auth, env }: { db: Db; auth: Auth; env: Env }) {
     origin: env.corsOrigins,
     credentials: true,
     allowHeaders: ['Content-Type', 'Authorization', 'Cookie', 'expo-origin'],
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PUT', 'OPTIONS'],
   });
   // AI apps (MCP clients) call these from their own servers, or from a browser for tools like the
   // MCP Inspector, so they are open to any origin. They never use cookies.
@@ -68,7 +87,9 @@ export function createApp({ db, auth, env }: { db: Db; auth: Auth; env: Env }) {
   // OAuth discovery: /.well-known/oauth-authorization-server/api/auth and
   // /.well-known/oauth-protected-resource/mcp, served by the Better Auth plugins.
   app.get('/.well-known/*', (c) => auth.handler(c.req.raw));
-  app.route('/api/sync', syncRoutes(db, auth));
+  app.route('/api/sync', syncRoutes(db, auth, files.storage));
+  if (files.disk) app.route(LOCAL_FILES_PATH, localFileRoutes(files.disk, env.files));
+  app.route('/api/files', fileRoutes(db, auth, files.storage, env.files));
   app.route('/mcp', mcpRoutes(db, auth, env));
   app.route('/oauth', oauthPages(db, auth, env));
 

@@ -5,7 +5,10 @@ import { AppState } from 'react-native';
 
 import { clearAccountData, countPendingChanges, getLastSyncedAt, runSync } from '@/data/sync';
 
+import { removeFile } from '@/lib/attachment-files';
+
 import { authClient } from '@/services/auth-client';
+import { filesApi } from '@/services/files-api';
 import { queryKeys } from '@/services/queries';
 import { postSync } from '@/services/sync-api';
 
@@ -59,7 +62,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   // at once with an error to show instead of waiting (signing out waits for it).
   const sync = useMutation({
     mutationKey: queryKeys.sync.all,
-    mutationFn: (id: string) => runSync(db, id, postSync),
+    mutationFn: (id: string) => runSync(db, id, postSync, filesApi),
     networkMode: 'always',
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.sync.all }),
   });
@@ -107,7 +110,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         if (unsynced > 0 && !force) return { unsynced };
       }
       await authClient.signOut();
-      await clearAccountData(db);
+      const files = await clearAccountData(db);
+      for (const uri of files) removeFile(uri);
       // Nothing from this account may be shown to whoever uses the app next.
       queryClient.removeQueries({ queryKey: queryKeys.sync.all });
       resetSync();

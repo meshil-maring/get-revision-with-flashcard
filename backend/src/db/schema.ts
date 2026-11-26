@@ -26,3 +26,23 @@ export const syncedRows = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.table, t.rowId] }), index('synced_rows_user_rev_idx').on(t.userId, t.rev)],
 );
+
+/**
+ * Files attached to cards and notes, kept in object storage (R2, or a folder in development).
+ * The attachment row itself syncs through synced_rows; this table says who owns each stored
+ * file and how big it is, for the storage quota. `uploadedAt` is null until the upload is checked.
+ */
+export const files = pgTable(
+  'files',
+  {
+    key: text('key').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    size: bigint('size', { mode: 'number' }).notNull(),
+    mimeType: text('mime_type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true, mode: 'string' }),
+  },
+  (t) => [index('files_user_idx').on(t.userId)],
+);

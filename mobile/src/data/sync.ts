@@ -7,8 +7,30 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 // - When the same row changed in two places, the newest change wins.
 
 /** Tables kept in step with the account, parents before children. */
-export const SYNCED_TABLES = ['decks', 'folders', 'tags', 'cards', 'notes', 'note_tags'] as const;
+export const SYNCED_TABLES = ['decks', 'folders', 'tags', 'cards', 'notes', 'note_tags', 'attachments', 'note_attachments'] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
+
+/** Attachment tables: their files travel separately, through the account's file storage. */
+export const FILE_TABLES = ['attachments', 'note_attachments'] as const;
+
+/** Columns that only make sense on this device, so they are never sent or overwritten. */
+const LOCAL_COLUMNS: Partial<Record<SyncedTable, string[]>> = {
+  attachments: ['uri'],
+  note_attachments: ['uri'],
+};
+
+/**
+ * Moves attachment files between this device and the account's file storage
+ * (see services/files-api.ts).
+ */
+export type FileTransport = {
+  /** Uploads the file at `uri` and returns where it is stored (its remote key). */
+  upload(file: { id: string; uri: string; kind: string; name: string; mimeType: string | null }): Promise<string>;
+  /** Links to download the given stored files; keys that can't be downloaded are left out. */
+  downloadUrls(keys: string[]): Promise<Record<string, string>>;
+  /** Downloads a file and keeps it on this device, returning its local uri. */
+  download(url: string, file: { id: string; name: string; mimeType: string | null }): Promise<string>;
+};
 
 export type SyncChange = {
   table: SyncedTable;
@@ -53,9 +75,16 @@ export async function getLastSyncedAt(db: SQLiteDatabase): Promise<string | null
   return getState(db, 'last_synced_at');
 }
 
-/** How many local changes are waiting to be sent. */
+/** Attachments whose file is on this device but not in the account yet. */
+const NOT_UPLOADED = "remote_key IS NULL AND deleted_at IS NULL AND uri != ''";
+
+/** How many local changes are waiting to be sent, counting files not uploaded yet. */
 export async function countPendingChanges(db: SQLiteDatabase): Promise<number> {
-  const row = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM sync_outbox');
+  const row = await db.getFirstAsync<{ n: number }>(
+    `SELECT (SELECT COUNT(*) FROM sync_outbox)
+          + (SELECT COUNT(*) FROM attachments WHERE ${NOT_UPLOADED})
+          + (SELECT COUNT(*) FROM note_attachments WHERE ${NOT_UPLOADED}) AS n`,
+  );
   return row?.n ?? 0;
 }
 
@@ -108,10 +137,12 @@ export async function collectChanges(db: SQLiteDatabase): Promise<{ changes: Syn
       : null;
     sent.push(entry);
     if (row && isSyncedTable(table)) {
+      const data = { ...row };
+      for (const column of LOCAL_COLUMNS[table] ?? []) delete data[column];
       changes.push({
         table,
         id: entry.row_id,
-        data: row,
+        data,
         modifiedAt: entry.changed_at,
       });
     }
@@ -121,14 +152,20 @@ export async function collectChanges(db: SQLiteDatabase): Promise<{ changes: Syn
 
 async function upsertRow(db: SQLiteDatabase, change: SyncChange): Promise<void> {
   const columns = await columnsOf(db, change.table);
-  const keys = Object.keys(change.data).filter((k) => columns.has(k));
+  const local = LOCAL_COLUMNS[change.table] ?? [];
+  const keys = Object.keys(change.data).filter((k) => columns.has(k) && !local.includes(k));
   if (keys.length === 0) return;
   const primaryKey = change.table === 'note_tags' ? ['note_id', 'tag_id'] : ['id'];
   const updates = keys.filter((k) => !primaryKey.includes(k));
-  const values = keys.map((k) => {
+  const values: unknown[] = keys.map((k) => {
     const v = change.data[k];
     return v === undefined ? null : typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
   });
+  // A new row starts with empty local columns (a file not downloaded yet); existing rows keep theirs.
+  for (const column of local) {
+    keys.push(column);
+    values.push('');
+  }
   await db.runAsync(
     `INSERT INTO ${change.table} (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})
      ON CONFLICT (${primaryKey.join(', ')}) DO ${
@@ -173,6 +210,77 @@ export async function queueAllRows(db: SQLiteDatabase): Promise<void> {
   }
 }
 
+// --- attachment files --------------------------------------------------------------
+
+type FileRow = { id: string; uri: string; kind: string; remote_key: string | null; name: string; mime_type: string | null };
+
+/** Some files could not be uploaded; the rest of the sync still went through. */
+export class FileUploadError extends Error {
+  constructor(
+    readonly failed: number,
+    readonly reason: unknown,
+  ) {
+    const detail = reason instanceof Error && reason.message ? ` ${reason.message}` : '';
+    super(`${failed} attached ${failed === 1 ? 'file' : 'files'} could not be uploaded.${detail}`);
+  }
+}
+
+/** Uploads files that are only on this device, and notes where each one went. */
+export async function uploadPendingFiles(
+  db: SQLiteDatabase,
+  files: FileTransport,
+): Promise<{ uploaded: number; failed: number; error?: unknown }> {
+  let uploaded = 0;
+  let failed = 0;
+  let error: unknown;
+  for (const table of FILE_TABLES) {
+    const rows = await db.getAllAsync<FileRow>(`SELECT * FROM ${table} WHERE ${NOT_UPLOADED}`);
+    for (const row of rows) {
+      try {
+        const key = await files.upload({ id: row.id, uri: row.uri, kind: row.kind, name: row.name, mimeType: row.mime_type });
+        // Setting remote_key queues the row, so this sync sends it.
+        await db.runAsync(`UPDATE ${table} SET remote_key = ? WHERE id = ?`, key, row.id);
+        uploaded += 1;
+      } catch (e) {
+        failed += 1;
+        error ??= e;
+      }
+    }
+  }
+  return { uploaded, failed, error };
+}
+
+/** Downloads files that are in the account but not on this device yet. Failures wait for the next sync. */
+export async function downloadMissingFiles(db: SQLiteDatabase, files: FileTransport): Promise<number> {
+  let downloaded = 0;
+  for (const table of FILE_TABLES) {
+    const rows = await db.getAllAsync<FileRow>(
+      `SELECT * FROM ${table} WHERE uri = '' AND remote_key IS NOT NULL AND deleted_at IS NULL`,
+    );
+    for (let i = 0; i < rows.length; i += 100) {
+      const batch = rows.slice(i, i + 100);
+      let urls: Record<string, string> = {};
+      try {
+        urls = await files.downloadUrls(batch.map((r) => r.remote_key!));
+      } catch {
+        continue; // try again next sync
+      }
+      for (const row of batch) {
+        const url = urls[row.remote_key!];
+        if (!url) continue;
+        try {
+          const uri = await files.download(url, { id: row.id, name: row.name, mimeType: row.mime_type });
+          await db.runAsync(`UPDATE ${table} SET uri = ? WHERE id = ? AND uri = ''`, uri, row.id);
+          downloaded += 1;
+        } catch {
+          // Try again next sync.
+        }
+      }
+    }
+  }
+  return downloaded;
+}
+
 // --- the sync itself ---------------------------------------------------------------
 
 export type SyncResult = { sent: number; received: number };
@@ -181,8 +289,15 @@ export type SyncResult = { sent: number; received: number };
  * Sends local changes and saves remote ones until both sides are up to date.
  * `userId` is the signed-in account; the first sync for an account uploads
  * everything already on the device (guest data moves into the account).
+ * With `files`, attachment files are uploaded first and downloaded after. If some could
+ * not be uploaded, everything else is still saved and then a FileUploadError is thrown.
  */
-export async function runSync(db: SQLiteDatabase, userId: string, transport: SyncTransport): Promise<SyncResult> {
+export async function runSync(
+  db: SQLiteDatabase,
+  userId: string,
+  transport: SyncTransport,
+  files?: FileTransport,
+): Promise<SyncResult> {
   if ((await getState(db, 'user_id')) !== userId) {
     await db.withTransactionAsync(async () => {
       await queueAllRows(db);
@@ -190,6 +305,8 @@ export async function runSync(db: SQLiteDatabase, userId: string, transport: Syn
       await setState(db, 'cursor', '0');
     });
   }
+
+  const uploads = files ? await uploadPendingFiles(db, files) : null;
 
   let sent = 0;
   let received = 0;
@@ -222,15 +339,22 @@ export async function runSync(db: SQLiteDatabase, userId: string, transport: Syn
     if (!response.more && outgoing.sent.length < BATCH_SIZE) break;
   }
 
+  if (files) await downloadMissingFiles(db, files);
+
   await setState(db, 'last_synced_at', new Date().toISOString());
+  if (uploads && uploads.failed > 0) throw new FileUploadError(uploads.failed, uploads.error);
   return { sent, received };
 }
 
 /**
  * Removes the account's data from this device (on sign-out), so the next person
  * to use the app starts fresh. Synced data stays safe in the account.
+ * Returns the uris of the attachment files on this device, for the caller to delete.
  */
-export async function clearAccountData(db: SQLiteDatabase): Promise<void> {
+export async function clearAccountData(db: SQLiteDatabase): Promise<string[]> {
+  const kept = await db.getAllAsync<{ uri: string }>(
+    "SELECT uri FROM attachments WHERE uri != '' UNION SELECT uri FROM note_attachments WHERE uri != ''",
+  );
   await db.withTransactionAsync(async () => {
     await db.execAsync(`
       DELETE FROM note_tags;
@@ -246,4 +370,5 @@ export async function clearAccountData(db: SQLiteDatabase): Promise<void> {
       DELETE FROM sync_state;
     `);
   });
+  return kept.map((r) => r.uri);
 }

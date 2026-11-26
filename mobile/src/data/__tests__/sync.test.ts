@@ -1,14 +1,18 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { createCard, listCards, setFavorite, updateCard } from '@/data/cards';
+import { addAttachment, deleteAttachment, listAttachmentsForCards } from '@/data/attachments';
+
+import { createCard, deleteCard, listCards, setFavorite, updateCard } from '@/data/cards';
 import { createDeck, deleteDeck, getDeck, listDecks, updateDeck } from '@/data/decks';
 import { createFolder } from '@/data/folders';
-import { createNote, getNote } from '@/data/notes';
+import { addNoteAttachment, createNote, getNote, listNoteAttachments } from '@/data/notes';
 import {
   clearAccountData,
   countPendingChanges,
+  FileUploadError,
   getLastSyncedAt,
   runSync,
+  type FileTransport,
   type SyncChange,
   type SyncRequest,
   type SyncResponse,
@@ -162,5 +166,122 @@ describe('sync', () => {
       }),
     ).rejects.toThrow('offline');
     expect(await countPendingChanges(phone)).toBe(1);
+  });
+});
+
+/** An in-memory stand-in for the account's file storage. */
+function fakeFiles(device: string, store = new Map<string, string>()) {
+  const files: FileTransport & { failNext?: string } = {
+    async upload(file) {
+      if (files.failNext) {
+        const message = files.failNext;
+        files.failNext = undefined;
+        throw new Error(message);
+      }
+      const key = `u/user-1/${file.id}`;
+      store.set(key, `bytes of ${file.uri}`);
+      return key;
+    },
+    async downloadUrls(keys) {
+      return Object.fromEntries(keys.filter((k) => store.has(k)).map((k) => [k, `https://r2.test/${k}`]));
+    },
+    async download(url, file) {
+      return `file:///${device}/${file.id}.bin`;
+    },
+  };
+  return { files, store };
+}
+
+describe('attachment sync', () => {
+  async function cardWithImage(db: SQLiteDatabase) {
+    const deckId = await createDeck(db, { name: 'Biology' });
+    const cardId = await createCard(db, deckId, { front: 'Cell?', back: 'Unit of life' });
+    const attachmentId = await addAttachment(db, cardId, {
+      side: 'front',
+      kind: 'image',
+      uri: 'file:///phone/cell.jpg',
+      name: 'cell.jpg',
+      mimeType: 'image/jpeg',
+    });
+    return { cardId, attachmentId };
+  }
+
+  it("uploads a file and downloads it onto the user's other device", async () => {
+    const { cardId } = await cardWithImage(phone);
+    const store = new Map<string, string>();
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone', store).files);
+
+    // The device's own path never leaves it.
+    const sent = [...server.rows.values()].find((r) => r.table === 'attachments')!;
+    expect(sent.data.uri).toBeUndefined();
+    expect(sent.data.remote_key).toMatch(/^u\/user-1\//);
+    expect(store.size).toBe(1);
+
+    await runSync(tablet, 'user-1', server.sync, fakeFiles('tablet', store).files);
+    const [onTablet] = (await listAttachmentsForCards(tablet, [cardId])).get(cardId)!;
+    expect(onTablet).toMatchObject({ name: 'cell.jpg', uri: expect.stringMatching(/^file:\/\/\/tablet\//) });
+
+    // Downloading isn't a change to send back, and the phone keeps its own copy.
+    expect(await countPendingChanges(tablet)).toBe(0);
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone', store).files);
+    const [onPhone] = (await listAttachmentsForCards(phone, [cardId])).get(cardId)!;
+    expect(onPhone.uri).toBe('file:///phone/cell.jpg');
+  });
+
+  it('hides an attachment until its file is on the device', async () => {
+    const { cardId } = await cardWithImage(phone);
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone').files);
+    // The tablet can't reach the file storage (an empty store has nothing to download).
+    await runSync(tablet, 'user-1', server.sync, fakeFiles('tablet').files);
+    expect((await listAttachmentsForCards(tablet, [cardId])).get(cardId)).toBeUndefined();
+    expect((await listCards(tablet, (await listDecks(tablet))[0].id)).map((c) => c.front)).toEqual(['Cell?']);
+  });
+
+  it('saves the rest of the sync when a file fails to upload, and tries it again next time', async () => {
+    await cardWithImage(phone);
+    const { files } = fakeFiles('phone');
+    files.failNext = 'Your storage is full.';
+    await expect(runSync(phone, 'user-1', server.sync, files)).rejects.toThrow(FileUploadError);
+    await expect(runSync(phone, 'user-1', server.sync, fakeFiles('phone').files)).resolves.toBeDefined();
+    expect([...server.rows.values()].find((r) => r.table === 'attachments')!.data.remote_key).toBeTruthy();
+  });
+
+  it('counts files not uploaded yet as unsynced, so signing out warns first', async () => {
+    await cardWithImage(phone);
+    const { files } = fakeFiles('phone');
+    files.failNext = 'offline';
+    await runSync(phone, 'user-1', server.sync, files).catch(() => undefined);
+    expect(await countPendingChanges(phone)).toBe(1);
+  });
+
+  it("deletes a card's attachments with it", async () => {
+    const { cardId, attachmentId } = await cardWithImage(phone);
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone').files);
+    await deleteCard(phone, cardId);
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone').files);
+    expect(server.rows.get(`attachments/${attachmentId}`)!.data.deleted_at).toBeTruthy();
+  });
+
+  it('syncs a deleted attachment', async () => {
+    const { attachmentId } = await cardWithImage(phone);
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone').files);
+    await deleteAttachment(phone, attachmentId);
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone').files);
+    expect(server.rows.get(`attachments/${attachmentId}`)!.data.deleted_at).toBeTruthy();
+  });
+
+  it('syncs note attachments too', async () => {
+    const folderId = await createFolder(phone, { name: 'Physics', parentId: null });
+    const noteId = await createNote(phone, folderId, { title: 'Waves', style: 'plain', body: '' });
+    await addNoteAttachment(phone, noteId, { kind: 'pdf', uri: 'file:///phone/waves.pdf', name: 'waves.pdf' });
+    const store = new Map<string, string>();
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone', store).files);
+    await runSync(tablet, 'user-1', server.sync, fakeFiles('tablet', store).files);
+    expect((await listNoteAttachments(tablet, noteId)).map((a) => a.name)).toEqual(['waves.pdf']);
+  });
+
+  it('hands back the files to delete on sign-out', async () => {
+    await cardWithImage(phone);
+    expect(await clearAccountData(phone)).toEqual(['file:///phone/cell.jpg']);
   });
 });

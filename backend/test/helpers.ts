@@ -1,11 +1,17 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { createApp } from '../src/app.ts';
 import { createAuth } from '../src/auth/auth.ts';
 import { openDatabase } from '../src/db/client.ts';
 import { readEnv } from '../src/env.ts';
 
 export async function createTestServer(extraEnv: NodeJS.ProcessEnv = {}) {
+  const filesDir = await mkdtemp(join(tmpdir(), 'noteme-files-'));
   const env = readEnv({
     NODE_ENV: 'test',
+    FILES_DIR: filesDir,
     BETTER_AUTH_URL: 'http://localhost:4000',
     CORS_ORIGINS: 'http://localhost:8081',
     ...extraEnv,
@@ -31,5 +37,9 @@ export async function createTestServer(extraEnv: NodeJS.ProcessEnv = {}) {
     return { cookie, user: ((await res.json()) as { user: { id: string } }).user };
   }
 
-  return { app, auth, db: database.db, request, signUp, close: database.close };
+  const close = async () => {
+    await database.close();
+    await rm(filesDir, { recursive: true, force: true });
+  };
+  return { app, auth, env, db: database.db, request, signUp, close };
 }

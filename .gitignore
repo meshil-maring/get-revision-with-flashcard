@@ -8,3 +8,4 @@ backend/data/*.json
 # Claude Code local settings
 .claude/
 backend/data/pglite*/
+backend/data/files/

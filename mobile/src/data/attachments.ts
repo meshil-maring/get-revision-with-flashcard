@@ -37,7 +37,7 @@ export async function listAttachmentsForCards(
   const placeholders = cardIds.map(() => '?').join(', ');
   const rows = await db.getAllAsync<AttachmentRow>(
     `SELECT * FROM attachments
-      WHERE card_id IN (${placeholders}) AND deleted_at IS NULL
+      WHERE card_id IN (${placeholders}) AND deleted_at IS NULL AND uri != ''
       ORDER BY created_at ASC`,
     ...cardIds,
   );
