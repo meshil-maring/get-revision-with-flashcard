@@ -1,13 +1,24 @@
 import { Platform } from 'react-native';
 
 /**
- * The StudyMe server (backend/). Set EXPO_PUBLIC_API_URL in mobile/.env.
- * Defaults: the Android emulator reaches the computer at 10.0.2.2; web and iOS use localhost.
- * A real phone needs the computer's LAN address, e.g. http://192.168.1.5:4000.
+ * Picks the server's address (mobile/.env, see .env.example):
+ * - EXPO_PUBLIC_PHONE_API_URL, on a phone or emulator: usually an https tunnel (ngrok), since a phone
+ *   can't reach "localhost" on the computer and Google sign-in needs https;
+ * - else EXPO_PUBLIC_API_URL, everywhere (the web keeps using it while phones use the tunnel);
+ * - else the computer itself: localhost, or 10.0.2.2 from the Android emulator.
  */
-export const API_URL = (
-  process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000')
-).replace(/\/$/, '');
+export function chooseApiUrl(os: string, apiUrl?: string, phoneApiUrl?: string): string {
+  const fallback = os === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
+  const chosen = (os !== 'web' && phoneApiUrl) || apiUrl || fallback;
+  return chosen.trim().replace(/\/+$/, '');
+}
+
+// Written out in full: Expo only fills in EXPO_PUBLIC_ values that appear exactly like this.
+export const API_URL = chooseApiUrl(
+  Platform.OS,
+  process.env.EXPO_PUBLIC_API_URL,
+  process.env.EXPO_PUBLIC_PHONE_API_URL,
+);
 
 /** The MCP server that AI apps (ChatGPT, Claude) connect to; see app/connect-ai.tsx. */
 export const MCP_URL = `${API_URL}/mcp`;
