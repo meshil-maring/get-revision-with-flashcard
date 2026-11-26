@@ -9,6 +9,7 @@ RUN npm ci --include=dev --no-audit --no-fund
 
 COPY . .
 ENV NODE_ENV=production
-# The host sets PORT (Railway does); 4000 when run by hand.
-EXPOSE 4000
+# The port the server listens on: the host's PORT (Railway sets it; set PORT=8080 there too).
+ENV PORT=8080
+EXPOSE 8080
 CMD ["npm", "start"]
