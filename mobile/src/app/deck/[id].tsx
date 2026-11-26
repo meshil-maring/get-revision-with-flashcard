@@ -1,9 +1,11 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { Pressable, SectionList, Text, View } from 'react-native';
 
 import { AutoNextPicker, autoNextLabel, autoNextShort } from '@/components/study/auto-next-picker';
+import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
+import { FormModal } from '@/components/ui/form-modal';
 import { ScreenTip } from '@/components/ui/screen-tip';
 import { RichText } from '@/components/ui/rich-text';
 import {
@@ -20,7 +22,8 @@ import {
   type IconName,
 } from '@/components/ui';
 import { listAttachmentsForCards } from '@/data/attachments';
-import { deleteCard, listCards, setFavorite } from '@/data/cards';
+import { createGroup, deleteGroup, listGroups, moveGroup, renameGroup } from '@/data/card-groups';
+import { deleteCard, listCards, setCardGroup, setFavorite } from '@/data/cards';
 import { getDeck } from '@/data/decks';
 import {
   AUTO_NEXT_OPTIONS,
@@ -31,7 +34,8 @@ import {
   setAutoNextPauseOnAnswer,
   setLastCustomAutoNext,
 } from '@/data/settings';
-import type { Attachment, AttachmentKind, Card, Deck } from '@/data/types';
+import type { Attachment, AttachmentKind, Card, CardGroup, Deck } from '@/data/types';
+import { sectionCards, type CardSection } from '@/lib/card-groups';
 import { confirm } from '@/lib/confirm';
 import { RATING_LABELS, ratingOf, type RatingFilter } from '@/lib/revision';
 import { formatStudyTotal } from '@/hooks/use-study-timer';
@@ -55,17 +59,26 @@ export default function DeckScreen() {
   const [pickingTime, setPickingTime] = useState(false);
   const [recentCustom, setRecentCustom] = useState(0);
   const [pauseOnAnswer, setPauseOnAnswer] = useState(false);
+  const [groups, setGroups] = useState<CardGroup[]>([]);
+  // Groups folded shut, so only their heading shows ('none' = the cards in no group).
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // The group form: null = closed, 'new' = making a group, else the group being renamed.
+  const [groupForm, setGroupForm] = useState<'new' | CardGroup | null>(null);
+  const [groupMenu, setGroupMenu] = useState<CardGroup | null>(null);
+  const [movingCard, setMovingCard] = useState<Card | null>(null);
 
   const refresh = useCallback(async () => {
-    const [d, c, a, recent, pause] = await Promise.all([
+    const [d, c, g, a, recent, pause] = await Promise.all([
       getDeck(db, id),
       listCards(db, id),
+      listGroups(db, id),
       getAutoNext(db, id),
       getLastCustomAutoNext(db),
       getAutoNextPauseOnAnswer(db, id),
     ]);
     setDeck(d);
     setCards(c);
+    setGroups(g);
     setAutoNextState(a);
     setRecentCustom(recent);
     setPauseOnAnswer(pause);
@@ -78,8 +91,66 @@ export default function DeckScreen() {
     }, [refresh]),
   );
 
-  function openEditor(card?: Card) {
-    router.push({ pathname: '/card-editor', params: card ? { deckId: id, cardId: card.id } : { deckId: id } });
+  function openEditor(card?: Card, groupId?: string) {
+    router.push({
+      pathname: '/card-editor',
+      params: card ? { deckId: id, cardId: card.id } : groupId ? { deckId: id, groupId } : { deckId: id },
+    });
+  }
+
+  function toggleCollapsed(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function saveGroup(name: string) {
+    const form = groupForm;
+    setGroupForm(null);
+    if (!name.trim() || form === null) return;
+    if (form === 'new') await createGroup(db, id, name);
+    else await renameGroup(db, form.id, name);
+    await refresh();
+  }
+
+  async function handleDeleteGroup(group: CardGroup) {
+    const ok = await confirm(
+      'Delete group?',
+      `"${group.name}" will be deleted. Its cards stay in the deck, under Other cards.`,
+    );
+    if (!ok) return;
+    await deleteGroup(db, group.id);
+    await refresh();
+  }
+
+  async function moveCardTo(card: Card, groupId: string | null) {
+    await setCardGroup(db, card.id, groupId);
+    await refresh();
+  }
+
+  function groupActions(group: CardGroup): SheetAction[] {
+    const index = groups.findIndex((g) => g.id === group.id);
+    const actions: SheetAction[] = [
+      { icon: 'add-circle-outline', label: 'Add card to this group', onPress: () => openEditor(undefined, group.id) },
+      { icon: 'create-outline', label: 'Rename group', onPress: () => setGroupForm(group) },
+    ];
+    if (index > 0) actions.push({ icon: 'arrow-up', label: 'Move up', onPress: () => moveGroup(db, group.id, -1).then(refresh) });
+    if (index < groups.length - 1)
+      actions.push({ icon: 'arrow-down', label: 'Move down', onPress: () => moveGroup(db, group.id, 1).then(refresh) });
+    actions.push({ icon: 'trash-outline', label: 'Delete group', tone: 'danger', onPress: () => handleDeleteGroup(group) });
+    return actions;
+  }
+
+  function moveActions(card: Card): SheetAction[] {
+    const actions: SheetAction[] = groups
+      .filter((g) => g.id !== card.groupId)
+      .map((g) => ({ icon: 'folder-outline', label: g.name, onPress: () => moveCardTo(card, g.id) }));
+    if (card.groupId && groups.some((g) => g.id === card.groupId))
+      actions.push({ icon: 'remove-circle-outline', label: 'Out of its group', onPress: () => moveCardTo(card, null) });
+    return actions;
   }
 
   function toggleAnswer(cardId: string) {
@@ -120,13 +191,20 @@ export default function DeckScreen() {
     );
   }
 
+  const grouped = groups.length > 0;
+  const sections = sectionCards(groups, cards).map((section) => {
+    const key = section.group?.id ?? 'none';
+    return { ...section, key, data: collapsed.has(key) ? [] : section.cards };
+  });
+
   return (
     <View className="flex-1 bg-page">
       <Stack.Screen options={{ title: deck.name }} />
 
-      <FlatList
-        data={cards}
+      <SectionList
+        sections={sections}
         keyExtractor={(card) => card.id}
+        stickySectionHeadersEnabled={false}
         contentContainerClassName="w-full max-w-3xl self-center gap-3 px-4 pb-32 pt-2"
         ListHeaderComponent={
           <View className="mb-2 gap-3">
@@ -193,17 +271,27 @@ export default function DeckScreen() {
             </View>
 
             {cards.length > 0 ? <ScreenTip id="deck" /> : null}
-            {cards.length > 0 ? (
-              <View className="mt-1 flex-row items-end justify-between px-1">
+            <View className="mt-1 gap-1 px-1">
+              <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-2">
                   <Text className="text-xl font-extrabold text-ink">Cards</Text>
                   <View className="rounded-full bg-primary-soft px-2.5 py-0.5">
                     <Text className="text-xs font-bold text-primary">{cards.length}</Text>
                   </View>
                 </View>
-                <Text className="text-xs text-muted">Answers hidden · test yourself</Text>
+                <Pressable
+                  onPress={() => setGroupForm('new')}
+                  accessibilityRole="button"
+                  accessibilityLabel="New group"
+                  accessibilityHint="Make a group to sort this deck's cards, like a chapter or topic"
+                  className="flex-row items-center gap-1.5 rounded-full bg-primary-soft px-3.5 py-2 active:bg-primary/20"
+                >
+                  <Icon name="folder-open-outline" size={18} color={colors.primary} />
+                  <Text className="text-sm font-semibold text-primary">New group</Text>
+                </Pressable>
               </View>
-            ) : null}
+              {cards.length > 0 ? <Text className="text-xs text-muted">Answers hidden · test yourself</Text> : null}
+            </View>
             <AutoNextPicker
               visible={pickingTime}
               value={autoNext}
@@ -232,6 +320,34 @@ export default function DeckScreen() {
             title="No cards yet"
             text="Add a card with a question on the front and the answer on the back."
           />
+        }
+        renderSectionHeader={({ section }) =>
+          grouped ? (
+            <GroupHeader
+              section={section}
+              collapsed={collapsed.has(section.key)}
+              onToggle={() => toggleCollapsed(section.key)}
+              onStudy={
+                section.group && section.cards.length > 0
+                  ? () => router.push({ pathname: '/study/[id]', params: { id, groupId: section.group!.id } })
+                  : undefined
+              }
+              onMenu={section.group ? () => setGroupMenu(section.group) : undefined}
+            />
+          ) : null
+        }
+        renderSectionFooter={({ section }) =>
+          section.group && section.cards.length === 0 && !collapsed.has(section.key) ? (
+            <Pressable
+              onPress={() => openEditor(undefined, section.group!.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Add a card to ${section.group.name}`}
+              className="flex-row items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line p-4 active:bg-surface"
+            >
+              <Icon name="add" size={18} color={colors.primary} />
+              <Text className="text-sm font-semibold text-primary">No cards yet · add one</Text>
+            </Pressable>
+          ) : null
         }
         renderItem={({ item: card, index }) => {
           const shown = shownAnswers.has(card.id);
@@ -281,6 +397,9 @@ export default function DeckScreen() {
                   tone={favorite ? 'favorite' : 'default'}
                   onPress={() => toggleFavorite(card)}
                 />
+                {grouped ? (
+                  <IconButton icon="folder-outline" label="Move to group" onPress={() => setMovingCard(card)} />
+                ) : null}
                 <IconButton icon="create-outline" label="Edit card" onPress={() => openEditor(card)} />
                 <IconButton icon="trash-outline" label="Delete card" tone="danger" onPress={() => handleDelete(card)} />
               </View>
@@ -290,6 +409,65 @@ export default function DeckScreen() {
       />
 
       <Fab label="Add card" onPress={() => openEditor()} />
+
+      <FormModal
+        visible={groupForm !== null}
+        title={groupForm === 'new' ? 'New group' : 'Rename group'}
+        fields={[{ key: 'name', label: 'Group name', placeholder: 'e.g. Chapter 1, Formulas', required: true }]}
+        initialValues={groupForm && groupForm !== 'new' ? { name: groupForm.name } : {}}
+        onCancel={() => setGroupForm(null)}
+        onSave={(values) => saveGroup(values.name)}
+      />
+      <ActionSheet
+        visible={groupMenu !== null}
+        title={groupMenu?.name ?? ''}
+        actions={groupMenu ? groupActions(groupMenu) : []}
+        onClose={() => setGroupMenu(null)}
+      />
+      <ActionSheet
+        visible={movingCard !== null}
+        title="Move to group"
+        actions={movingCard ? moveActions(movingCard) : []}
+        onClose={() => setMovingCard(null)}
+      />
+    </View>
+  );
+}
+
+/** The heading over a group of cards: tap to fold it, with Study and a menu for the group. */
+function GroupHeader({
+  section,
+  collapsed,
+  onToggle,
+  onStudy,
+  onMenu,
+}: {
+  section: CardSection;
+  collapsed: boolean;
+  onToggle: () => void;
+  onStudy?: () => void;
+  onMenu?: () => void;
+}) {
+  const name = section.group?.name ?? 'Other cards';
+  return (
+    <View className="mt-3 flex-row items-center gap-1 rounded-2xl bg-primary-soft p-1">
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={`${name}, ${plural(section.cards.length, 'card')}`}
+        accessibilityHint={collapsed ? 'Show the cards in this group' : 'Hide the cards in this group'}
+        accessibilityState={{ expanded: !collapsed }}
+        className="flex-1 flex-row items-center gap-2 rounded-xl px-2 py-2 active:bg-primary/10"
+      >
+        <Icon name={collapsed ? 'chevron-forward' : 'chevron-down'} size={20} color={colors.primary} />
+        <Icon name={section.group ? 'folder-open' : 'albums-outline'} size={20} color={colors.primary} />
+        <Text className="flex-1 text-base font-bold text-ink" numberOfLines={1}>
+          {name}
+        </Text>
+        <Text className="text-xs font-bold text-primary">{section.cards.length}</Text>
+      </Pressable>
+      {onStudy ? <IconButton icon="play" label={`Study ${name}`} onPress={onStudy} /> : null}
+      {onMenu ? <IconButton icon="ellipsis-vertical" label={`More for ${name}`} onPress={onMenu} /> : null}
     </View>
   );
 }

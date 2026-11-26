@@ -21,6 +21,7 @@ function card(id: string, deckId: string, rating: Rating | null, favorite = fals
   return {
     id,
     deckId,
+    groupId: null,
     front: `Q ${id}`,
     back: `A ${id}`,
     createdAt: '2026-01-01T00:00:00.000Z',

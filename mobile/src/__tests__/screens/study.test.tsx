@@ -64,6 +64,7 @@ function card(n: number): Card {
   return {
     id: `card-${n}`,
     deckId: 'deck-1',
+    groupId: null,
     front: `Question ${n}`,
     back: `Answer ${n}`,
     createdAt: '2026-01-01T00:00:00.000Z',

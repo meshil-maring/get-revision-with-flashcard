@@ -14,7 +14,8 @@ import { lockUser, writeChanges, type Change, type SyncedTable } from '../sync/s
 type Row = Record<string, unknown> & { id: string };
 
 export type DeckRow = Row & { name: string; description: string; created_at: string; updated_at: string };
-export type CardRow = Row & { deck_id: string; front: string; back: string; created_at: string };
+export type CardRow = Row & { deck_id: string; group_id?: string | null; front: string; back: string; created_at: string };
+export type CardGroupRow = Row & { deck_id: string; name: string; position: number; created_at: string };
 export type FolderRow = Row & { parent_id: string | null; name: string };
 export type NoteRow = Row & {
   folder_id: string | null;
@@ -112,20 +113,57 @@ export async function listDecks(db: Db, userId: string) {
 export async function getDeck(db: Db, userId: string, deckId: string) {
   const deck = await liveRow<DeckRow>(db, userId, 'decks', deckId);
   if (!deck) throw new ToolError(`No deck with id ${deckId}. Use list_decks to see the decks.`);
-  const cards = (await liveRows<CardRow>(db, userId, 'cards'))
+  const [allCards, groups] = await Promise.all([liveRows<CardRow>(db, userId, 'cards'), deckGroups(db, userId, deckId)]);
+  const cards = allCards
     .filter((c) => c.deck_id === deckId)
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const groupNames = new Map(groups.map((g) => [g.id, g.name]));
   return {
     id: deck.id,
     name: deck.name,
     description: deck.description,
-    cards: cards.map((c) => ({ id: c.id, front: c.front, back: c.back })),
+    groups: groups.map((g) => g.name),
+    cards: cards.map((c) => {
+      const group = c.group_id ? groupNames.get(c.group_id) : undefined;
+      return { id: c.id, front: c.front, back: c.back, ...(group ? { group } : {}) };
+    }),
   };
 }
 
-export type CardInput = { front: string; back: string };
+/** A card to add; `group` names the group of the deck to put it in (made if missing). */
+export type CardInput = { front: string; back: string; group?: string };
 
-function cardRows(deckId: string, cards: CardInput[], now: string) {
+/** The deck's card groups, in the app's order. */
+async function deckGroups(db: Db, userId: string, deckId: string): Promise<CardGroupRow[]> {
+  return (await liveRows<CardGroupRow>(db, userId, 'card_groups'))
+    .filter((g) => g.deck_id === deckId)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || String(a.created_at).localeCompare(String(b.created_at)));
+}
+
+/**
+ * The group id for each card (null = no group), reusing the deck's groups by name (ignoring
+ * case) and making rows for the groups that don't exist yet, at the end of the deck.
+ */
+function resolveGroups(deckId: string, existing: CardGroupRow[], cards: CardInput[], now: string) {
+  const groups = [...existing];
+  const newRows: { table: 'card_groups'; id: string; data: Record<string, unknown> }[] = [];
+  let position = groups.reduce((max, g) => Math.max(max, g.position ?? 0), -1);
+  const groupIds = cards.map((card) => {
+    const name = card.group?.trim();
+    if (!name) return null;
+    const found = groups.find((g) => sameName(g.name, name));
+    if (found) return found.id;
+    const id = randomUUID();
+    position += 1;
+    const group = { id, deck_id: deckId, name, position, created_at: now, updated_at: now, deleted_at: null };
+    groups.push(group);
+    newRows.push({ table: 'card_groups', id, data: group });
+    return id;
+  });
+  return { groupIds, newRows, groupNames: newRows.map((r) => r.data.name as string) };
+}
+
+function cardRows(deckId: string, cards: CardInput[], groupIds: (string | null)[], now: string) {
   // A millisecond apart, so the app shows them in the order given.
   const start = Date.parse(now);
   return cards.map((card, i) => {
@@ -137,6 +175,7 @@ function cardRows(deckId: string, cards: CardInput[], now: string) {
       data: {
         id,
         deck_id: deckId,
+        group_id: groupIds[i] ?? null,
         front: card.front.trim(),
         back: card.back.trim(),
         created_at: at,
@@ -154,10 +193,11 @@ export async function createDeck(
   db: Db,
   userId: string,
   input: { name: string; description?: string; cards: CardInput[] },
-): Promise<{ id: string; cardIds: string[] }> {
+): Promise<{ id: string; cardIds: string[]; groupsMade: string[] }> {
   const id = randomUUID();
   const now = new Date().toISOString();
-  const cards = cardRows(id, input.cards, now);
+  const groups = resolveGroups(id, [], input.cards, now);
+  const cards = cardRows(id, input.cards, groups.groupIds, now);
   await save(db, userId, [
     {
       table: 'decks',
@@ -173,17 +213,25 @@ export async function createDeck(
         study_seconds: 0,
       },
     },
+    ...groups.newRows,
     ...cards,
   ]);
-  return { id, cardIds: cards.map((c) => c.id) };
+  return { id, cardIds: cards.map((c) => c.id), groupsMade: groups.groupNames };
 }
 
-export async function addCards(db: Db, userId: string, deckId: string, cards: CardInput[]): Promise<string[]> {
+export async function addCards(
+  db: Db,
+  userId: string,
+  deckId: string,
+  cards: CardInput[],
+): Promise<{ cardIds: string[]; groupsMade: string[] }> {
   const deck = await liveRow<DeckRow>(db, userId, 'decks', deckId);
   if (!deck) throw new ToolError(`No deck with id ${deckId}. Use list_decks to see the decks.`);
-  const rows = cardRows(deckId, cards, new Date().toISOString());
-  await save(db, userId, rows);
-  return rows.map((r) => r.id);
+  const now = new Date().toISOString();
+  const groups = resolveGroups(deckId, await deckGroups(db, userId, deckId), cards, now);
+  const rows = cardRows(deckId, cards, groups.groupIds, now);
+  await save(db, userId, [...groups.newRows, ...rows]);
+  return { cardIds: rows.map((r) => r.id), groupsMade: groups.groupNames };
 }
 
 // --- notes and tags ----------------------------------------------------------------

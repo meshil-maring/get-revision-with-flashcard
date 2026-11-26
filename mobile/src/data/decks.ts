@@ -103,12 +103,18 @@ export function pickContinueDeck(decks: DeckWithCount[]): DeckWithCount | null {
   return studied[0] ?? withCards[0] ?? null; // listDecks is already newest-first
 }
 
-/** Soft-deletes the deck and all of its cards. */
+/** Soft-deletes the deck and all of its cards and card groups. */
 export async function deleteDeck(db: SQLiteDatabase, id: string): Promise<void> {
   const now = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       'UPDATE cards SET deleted_at = ?, updated_at = ? WHERE deck_id = ? AND deleted_at IS NULL',
+      now,
+      now,
+      id,
+    );
+    await db.runAsync(
+      'UPDATE card_groups SET deleted_at = ?, updated_at = ? WHERE deck_id = ? AND deleted_at IS NULL',
       now,
       now,
       id,

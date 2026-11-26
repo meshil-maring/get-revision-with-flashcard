@@ -67,6 +67,16 @@ The blue panel at the top is the deck itself. Your cards are listed under **Card
 
 ==Goal:== turn the whole bar teal. Study the Hard and New cards until they feel Easy.
 
+## Groups inside a deck
+Sort a deck's cards into **groups**, like chapters or topics ("Chapter 1", "Formulas").
+1. Open the deck and tap **New group** next to **Cards**. Type a name and tap **Save**.
+2. Put cards in it: choose the group when you add or edit a card, or tap the **folder** on a card and pick a group.
+- Tap a group's name to fold it away, and again to open it.
+- Tap **▶** on a group to study only its cards.
+- Tap **⋮** on a group to add a card to it, rename it, move it up or down, or delete it.
+
+Deleting a group keeps its cards. They move to **Other cards**, where cards that are not in a group are listed.
+
 ## Study a deck
 Tap the orange **▶** next to a deck, or open the deck and tap **Study**. A clock at the top of the study screen shows how long you have been studying. The time is added to the deck's total when you finish or leave.
 

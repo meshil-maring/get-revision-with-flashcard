@@ -6,6 +6,7 @@ import type { Card, FavoriteCard, Rating } from './types';
 type CardRow = {
   id: string;
   deck_id: string;
+  group_id: string | null;
   front: string;
   back: string;
   created_at: string;
@@ -22,6 +23,7 @@ function toCard(row: CardRow): Card {
   return {
     id: row.id,
     deckId: row.deck_id,
+    groupId: row.group_id ?? null,
     front: row.front,
     back: row.back,
     createdAt: row.created_at,
@@ -60,17 +62,17 @@ export async function listCardsForDecks(db: SQLiteDatabase, deckIds: string[]): 
     .sort((a, b) => (deckOrder.get(a.deckId) ?? 0) - (deckOrder.get(b.deckId) ?? 0));
 }
 
-export async function createCard(
-  db: SQLiteDatabase,
-  deckId: string,
-  input: { front: string; back: string },
-): Promise<string> {
+/** A card's text, and optionally its group (null = not in a group). */
+export type CardInput = { front: string; back: string; groupId?: string | null };
+
+export async function createCard(db: SQLiteDatabase, deckId: string, input: CardInput): Promise<string> {
   const id = randomUUID();
   const now = new Date().toISOString();
   await db.runAsync(
-    'INSERT INTO cards (id, deck_id, front, back, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO cards (id, deck_id, group_id, front, back, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
     id,
     deckId,
+    input.groupId ?? null,
     input.front.trim(),
     input.back.trim(),
     now,
@@ -79,18 +81,26 @@ export async function createCard(
   return id;
 }
 
-export async function updateCard(
-  db: SQLiteDatabase,
-  id: string,
-  input: { front: string; back: string },
-): Promise<void> {
-  await db.runAsync(
-    'UPDATE cards SET front = ?, back = ?, updated_at = ? WHERE id = ?',
-    input.front.trim(),
-    input.back.trim(),
-    new Date().toISOString(),
-    id,
-  );
+/** Changes a card's text, and its group too when `groupId` is given (null = no group). */
+export async function updateCard(db: SQLiteDatabase, id: string, input: CardInput): Promise<void> {
+  const now = new Date().toISOString();
+  if (input.groupId === undefined) {
+    await db.runAsync('UPDATE cards SET front = ?, back = ?, updated_at = ? WHERE id = ?', input.front.trim(), input.back.trim(), now, id);
+  } else {
+    await db.runAsync(
+      'UPDATE cards SET front = ?, back = ?, group_id = ?, updated_at = ? WHERE id = ?',
+      input.front.trim(),
+      input.back.trim(),
+      input.groupId,
+      now,
+      id,
+    );
+  }
+}
+
+/** Moves a card into a group, or out of its group (null). */
+export async function setCardGroup(db: SQLiteDatabase, id: string, groupId: string | null): Promise<void> {
+  await db.runAsync('UPDATE cards SET group_id = ?, updated_at = ? WHERE id = ?', groupId, new Date().toISOString(), id);
 }
 
 export async function deleteCard(db: SQLiteDatabase, id: string): Promise<void> {

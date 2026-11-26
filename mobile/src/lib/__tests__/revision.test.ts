@@ -5,6 +5,7 @@ function card(id: string, rating: Rating | null, favorite = false): Card {
   return {
     id,
     deckId: 'd',
+    groupId: null,
     front: id,
     back: '',
     createdAt: '',

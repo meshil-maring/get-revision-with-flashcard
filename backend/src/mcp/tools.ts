@@ -15,6 +15,15 @@ const text = (max: number) => z.string().trim().min(1).max(max);
 const card = z.object({
   front: text(5000).describe('The question or prompt.'),
   back: text(10000).describe(`The answer. ${FORMATTING}`),
+  group: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .describe(
+      'Optional group inside the deck to put the card in, e.g. "Chapter 1" or "Formulas". Reuses the deck\'s group ' +
+        'with this name, or makes it. Leave out for no group.',
+    ),
 });
 const cards = z.array(card).min(1).max(200);
 const folderPath = z
@@ -80,7 +89,8 @@ export function createMcpServer(db: Db, caller: McpCaller): McpServer {
     'get_deck',
     {
       title: 'Read a deck',
-      description: "A deck's cards (front and back), e.g. to avoid adding cards it already has.",
+      description:
+        "A deck's groups and cards (front, back and group), e.g. to avoid adding cards it already has or to reuse its groups.",
       inputSchema: { deck_id: z.string().min(1).describe('From list_decks.') },
       annotations: READ_ONLY,
     },
@@ -91,7 +101,9 @@ export function createMcpServer(db: Db, caller: McpCaller): McpServer {
     'create_deck',
     {
       title: 'Create a deck',
-      description: `Makes a new flashcard deck with its cards (up to 200). ${FORMATTING}`,
+      description:
+        'Makes a new flashcard deck with its cards (up to 200). Cards can be sorted into groups inside the deck ' +
+        `(e.g. one per chapter or subtopic) with each card's \`group\`. ${FORMATTING}`,
       inputSchema: {
         name: text(200).describe('Deck name, e.g. "Biology: Cell Structure".'),
         description: z.string().trim().max(1000).optional().describe('One line about what the deck covers.'),
@@ -102,7 +114,7 @@ export function createMcpServer(db: Db, caller: McpCaller): McpServer {
     ({ name, description, cards }) =>
       run(async () => {
         const deck = await store.createDeck(db, userId, { name, description, cards });
-        return { deckId: deck.id, name, cardsAdded: deck.cardIds.length };
+        return { deckId: deck.id, name, cardsAdded: deck.cardIds.length, groupsMade: deck.groupsMade };
       }),
   );
 
@@ -110,12 +122,17 @@ export function createMcpServer(db: Db, caller: McpCaller): McpServer {
     'add_cards',
     {
       title: 'Add cards to a deck',
-      description: `Adds cards (up to 200) to an existing deck. ${FORMATTING}`,
+      description:
+        "Adds cards (up to 200) to an existing deck, optionally into groups (each card's `group`; use get_deck to " +
+        `see the deck's groups). ${FORMATTING}`,
       inputSchema: { deck_id: z.string().min(1).describe('From list_decks.'), cards },
       annotations: ADDS,
     },
     ({ deck_id, cards }) =>
-      run(async () => ({ deckId: deck_id, cardsAdded: (await store.addCards(db, userId, deck_id, cards)).length })),
+      run(async () => {
+        const added = await store.addCards(db, userId, deck_id, cards);
+        return { deckId: deck_id, cardsAdded: added.cardIds.length, groupsMade: added.groupsMade };
+      }),
   );
 
   server.registerTool(

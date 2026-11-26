@@ -183,6 +183,23 @@ const MIGRATIONS: string[] = [
     SELECT 'note_attachments', id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now') FROM note_attachments
      WHERE EXISTS (SELECT 1 FROM sync_state WHERE key = 'user_id');
   `,
+  // v13: groups of cards inside a deck (e.g. "Chapter 1", "Formulas"). A card's group_id is
+  // null when it isn't in a group. Deleting a group keeps its cards; they become ungrouped.
+  `
+  CREATE TABLE IF NOT EXISTS card_groups (
+    id          TEXT PRIMARY KEY NOT NULL,
+    deck_id     TEXT NOT NULL REFERENCES decks(id),
+    name        TEXT NOT NULL,
+    position    INTEGER NOT NULL DEFAULT 0, -- order in the deck, smallest first
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    deleted_at  TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_card_groups_deck_id ON card_groups(deck_id);
+  -- No foreign key: a sync can bring a card before its group. A missing group reads as no group.
+  ALTER TABLE cards ADD COLUMN group_id TEXT;
+  ${syncTriggers('card_groups', 'NEW.id')}
+  `,
 ];
 
 // An upsert, not INSERT OR REPLACE: inside a trigger, OR REPLACE is overridden by the

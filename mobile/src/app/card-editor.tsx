@@ -20,9 +20,10 @@ import { ScreenTip } from '@/components/ui/screen-tip';
 import { RichTextInput } from '@/components/ui/rich-text-input';
 import { colors, Icon, type IconName } from '@/components/ui';
 import { addAttachment, deleteAttachment, listAttachmentsForCards } from '@/data/attachments';
+import { listGroups } from '@/data/card-groups';
 import { createCard, getCard, updateCard } from '@/data/cards';
 import { getDeck } from '@/data/decks';
-import type { CardSide } from '@/data/types';
+import type { CardGroup, CardSide } from '@/data/types';
 import {
   keepFile,
   pickAudioFile,
@@ -47,10 +48,15 @@ function showError(title: string, message: string) {
 
 /**
  * Create or edit a card: question, formatted answer, and pictures, PDFs or audio on
- * either side. URL: /card-editor?deckId=… (new card) or ?deckId=…&cardId=… (edit).
+ * either side. URL: /card-editor?deckId=… (new card, &groupId=… to put it in a group)
+ * or ?deckId=…&cardId=… (edit).
  */
 export default function CardEditorScreen() {
-  const { deckId, cardId } = useLocalSearchParams<{ deckId: string; cardId?: string }>();
+  const { deckId, cardId, groupId: startGroupId } = useLocalSearchParams<{
+    deckId: string;
+    cardId?: string;
+    groupId?: string;
+  }>();
   const db = useSQLiteContext();
   const editing = Boolean(cardId);
   const insets = useSafeAreaInsets();
@@ -64,12 +70,16 @@ export default function CardEditorScreen() {
   const [recordingSide, setRecordingSide] = useState<CardSide | null>(null);
   const [saving, setSaving] = useState(false);
   const [deckName, setDeckName] = useState('');
+  const [groups, setGroups] = useState<CardGroup[]>([]);
+  const [groupId, setGroupId] = useState<string | null>(startGroupId ?? null);
 
   useEffect(() => {
     if (!deckId) return;
     let cancelled = false;
-    getDeck(db, deckId).then((deck) => {
-      if (!cancelled && deck) setDeckName(deck.name);
+    Promise.all([getDeck(db, deckId), listGroups(db, deckId)]).then(([deck, g]) => {
+      if (cancelled) return;
+      if (deck) setDeckName(deck.name);
+      setGroups(g);
     });
     return () => {
       cancelled = true;
@@ -84,6 +94,7 @@ export default function CardEditorScreen() {
       if (card) {
         setFront(card.front);
         setBack(card.back);
+        setGroupId(card.groupId);
       }
       setDrafts(
         (byCard.get(cardId) ?? []).map((a) => ({
@@ -129,7 +140,8 @@ export default function CardEditorScreen() {
     if (!canSave) return;
     setSaving(true);
     try {
-      const input = { front, back };
+      // A group deleted meanwhile (e.g. on another device) means no group.
+      const input = { front, back, groupId: groups.some((g) => g.id === groupId) ? groupId : null };
       let id = cardId;
       if (id) await updateCard(db, id, input);
       else id = await createCard(db, deckId, input);
@@ -190,6 +202,8 @@ export default function CardEditorScreen() {
             ) : null}
 
             <ScreenTip id="cardEditor" />
+
+            {groups.length > 0 ? <GroupPicker groups={groups} value={groupId} onChange={setGroupId} /> : null}
 
             {/* Question */}
             <SectionCard icon="help" title="Question" accent="primary" filled={front.trim().length > 0}>
@@ -281,6 +295,48 @@ export default function CardEditorScreen() {
         }}
       />
     </KeyboardAvoidingView>
+  );
+}
+
+/** Which group of the deck the card is in, as a row of chips. */
+function GroupPicker({
+  groups,
+  value,
+  onChange,
+}: {
+  groups: CardGroup[];
+  value: string | null;
+  onChange: (groupId: string | null) => void;
+}) {
+  const options = [{ id: null, name: 'No group' }, ...groups.map((g) => ({ id: g.id as string | null, name: g.name }))];
+  const current = groups.some((g) => g.id === value) ? value : null;
+  return (
+    <View className="gap-2 px-1">
+      <View className="flex-row items-center gap-1.5">
+        <Icon name="folder-open-outline" size={18} color={colors.muted} />
+        <Text className="text-sm font-semibold text-ink">Group</Text>
+      </View>
+      <View className="flex-row flex-wrap gap-2" accessibilityRole="radiogroup" accessibilityLabel="Group">
+        {options.map((option) => {
+          const selected = option.id === current;
+          return (
+            <Pressable
+              key={option.id ?? 'none'}
+              onPress={() => onChange(option.id)}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
+              className={`rounded-full px-3.5 py-2 ${
+                selected ? 'bg-primary' : 'border border-line bg-white active:bg-surface'
+              }`}
+            >
+              <Text className={`text-sm font-semibold ${selected ? 'text-white' : 'text-ink'}`} numberOfLines={1}>
+                {option.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 

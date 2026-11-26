@@ -17,9 +17,21 @@ export type DeckWithCount = Deck & { cardCount: number };
 /** How a card felt the last time it was revised. */
 export type Rating = 'hard' | 'ok' | 'easy';
 
+/** A named group of cards inside a deck, e.g. "Chapter 1" or "Formulas". */
+export type CardGroup = {
+  id: string;
+  deckId: string;
+  name: string;
+  position: number; // order in the deck, smallest first
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
 export type Card = {
   id: string;
   deckId: string;
+  groupId: string | null; // null = not in a group
   front: string; // plain text
   back: string; // light formatting, see src/lib/rich-text.ts
   createdAt: string;

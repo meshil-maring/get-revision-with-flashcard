@@ -273,6 +273,59 @@ describe('connecting an AI app', () => {
     expect((await callTool(otherToken, 'list_decks')).data).toEqual([]);
   });
 
+  it('lets the AI app sort cards into groups inside a deck, reusing groups by name', async () => {
+    const clientId = await registerClient('Claude');
+    const { cookie } = await server.signUp('grouper@example.com');
+    const token = await connect(cookie, clientId);
+
+    const deck = await callTool(token, 'create_deck', {
+      name: 'Physics',
+      cards: [
+        { front: 'Unit of force?', back: 'Newton', group: 'Chapter 1' },
+        { front: 'F = ?', back: 'ma', group: 'Formulas' },
+        { front: 'Who wrote Principia?', back: 'Newton' },
+      ],
+    });
+    expect(deck.data).toMatchObject({ cardsAdded: 3, groupsMade: ['Chapter 1', 'Formulas'] });
+
+    const added = await callTool(token, 'add_cards', {
+      deck_id: deck.data.deckId,
+      cards: [
+        { front: 'Unit of energy?', back: 'Joule', group: 'chapter 1' }, // same group, other case
+        { front: 'p = ?', back: 'mv', group: 'Momentum' },
+      ],
+    });
+    expect(added.data).toMatchObject({ cardsAdded: 2, groupsMade: ['Momentum'] });
+
+    const full = await callTool(token, 'get_deck', { deck_id: deck.data.deckId });
+    expect(full.data.groups).toEqual(['Chapter 1', 'Formulas', 'Momentum']);
+    expect(full.data.cards.map((c: { front: string; group?: string }) => [c.front, c.group])).toEqual([
+      ['Unit of force?', 'Chapter 1'],
+      ['F = ?', 'Formulas'],
+      ['Who wrote Principia?', undefined],
+      ['Unit of energy?', 'Chapter 1'],
+      ['p = ?', 'Momentum'],
+    ]);
+
+    // The app gets the groups as card_groups rows, and each card's group_id.
+    const sync = await server.request('/api/sync', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: JSON.stringify({ cursor: 0, changes: [] }),
+    });
+    const { changes } = (await sync.json()) as SyncResponse;
+    const groups = changes.filter((c) => c.table === 'card_groups').map((c) => c.data);
+    expect(groups.map((g) => [g.name, g.position, g.deck_id])).toEqual([
+      ['Chapter 1', 0, deck.data.deckId],
+      ['Formulas', 1, deck.data.deckId],
+      ['Momentum', 2, deck.data.deckId],
+    ]);
+    const chapter1 = groups[0].id;
+    const cards = changes.filter((c) => c.table === 'cards').map((c) => c.data);
+    expect(cards.filter((c) => c.group_id === chapter1).map((c) => c.front)).toEqual(['Unit of force?', 'Unit of energy?']);
+    expect(cards.find((c) => c.front === 'Who wrote Principia?')!.group_id).toBeNull();
+  });
+
   it("collects each note's key points in its folder's Good to know note", async () => {
     const clientId = await registerClient('Claude');
     const { cookie } = await server.signUp('good-to-know@example.com');

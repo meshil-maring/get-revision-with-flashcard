@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Db } from '../db/client.ts';
 
 /** The app tables that are kept in step between devices and the server. */
-export const SYNCED_TABLES = ['decks', 'cards', 'folders', 'notes', 'tags', 'note_tags', 'attachments', 'note_attachments'] as const;
+export const SYNCED_TABLES = ['decks', 'card_groups', 'cards', 'folders', 'notes', 'tags', 'note_tags', 'attachments', 'note_attachments'] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
 /** Most rows sent or returned in one request; the app keeps asking while `more` is true. */
