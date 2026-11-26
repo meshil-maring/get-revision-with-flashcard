@@ -1,21 +1,25 @@
 import '../global.css';
 
 import { Stack } from 'expo-router';
-import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 
+import { DatabaseGate } from '@/components/database-gate';
 import { colors } from '@/components/ui';
-import { DATABASE_NAME, migrateDbIfNeeded } from '@/data/db';
 import { AccountProvider } from '@/providers/account';
 import { QueryProvider } from '@/providers/query';
 import { headerOptions } from '@/lib/header-options';
+import { moveToLocalhostIfNeeded } from '@/lib/dev-host';
+
+// Development on the web: 127.0.0.1 can't reach the localhost server, so switch (lib/dev-host.ts).
+moveToLocalhostIfNeeded();
 
 // The bottom tabs (Home, Notes, Flashcards, More) live in (tabs)/.
 // Screens opened from them (a deck, a study session…) are stacked on top here,
 // so the tab bar is hidden while studying.
 export default function RootLayout() {
   return (
-    <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
+    // The local database (data/db.ts); copes with it being open in another browser tab.
+    <DatabaseGate>
       {/* Cache for server data — not for decks and notes, which are local (services/queries.ts). */}
       <QueryProvider>
         {/* Signed-in user and sync with their account (providers/account.tsx). */}
@@ -43,6 +47,6 @@ export default function RootLayout() {
           </Stack>
         </AccountProvider>
       </QueryProvider>
-    </SQLiteProvider>
+    </DatabaseGate>
   );
 }
