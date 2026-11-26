@@ -19,7 +19,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.revisionflashcards.app"
+      "package": "com.revisionflashcards.app",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "output": "single",
@@ -49,7 +52,8 @@
           "photosPermission": "Allow StudyMe to add pictures from your library to your flashcards."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -64,6 +68,9 @@
       "eas": {
         "projectId": "69830183-f9de-445e-9411-950255a6313c"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/69830183-f9de-445e-9411-950255a6313c"
     }
   }
 }

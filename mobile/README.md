@@ -19,6 +19,16 @@ npx tsc --noEmit         # typecheck
 npx expo lint            # lint
 ```
 
+## Android builds and updates
+
+- **Build** an installable app (`.apk`, uses the live server): `npx eas-cli@latest build -p android --profile preview`.
+- **Update** installed builds without rebuilding (JavaScript/TypeScript changes only):
+  `npm run update:preview -- "What changed"`. Phones get it the next time the app opens. Always use this
+  command, not plain `eas update`: that would bundle your local `.env` server address into the update.
+- **Rebuild** instead when native parts change: a new package with native code, the app icon or name,
+  permissions, or an Expo SDK upgrade. Then also raise `version` in `app.json`, so updates made for the
+  new build never reach phones running the old one (`runtimeVersion` follows the app version).
+
 ## Folders
 
 ```
