@@ -33,6 +33,8 @@ export type Env = {
   mcpResource: string;
   secret: string;
   databaseUrl: string;
+  /** Certificate authority to trust for the database's TLS (Supabase's CA certificate file). */
+  databaseCaCert?: string;
   corsOrigins: string[];
   appScheme: string;
   /** Only the providers whose client id and secret are set. */
@@ -88,6 +90,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     mcpResource: `${baseURL}/mcp`,
     secret: secret || 'dev-only-secret-change-me-in-production-0123456789',
     databaseUrl: source.DATABASE_URL ?? '',
+    databaseCaCert: source.DATABASE_CA_CERT || undefined,
     corsOrigins: list(source.CORS_ORIGINS ?? 'http://localhost:8081'),
     appScheme: source.APP_SCHEME ?? 'studyme',
     social,

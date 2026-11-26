@@ -6,7 +6,7 @@ import { openDatabase } from './db/client.ts';
 import { readEnv } from './env.ts';
 
 const env = readEnv();
-const { db } = await openDatabase(env.databaseUrl);
+const { db } = await openDatabase(env.databaseUrl, { caCertFile: env.databaseCaCert });
 const auth = createAuth(db, env);
 const app = createApp({ db, auth, env });
 
