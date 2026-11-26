@@ -14,6 +14,9 @@ type Props = {
 
 export type RichTextSize = 'base' | 'lg' | 'xl';
 
+/** Heading 1 colour on the blue answer side, where the usual blue would disappear. */
+const LIGHT_BLUE = '#bfdbfe';
+
 /** Shows text written with the formatting toolbar (headings, bold, lists…). */
 export function RichText({ text, tone = 'default', center = false, size = 'base' }: Props) {
   const blocks = parseRichText(text);
@@ -50,10 +53,26 @@ function BlockView({
   const spans = <Spans spans={block.spans} tone={tone} />;
 
   if (block.type === 'h1') {
-    return <Text className={`${align} ${ink} mb-1 mt-1 text-3xl font-extrabold`}>{spans}</Text>;
+    // Blue, so the main heading stands out. On the blue answer side, a light blue that still reads.
+    const blue = tone === 'onDark' ? '' : 'text-primary';
+    return (
+      <Text
+        accessibilityRole="header"
+        className={`${align} ${blue} mb-1 mt-1 text-3xl font-extrabold`}
+        style={tone === 'onDark' ? { color: LIGHT_BLUE } : undefined}
+      >
+        {spans}
+      </Text>
+    );
   }
   if (block.type === 'h2') {
-    return <Text className={`${align} ${ink} mt-1 text-2xl font-bold`}>{spans}</Text>;
+    return <Text accessibilityRole="header" className={`${align} ${ink} mt-1 text-2xl font-bold`}>{spans}</Text>;
+  }
+  if (block.type === 'h3') {
+    return <Text accessibilityRole="header" className={`${align} ${ink} mt-1 text-xl font-bold`}>{spans}</Text>;
+  }
+  if (block.type === 'h4') {
+    return <Text accessibilityRole="header" className={`${align} ${ink} mt-0.5 text-lg font-semibold`}>{spans}</Text>;
   }
   if (block.type === 'bullet' || block.type === 'number') {
     return (

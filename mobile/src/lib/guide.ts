@@ -89,7 +89,8 @@ Tap the countdown to **pause** it if you need longer on a card, and tap again to
 
 ## Format your answer
 The toolbar above the answer box can make your answers easier to read. Select some text, then tap a button:
-- **H1 / H2**: a heading or subheading
+- **H1 / H2**: a heading (shown in blue) or subheading
+- **H3 / H4**: smaller headings
 - **B**: bold, *I*: italic, __U__: underline
 - **Marker**: ==highlight== the key words
 - **Lists**: bullet points or numbered steps

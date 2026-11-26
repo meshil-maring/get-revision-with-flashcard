@@ -1,8 +1,9 @@
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { BackHandler, Platform, Pressable, ScrollView, Text, View, type NativeScrollEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ReadAloudButton } from '@/components/notes/read-aloud';
 import { RichText } from '@/components/ui/rich-text';
 import { colors, Icon, IconButton } from '@/components/ui';
 import { getNoteFocusSize, NOTE_FOCUS_SIZES, setNoteFocusSize, type NoteFocusSize } from '@/data/settings';
@@ -23,9 +24,20 @@ const CUE_SIZE: Record<NoteFocusSize, string> = {
 /**
  * Focus mode: just the note, nothing else on screen. Bigger text that can be
  * resized, a thin progress line while scrolling, and for Cornell notes a way to
- * cover the notes and test yourself from the cues.
+ * cover the notes and test yourself from the cues. It can also read the note
+ * aloud, and step to the previous or next note in the folder (`footer`).
  */
-export function FocusReader({ note, onExit }: { note: Note; onExit: () => void }) {
+export function FocusReader({
+  note,
+  onExit,
+  readAloud,
+  footer,
+}: {
+  note: Note;
+  onExit: () => void;
+  readAloud?: { speaking: boolean; toggle: () => void };
+  footer?: ReactNode;
+}) {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [size, setSize] = useState<NoteFocusSize>('lg');
@@ -87,6 +99,7 @@ export function FocusReader({ note, onExit }: { note: Note; onExit: () => void }
       <View className="w-full max-w-3xl flex-row items-center self-center px-2">
         <IconButton icon="close" label="Exit focus mode" onPress={onExit} />
         <View className="flex-1" />
+        {readAloud ? <ReadAloudButton speaking={readAloud.speaking} onPress={readAloud.toggle} /> : null}
         {cornell && note.rows.length > 0 ? (
           <Pressable
             onPress={toggleCovered}
@@ -120,7 +133,7 @@ export function FocusReader({ note, onExit }: { note: Note; onExit: () => void }
         onScroll={onScroll}
         scrollEventThrottle={32}
         contentContainerClassName="w-full max-w-2xl self-center gap-6 px-7 pt-8"
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 48 }}
+        contentContainerStyle={{ paddingBottom: footer ? 32 : Math.max(insets.bottom, 16) + 48 }}
       >
         <Text className={`${TITLE_SIZE[size]} font-extrabold text-ink`}>{note.title}</Text>
 
@@ -157,6 +170,12 @@ export function FocusReader({ note, onExit }: { note: Note; onExit: () => void }
           <RichText text={note.body} size={size} />
         )}
       </ScrollView>
+
+      {footer ? (
+        <View className="border-t border-line px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+          {footer}
+        </View>
+      ) : null}
     </View>
   );
 }

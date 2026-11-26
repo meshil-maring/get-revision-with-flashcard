@@ -65,6 +65,7 @@ const LABEL_ICONS: Record<string, IconName> = {
   record: 'mic-outline',
   'audio file': 'musical-notes-outline',
   'h1 / h2': 'text-outline',
+  'h3 / h4': 'text-outline',
   b: 'text-outline',
   marker: 'color-fill-outline',
   lists: 'list-outline',

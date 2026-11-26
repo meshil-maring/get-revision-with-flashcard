@@ -1,14 +1,14 @@
 // Light formatting for card answers, stored as plain text with simple marks
 // (a small part of Markdown, so it stays readable and the AI can write it too):
 //
-//   # Heading        ## Subheading
+//   # Heading        ## Subheading      ### Heading 3      #### Heading 4
 //   - bullet         1. numbered
 //   **bold**   *italic*   __underline__   ==highlight==
 
 export type SpanStyle = { bold?: boolean; italic?: boolean; underline?: boolean; highlight?: boolean };
 export type Span = SpanStyle & { text: string };
 
-export type BlockType = 'h1' | 'h2' | 'bullet' | 'number' | 'paragraph' | 'blank';
+export type BlockType = 'h1' | 'h2' | 'h3' | 'h4' | 'bullet' | 'number' | 'paragraph' | 'blank';
 export type Block = { type: BlockType; spans: Span[]; number?: number };
 
 // Order matters: ** before *, so bold isn't read as two italics.
@@ -35,11 +35,13 @@ export function parseInline(text: string, style: SpanStyle = {}): Span[] {
   return spans;
 }
 
-const BLOCK_PREFIX = /^(#{1,2} |- |• |\d+\. )/;
+const BLOCK_PREFIX = /^(#{1,4} |- |• |\d+\. )/;
 
 export function parseRichText(text: string): Block[] {
   return text.split('\n').map((line): Block => {
     if (line.trim() === '') return { type: 'blank', spans: [] };
+    if (line.startsWith('#### ')) return { type: 'h4', spans: parseInline(line.slice(5)) };
+    if (line.startsWith('### ')) return { type: 'h3', spans: parseInline(line.slice(4)) };
     if (line.startsWith('## ')) return { type: 'h2', spans: parseInline(line.slice(3)) };
     if (line.startsWith('# ')) return { type: 'h1', spans: parseInline(line.slice(2)) };
     if (line.startsWith('- ') || line.startsWith('• ')) return { type: 'bullet', spans: parseInline(line.slice(2)) };
@@ -90,10 +92,10 @@ export function wrapSelection(text: string, selection: Selection, mark: string):
 }
 
 /**
- * Turns the selected lines into headings or list items ("# ", "## ", "- ", "1. ").
+ * Turns the selected lines into headings or list items ("# " … "#### ", "- ", "1. ").
  * If every selected line already has that kind of prefix, it is removed instead.
  */
-export function toggleLinePrefix(text: string, selection: Selection, prefix: '# ' | '## ' | '- ' | '1. '): Edit {
+export function toggleLinePrefix(text: string, selection: Selection, prefix: '# ' | '## ' | '### ' | '#### ' | '- ' | '1. '): Edit {
   const lineStart = text.lastIndexOf('\n', selection.start - 1) + 1;
   const nextBreak = text.indexOf('\n', selection.end);
   const lineEnd = nextBreak === -1 ? text.length : nextBreak;

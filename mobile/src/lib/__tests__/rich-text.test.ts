@@ -35,6 +35,13 @@ describe('parseRichText', () => {
     expect(blocks[0].spans).toEqual([{ text: 'Title' }]);
   });
 
+  it('reads heading 3 and heading 4', () => {
+    const blocks = parseRichText('### Three\n#### Four\n##### not a heading');
+    expect(blocks.map((b) => b.type)).toEqual(['h3', 'h4', 'paragraph']);
+    expect(blocks[0].spans).toEqual([{ text: 'Three' }]);
+    expect(blocks[1].spans).toEqual([{ text: 'Four' }]);
+  });
+
   it('gives plain text for previews', () => {
     expect(toPlainText('# **Mitosis**\n- one ==key== point\n1. step')).toBe('Mitosis\n• one key point\n1. step');
   });

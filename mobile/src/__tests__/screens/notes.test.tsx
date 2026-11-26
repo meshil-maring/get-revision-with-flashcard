@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import * as Speech from 'expo-speech';
 import { Alert } from 'react-native';
 
 import NoteScreen from '@/app/note/[id]';
@@ -58,6 +59,11 @@ jest.mock('@/data/settings', () => ({
   isTipDismissed: jest.fn(),
   getNoteFocusSize: jest.fn(),
   setNoteFocusSize: jest.fn(),
+}));
+jest.mock('expo-speech', () => ({
+  speak: jest.fn(),
+  stop: jest.fn(() => Promise.resolve()),
+  maxSpeechInputLength: 4000,
 }));
 jest.mock('@/lib/confirm', () => ({ confirm: jest.fn(() => Promise.resolve(true)) }));
 // The recorder needs the microphone; it isn't opened in these tests.
@@ -345,6 +351,64 @@ describe('Note screen', () => {
     await fireEvent.press(screen.getByText('Focus'));
     expect(screen.queryByLabelText('Exit focus mode')).toBeNull();
   });
+
+  it('steps to the previous and next note in the same folder', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-2' });
+    const inFolder = [
+      note({ id: 'n-1', folderId: 'f-1', title: 'Speed' }),
+      note({ id: 'n-2', folderId: 'f-1', title: 'Velocity', body: 'Speed with a direction' }),
+      note({ id: 'n-3', folderId: 'f-1', title: 'Acceleration' }),
+    ];
+    jest.mocked(notes.getNote).mockResolvedValue(inFolder[1]);
+    jest.mocked(notes.listNotes).mockResolvedValue(inFolder);
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('2 / 3')).toBeOnTheScreen();
+    expect(notes.listNotes).toHaveBeenCalledWith(expect.anything(), 'f-1');
+    await fireEvent.press(screen.getByLabelText('Next note: Acceleration'));
+    expect(mockRouter.router.replace).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n-3' } });
+    await fireEvent.press(screen.getByLabelText('Previous note: Speed'));
+    expect(mockRouter.router.replace).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n-1' } });
+  });
+
+  it('steps through the folder in focus mode, staying in focus mode', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    const inFolder = [
+      note({ id: 'n-1', folderId: 'f-1', title: 'Speed', body: 'Distance ÷ time' }),
+      note({ id: 'n-2', folderId: 'f-1', title: 'Velocity' }),
+    ];
+    jest.mocked(notes.getNote).mockResolvedValue(inFolder[0]);
+    jest.mocked(notes.listNotes).mockResolvedValue(inFolder);
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByText('Focus'));
+
+    expect(await screen.findByLabelText('Exit focus mode')).toBeOnTheScreen();
+    expect(screen.getByText('1 / 2')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Next note: Velocity'));
+    expect(mockRouter.router.replace).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n-2', focus: '1' } });
+  });
+
+  it('opens straight into focus mode when asked to', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-2', focus: '1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ id: 'n-2', title: 'Velocity', body: 'Speed with a direction' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByLabelText('Exit focus mode')).toBeOnTheScreen();
+  });
+
+  it('hides previous and next for a note on its own or outside a folder', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Speed: distance ÷ time' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('Speed: distance ÷ time')).toBeOnTheScreen();
+    expect(screen.queryByText('Previous')).toBeNull();
+    expect(notes.listNotes).not.toHaveBeenCalled();
+  });
 });
 
 describe('Make flashcards', () => {
@@ -373,5 +437,64 @@ describe('Make flashcards', () => {
     expect(decks.createDeck).toHaveBeenCalledWith(expect.anything(), { name: 'Motion' });
     expect(cards.createCard).toHaveBeenCalledTimes(1);
     expect(cards.createCard).toHaveBeenCalledWith(expect.anything(), 'd-new', { front: 'Speed?', back: 'distance ÷ time' });
+  });
+});
+
+describe('Read aloud', () => {
+  // The speaker sits in the header, which the test router doesn't normally draw.
+  const plainScreen = mockRouter.Stack.Screen;
+  beforeEach(() => {
+    mockRouter.Stack.Screen = (({ options }: { options?: { headerRight?: () => React.ReactNode } }) =>
+      options?.headerRight?.() ?? null) as typeof plainScreen;
+  });
+  afterEach(() => {
+    mockRouter.Stack.Screen = plainScreen;
+  });
+
+  it('reads the note out and stops when tapped again', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: '**Speed**: distance ÷ time' }));
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByLabelText('Read note aloud'));
+
+    expect(Speech.speak).toHaveBeenCalledWith('Speed\nSpeed: distance ÷ time', expect.anything());
+    await fireEvent.press(screen.getByLabelText('Stop reading'));
+    expect(Speech.stop).toHaveBeenCalled();
+    expect(screen.getByLabelText('Read note aloud')).toBeOnTheScreen();
+  });
+
+  it('goes back to the speaker once the voice finishes', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Distance ÷ time' }));
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByLabelText('Read note aloud'));
+    const options = jest.mocked(Speech.speak).mock.calls[0][1];
+    await act(() => options?.onDone?.());
+
+    expect(screen.getByLabelText('Read note aloud')).toBeOnTheScreen();
+  });
+
+  it('reads aloud from focus mode too', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1', focus: '1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Distance ÷ time' }));
+
+    await render(<NoteScreen />);
+    expect(await screen.findByLabelText('Exit focus mode')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Read note aloud'));
+
+    expect(Speech.speak).toHaveBeenCalledWith('Speed\nDistance ÷ time', expect.anything());
+    expect(screen.getByLabelText('Stop reading')).toBeOnTheScreen();
+  });
+
+  it('has no speaker on an empty note', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({}));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('This note is empty. Tap to start writing.')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Read note aloud')).toBeNull();
   });
 });

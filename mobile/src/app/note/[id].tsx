@@ -8,11 +8,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AttachmentList } from '@/components/cards/attachments';
 import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
 import { FocusReader } from '@/components/notes/focus-reader';
+import { ReadAloudButton, useReadAloud } from '@/components/notes/read-aloud';
 import { RichText } from '@/components/ui/rich-text';
 import { TagChip } from '@/components/tags/tag-chip';
 import { Button, colors, EmptyState, Icon, IconButton } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
-import { deleteNote, getNote, listNoteAttachments, setNoteFavorite } from '@/data/notes';
+import { deleteNote, getNote, listNoteAttachments, listNotes, setNoteFavorite } from '@/data/notes';
 import { listTagsForNotes } from '@/data/tags';
 import type { FolderCrumb, Note, NoteAttachment, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
@@ -20,33 +21,42 @@ import { suggestCards } from '@/lib/notes';
 
 /** Reading a note. Edit it, turn it into flashcards, or delete it from here. */
 export default function NoteScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // focus=1: opened with Previous / Next from focus mode, so stay in focus mode.
+  const { id, focus: startInFocus } = useLocalSearchParams<{ id: string; focus?: string }>();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [note, setNote] = useState<Note | null | undefined>(undefined); // undefined = loading
   const [path, setPath] = useState<FolderCrumb[]>([]);
   const [attachments, setAttachments] = useState<NoteAttachment[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [focus, setFocus] = useState(false);
+  // The other notes in the same folder, in the order the folder lists them, for Previous / Next.
+  const [siblings, setSiblings] = useState<Note[]>([]);
+  const [focus, setFocus] = useState(startInFocus === '1');
   const exitFocus = useCallback(() => setFocus(false), []);
+  const readAloud = useReadAloud(note ?? null);
+  const stopReading = readAloud.stop;
 
   const load = useCallback(async () => {
     const n = await getNote(db, id);
-    const [p, a, t] = await Promise.all([
+    const [p, a, t, s] = await Promise.all([
       getFolderPath(db, n?.folderId ?? null),
       listNoteAttachments(db, id),
       listTagsForNotes(db, [id]),
+      n?.folderId ? listNotes(db, n.folderId) : Promise.resolve([]),
     ]);
     setNote(n);
     setPath(p);
     setAttachments(a);
     setTags(t.get(id) ?? []);
+    setSiblings(s);
   }, [db, id]);
 
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load]),
+      // Opening the editor or another screen stops the reading.
+      return stopReading;
+    }, [load, stopReading]),
   );
 
   if (note === undefined) return <Stack.Screen options={{ title: '' }} />;
@@ -64,6 +74,9 @@ export default function NoteScreen() {
   const cornell = current.style === 'cornell';
   const suggested = suggestCards(current).length;
   const isEmpty = cornell ? current.rows.length === 0 && !current.summary : !current.body;
+  const position = siblings.findIndex((n) => n.id === current.id);
+  const previous = position > 0 ? siblings[position - 1] : null;
+  const next = position >= 0 && position < siblings.length - 1 ? siblings[position + 1] : null;
 
   function edit() {
     router.push({ pathname: '/note-editor', params: { noteId: current.id } });
@@ -81,12 +94,17 @@ export default function NoteScreen() {
     router.back();
   }
 
+  const steps =
+    previous || next ? (
+      <NoteSteps previous={previous} next={next} position={position} total={siblings.length} inFocus={focus && !isEmpty} />
+    ) : null;
+
   if (focus && !isEmpty) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar hidden />
-        <FocusReader note={current} onExit={exitFocus} />
+        <FocusReader note={current} onExit={exitFocus} readAloud={readAloud} footer={steps} />
       </>
     );
   }
@@ -99,6 +117,7 @@ export default function NoteScreen() {
           headerShown: true,
           headerRight: () => (
             <View className="flex-row">
+              {isEmpty ? null : <ReadAloudButton speaking={readAloud.speaking} onPress={readAloud.toggle} />}
               <IconButton
                 icon={current.favoritedAt ? 'star' : 'star-outline'}
                 label={current.favoritedAt ? 'Remove from favourites' : 'Add to favourites'}
@@ -161,6 +180,7 @@ export default function NoteScreen() {
       </ScrollView>
 
       <View className="border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+        {steps}
         <View className="w-full max-w-3xl flex-row gap-3 self-center">
           <Button label="Focus" icon="book-outline" variant="secondary" disabled={isEmpty} onPress={() => setFocus(true)} />
           <Button
@@ -172,6 +192,66 @@ export default function NoteScreen() {
           />
         </View>
       </View>
+    </View>
+  );
+}
+
+/**
+ * Previous / Next for notes in the same folder. Replaces this screen rather than
+ * stacking a new one, so Back still returns to the folder.
+ */
+function NoteSteps({
+  previous,
+  next,
+  position,
+  total,
+  inFocus,
+}: {
+  previous: Note | null;
+  next: Note | null;
+  position: number;
+  total: number;
+  inFocus: boolean;
+}) {
+  const open = (note: Note) =>
+    router.replace({ pathname: '/note/[id]', params: inFocus ? { id: note.id, focus: '1' } : { id: note.id } });
+  return (
+    <View className={`w-full max-w-3xl flex-row items-center gap-2 self-center ${inFocus ? '' : 'mb-3'}`}>
+      <Pressable
+        onPress={previous ? () => open(previous) : undefined}
+        disabled={!previous}
+        accessibilityRole="button"
+        accessibilityLabel={previous ? `Previous note: ${previous.title}` : 'No previous note'}
+        accessibilityState={{ disabled: !previous }}
+        className={`min-h-11 flex-1 flex-row items-center gap-1 rounded-xl px-2 active:bg-surface ${previous ? '' : 'opacity-30'}`}
+      >
+        <Icon name="chevron-back" size={22} color={colors.primary} />
+        <View className="flex-1">
+          <Text className="text-xs font-bold uppercase tracking-wider text-muted">Previous</Text>
+          <Text className="text-sm font-semibold text-ink" numberOfLines={1}>
+            {previous?.title ?? '—'}
+          </Text>
+        </View>
+      </Pressable>
+      <Text className="text-xs font-semibold text-muted">
+        {position + 1} / {total}
+      </Text>
+      <Pressable
+        onPress={next ? () => open(next) : undefined}
+        disabled={!next}
+        accessibilityRole="button"
+        accessibilityLabel={next ? `Next note: ${next.title}` : 'No next note'}
+        accessibilityState={{ disabled: !next }}
+        className={`min-h-11 flex-1 flex-row items-center gap-1 rounded-xl px-2 active:bg-surface ${next ? '' : 'opacity-30'}`}
+      >
+        <View className="flex-1 items-end">
+          <Text className="text-xs font-bold uppercase tracking-wider text-muted">Next</Text>
+          <Text className="text-right text-sm font-semibold text-ink" numberOfLines={1}>
+            {next?.title ?? '—'}
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={22} color={colors.primary} />
+      </Pressable>
     </View>
   );
 }

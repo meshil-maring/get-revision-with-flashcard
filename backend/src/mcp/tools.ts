@@ -9,7 +9,7 @@ import * as store from './store.ts';
 export type McpCaller = { userId: string; appName: string };
 
 const FORMATTING =
-  'Text can use light formatting: "# Heading", "## Subheading", "- bullet", "1. numbered", **bold**, *italic*, __underline__, ==highlight==.';
+  'Text can use light formatting: "# Heading", "## Subheading", "### Heading 3", "#### Heading 4", "- bullet", "1. numbered", **bold**, *italic*, __underline__, ==highlight==.';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const card = z.object({
