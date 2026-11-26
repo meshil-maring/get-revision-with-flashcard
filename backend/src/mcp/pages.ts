@@ -5,6 +5,7 @@ import type { Auth } from '../auth/auth.ts';
 import type { Db } from '../db/client.ts';
 import { oauthClient } from '../db/schema.ts';
 import { SOCIAL_PROVIDERS, type Env } from '../env.ts';
+import { escapeHtml, page, PASSWORD_TOGGLE_SCRIPT, passwordField } from '../html.ts';
 
 // The pages an AI app sends the user to while connecting to StudyMe (OAuth):
 //   /oauth/sign-in   sign in (or create an account), then the flow carries on by itself
@@ -18,63 +19,12 @@ const PROVIDER_LABELS: Record<(typeof SOCIAL_PROVIDERS)[number], string> = {
   facebook: 'Facebook',
 };
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
-}
-
 /** The AI app's name as it registered itself, e.g. "ChatGPT" or "Claude". */
 export async function clientName(db: Db, clientId: string | undefined | null): Promise<string | null> {
   if (!clientId) return null;
   const [row] = await db.select({ name: oauthClient.name }).from(oauthClient).where(eq(oauthClient.clientId, clientId));
   const name = row?.name?.trim();
   return name ? name.slice(0, 40) : null;
-}
-
-function page(title: string, body: string, script = ''): string {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="referrer" content="no-referrer">
-<title>${escapeHtml(title)} · StudyMe</title>
-<style>
-  :root { --primary:#2f6bd8; --primary-dark:#2455b0; --page:#f9fafb; --surface:#eef1f5; --line:#e1e5eb;
-          --ink:#1f2933; --muted:#5c6773; --alert:#dc3b3b; --white:#fff; }
-  * { box-sizing: border-box; }
-  body { margin:0; min-height:100vh; background:var(--page); color:var(--ink);
-         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-         display:flex; align-items:flex-start; justify-content:center; padding:48px 16px; }
-  main { width:100%; max-width:420px; display:flex; flex-direction:column; gap:16px; }
-  .brand { font-weight:800; color:var(--primary); font-size:18px; }
-  h1 { margin:0; font-size:26px; font-weight:800; }
-  p { margin:0; color:var(--muted); }
-  .card { background:var(--white); border:1px solid var(--line); border-radius:20px; padding:20px;
-          display:flex; flex-direction:column; gap:14px; }
-  label { display:flex; flex-direction:column; gap:6px; font-size:14px; font-weight:600; }
-  input { font:inherit; padding:12px 14px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink); }
-  input:focus { outline:none; border-color:var(--primary); background:var(--white); }
-  button { font:inherit; font-weight:700; border:0; border-radius:14px; padding:13px 16px; cursor:pointer; }
-  button:disabled { opacity:.6; cursor:default; }
-  .primary { background:var(--primary); color:var(--white); }
-  .primary:hover:not(:disabled) { background:var(--primary-dark); }
-  .secondary { background:var(--surface); color:var(--ink); }
-  .link { background:none; color:var(--primary); padding:4px; font-weight:600; }
-  .row { display:flex; gap:10px; } .row > * { flex:1; }
-  .or { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:14px; }
-  .or::before, .or::after { content:""; flex:1; height:1px; background:var(--line); }
-  ul { margin:0; padding-left:20px; color:var(--ink); } li { margin:4px 0; }
-  .error { color:var(--alert); font-size:14px; min-height:1em; }
-  .small { font-size:14px; }
-</style>
-</head>
-<body><main>
-<div class="brand">StudyMe</div>
-${body}
-</main>
-${script}
-</body>
-</html>`;
 }
 
 /** Shared by both pages: posts JSON with the signed query, then follows the redirect Better Auth returns. */
@@ -117,13 +67,14 @@ export function oauthPages(db: Db, auth: Auth, env: Env) {
   ${socialButtons ? `${socialButtons}<div class="or">or use your email</div>` : ''}
   <label id="name-field" hidden>Name <input name="name" autocomplete="name"></label>
   <label>Email <input name="email" type="email" autocomplete="email" required></label>
-  <label>Password <input name="password" type="password" autocomplete="current-password" required minlength="8"></label>
+  ${passwordField('Password', 'password', 'current-password')}
   <div id="error" class="error" role="alert"></div>
   <button type="submit" class="primary" id="submit">Sign in</button>
   <button type="button" class="link" id="switch">New to StudyMe? Create an account</button>
 </form>`;
     const script = `<script>
 ${CLIENT_HELPERS}
+${PASSWORD_TOGGLE_SCRIPT}
 const form = document.getElementById('form');
 let mode = 'sign-in';
 document.getElementById('switch').addEventListener('click', () => {

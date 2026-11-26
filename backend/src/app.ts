@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
 import type { Auth } from './auth/auth.ts';
+import { accountPages } from './auth/pages.ts';
 import type { Db } from './db/client.ts';
 import { SOCIAL_PROVIDERS, type Env } from './env.ts';
 import { fileRoutes, localFileRoutes } from './files/routes.ts';
@@ -92,6 +93,7 @@ export function createApp({
   app.route('/api/files', fileRoutes(db, auth, files.storage, env.files));
   app.route('/mcp', mcpRoutes(db, auth, env));
   app.route('/oauth', oauthPages(db, auth, env));
+  app.route('/account', accountPages());
 
   return app;
 }

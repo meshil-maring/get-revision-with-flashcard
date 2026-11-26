@@ -60,6 +60,17 @@ If someone signs in with Google or Microsoft using the email of an account they 
 to that account. Facebook doesn't confirm emails, so Facebook sign-in is refused (`account_not_linked`) for an
 email that already has an account; that person signs in the way they first did.
 
+## Forgot password
+
+**Sign in → Forgot password?** in the app emails a link (Better Auth's `request-password-reset`). The link checks
+its token and opens `/account/reset-password`, a page on this server, where the new password is chosen. It works
+from any email app, on a phone or a computer. Links work once, for an hour. Changing the password signs the
+account out on every device.
+
+Emails are sent with [Resend](https://resend.com): set `RESEND_API_KEY` (Resend → API Keys) and `EMAIL_FROM`.
+Until your own domain is verified in Resend, `onboarding@resend.dev` can only send to your Resend account's email.
+**Without a key, while developing, the email is printed in the server's terminal**: open the link from there.
+
 ## API
 
 | Route | What it does |
@@ -76,6 +87,7 @@ email that already has an account; that person signs in the way they first did.
 | `GET /.well-known/oauth-authorization-server/api/auth` | Authorization server metadata (RFC 8414) |
 | `/api/auth/oauth2/*` | OAuth: `register` (dynamic client registration), `authorize`, `consent`, `token`, … |
 | `GET /oauth/sign-in`, `/oauth/consent` | The pages a user sees while connecting an AI app |
+| `GET /account/reset-password` | Choose a new password (from a forgot-password email) |
 
 ## Connect an AI app (MCP)
 

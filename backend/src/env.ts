@@ -42,6 +42,8 @@ export type Env = {
   /** Microsoft tenant: 'common' = school, work and personal accounts. */
   microsoftTenantId: string;
   files: FilesConfig;
+  /** Sending emails (password reset). Without a Resend key they are printed while developing. */
+  email: { resendApiKey?: string; from: string };
   isDev: boolean;
 };
 
@@ -96,6 +98,10 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     social,
     microsoftTenantId: source.MICROSOFT_TENANT_ID || 'common',
     files: readFiles(source, isDev),
+    email: {
+      resendApiKey: source.RESEND_API_KEY || undefined,
+      from: source.EMAIL_FROM || 'StudyMe <onboarding@resend.dev>',
+    },
     isDev,
   };
 }

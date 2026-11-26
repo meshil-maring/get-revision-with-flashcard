@@ -23,6 +23,7 @@ jest.mock('@/services/auth-client', () => ({
     signIn: { email: jest.fn(), social: jest.fn() },
     signUp: { email: jest.fn() },
     signOut: jest.fn(async () => ({})),
+    requestPasswordReset: jest.fn(),
   },
 }));
 jest.mock('@/services/sync-api', () => ({
@@ -57,6 +58,44 @@ describe('Account screen, signed out', () => {
     await fireEvent.press(screen.getAllByText('Sign in')[1]);
 
     expect(authClient.signIn.email).toHaveBeenCalledWith({ email: 'asha@example.com', password: 'correct-horse' });
+  });
+
+  it('shows and hides the password', async () => {
+    await renderAccount();
+    const password = screen.getByLabelText('Password');
+    expect(password.props.secureTextEntry).toBe(true);
+
+    await fireEvent.press(screen.getByLabelText('Show password'));
+    expect(screen.getByLabelText('Password').props.secureTextEntry).toBe(false);
+
+    await fireEvent.press(screen.getByLabelText('Hide password'));
+    expect(screen.getByLabelText('Password').props.secureTextEntry).toBe(true);
+  });
+
+  it('sends a reset link for a forgotten password', async () => {
+    jest.mocked(authClient.requestPasswordReset).mockResolvedValue({ data: { status: true }, error: null } as never);
+    await renderAccount();
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'asha@example.com');
+
+    await fireEvent.press(screen.getByText('Forgot password?'));
+    expect(screen.getByText('Reset your password')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Password')).toBeNull();
+
+    await fireEvent.press(screen.getByText('Send reset link'));
+    expect(authClient.requestPasswordReset).toHaveBeenCalledWith({ email: 'asha@example.com' });
+    expect(await screen.findByText(/a link to choose a new password is on its way/)).toBeOnTheScreen();
+    expect(screen.getByText('Send the link again')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByText('Back to sign in'));
+    expect(screen.getByText('Welcome back')).toBeOnTheScreen();
+  });
+
+  it('asks for an email before sending a reset link', async () => {
+    await renderAccount();
+    await fireEvent.press(screen.getByText('Forgot password?'));
+    await fireEvent.press(screen.getByText('Send reset link'));
+    expect(screen.getByText('Enter the email you signed up with.')).toBeOnTheScreen();
+    expect(authClient.requestPasswordReset).not.toHaveBeenCalled();
   });
 
   it("shows the server's error", async () => {
@@ -95,6 +134,17 @@ describe('Account screen, signed out', () => {
     expect(await screen.findByText('Continue with Google')).toBeOnTheScreen();
     expect(screen.getByText('Continue with Facebook')).toBeOnTheScreen();
     expect(screen.queryByText('Continue with Microsoft')).toBeNull();
+  });
+
+  it("says when the sign-in options couldn't be loaded, and retries", async () => {
+    jest.mocked(fetchServerConfig).mockRejectedValueOnce(new Error('Network request failed'));
+    await renderAccount();
+    expect(await screen.findByText(/Couldn't reach the server for Google/)).toBeOnTheScreen();
+
+    jest.mocked(fetchServerConfig).mockResolvedValueOnce({ providers: ['google'] });
+    await fireEvent.press(screen.getByText('Retry'));
+    expect(await screen.findByText('Continue with Google')).toBeOnTheScreen();
+    expect(screen.queryByText(/Couldn't reach the server/)).toBeNull();
   });
 
   it('starts sign-in with the provider you tap', async () => {
