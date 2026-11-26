@@ -17,11 +17,11 @@ import {
   renameFolder,
   setFolderFavorite,
 } from '@/data/folders';
-import { listNotes } from '@/data/notes';
+import { createNote, listNotes } from '@/data/notes';
 import { listTagsForNotes } from '@/data/tags';
 import type { FolderWithCounts, Note, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
-import { notePreview } from '@/lib/notes';
+import { GOOD_TO_KNOW_TITLE, isGoodToKnow, notePreview } from '@/lib/notes';
 
 const FOLDER_FIELDS: FormField[] = [
   { key: 'name', label: 'Name', placeholder: 'e.g. Class 10, Physics, Chapter 1 or Motion', required: true },
@@ -55,7 +55,18 @@ export function FolderBadge({ name, size = 48 }: { name: string; size?: number }
 }
 
 /** The icon for a note in a list. */
-export function NoteBadge({ cornell, size = 48 }: { cornell: boolean; size?: number }) {
+export function NoteBadge({ cornell, goodToKnow = false, size = 48 }: { cornell: boolean; goodToKnow?: boolean; size?: number }) {
+  if (goodToKnow) {
+    // A bulb, so the folder's key-points page is easy to spot at the end of the list.
+    return (
+      <View
+        className="items-center justify-center rounded-2xl bg-warning/15"
+        style={{ width: scaled(size), height: scaled(size) }}
+      >
+        <MaterialCommunityIcons name="lightbulb-on-outline" size={scaled(size * 0.52)} color={colors.warning} />
+      </View>
+    );
+  }
   return (
     <View
       className="items-center justify-center rounded-2xl bg-calm-soft"
@@ -151,10 +162,20 @@ ${error.message}`);
     await changed();
   }
 
+  /** Makes the folder's empty "Good to know" note and opens it; an AI app fills it in later. */
+  async function openNewGoodToKnow() {
+    const id = await createNote(db, folderId, { title: GOOD_TO_KNOW_TITLE, style: 'plain' });
+    await refresh();
+    router.push({ pathname: '/note/[id]', params: { id } });
+  }
+
   function newNote() {
     router.push({ pathname: '/note-editor', params: folderId ? { folderId } : {} });
   }
 
+  // The folder's "Good to know" note gets its own card at the end, not a row with the others.
+  const goodToKnow = notes.find(isGoodToKnow) ?? null;
+  const topicNotes = notes.filter((note) => !isGoodToKnow(note));
   const loading = folders === null;
   const empty = !loading && folders.length === 0 && notes.length === 0;
 
@@ -219,13 +240,17 @@ ${error.message}`);
           </View>
         ) : null}
 
-        {notes.length > 0 ? (
+        {topicNotes.length > 0 ? (
           <View className="gap-2">
-            <SectionTitle title="Notes" count={notes.length} />
-            {notes.map((note) => (
+            <SectionTitle title="Notes" count={topicNotes.length} />
+            {topicNotes.map((note) => (
               <NoteRow key={note.id} note={note} tags={tags.get(note.id)} />
             ))}
           </View>
+        ) : null}
+
+        {topicNotes.length > 0 || goodToKnow ? (
+          <GoodToKnowCard note={goodToKnow} topics={topicNotes.length} onCreate={openNewGoodToKnow} />
         ) : null}
       </ScrollView>
 
@@ -269,6 +294,56 @@ function SectionTitle({ title, count }: { title: string; count: number }) {
   );
 }
 
+/**
+ * The folder's key-points page, at the end of its notes. Before an AI app has made
+ * it, the card says how to get one, so students know it's there.
+ */
+function GoodToKnowCard({ note, topics, onCreate }: { note: Note | null; topics: number; onCreate: () => void }) {
+  const sections = note ? (note.body.match(/^## /gm) ?? []).length : 0;
+  const content = (
+    <>
+      <View className="h-12 w-12 items-center justify-center rounded-2xl bg-warning/20">
+        <MaterialCommunityIcons name="lightbulb-on-outline" size={scaled(26)} color={colors.warning} />
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text className="text-base font-extrabold text-ink">Good to know</Text>
+        <Text className="text-sm text-muted">
+          {note
+            ? sections > 0
+              ? `Key points from ${plural(sections, 'note')} in one place`
+              : notePreview(note) || 'Key points from this folder'
+            : `Key points from ${topics === 1 ? 'this note' : `these ${topics} notes`} will collect here. ` +
+              'Ask your AI app: "Add good to know for these notes".'}
+        </Text>
+      </View>
+      <Icon name="chevron-forward" size={18} color={colors.muted} />
+    </>
+  );
+
+  if (!note) {
+    return (
+      <Pressable
+        onPress={onCreate}
+        accessibilityRole="button"
+        accessibilityLabel="Good to know, not made yet"
+        className="mt-2 flex-row items-center gap-3 rounded-2xl border border-dashed border-warning/60 bg-warning/5 p-3 pl-4 active:bg-warning/15"
+      >
+        {content}
+      </Pressable>
+    );
+  }
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
+      accessibilityRole="button"
+      accessibilityLabel="Good to know: key points from this folder"
+      className="mt-2 flex-row items-center gap-3 rounded-2xl border border-warning/50 bg-warning/10 p-3 pl-4 active:bg-warning/20"
+    >
+      {content}
+    </Pressable>
+  );
+}
+
 /** A note in a list: its title and the first words of its text. */
 export function NoteRow({ note, subtitle, tags = [] }: { note: Note; subtitle?: string; tags?: Tag[] }) {
   const cornell = note.style === 'cornell';
@@ -279,7 +354,7 @@ export function NoteRow({ note, subtitle, tags = [] }: { note: Note; subtitle?: 
       accessibilityRole="button"
       className="flex-row items-center gap-3 rounded-2xl border border-line bg-white p-3 pl-4 active:bg-surface"
     >
-      <NoteBadge cornell={cornell} />
+      <NoteBadge cornell={cornell} goodToKnow={isGoodToKnow(note)} />
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
           <Text className="flex-shrink text-base font-bold text-ink" numberOfLines={1}>

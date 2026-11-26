@@ -94,6 +94,7 @@ The toolbar above the answer box can make your answers easier to read. Select so
 - **B**: bold, *I*: italic, __U__: underline
 - **Marker**: ==highlight== the key words
 - **Lists**: bullet points or numbered steps
+- **Table**: adds a small table. Type in the cells between the | marks; add a row by copying a line
 
 Tap **Preview** to see how the answer will look on the card. Tap it again to keep writing.
 
@@ -157,6 +158,11 @@ You can use any names and any number of levels, like Semester › Course › Uni
 2. Give it a title and write. Use the toolbar for headings, **bold**, highlights and lists.
 3. Add pictures, PDFs or a voice note under **Attachments**, then tap **Save**.
 
+## Read a note
+- Tap the **speaker** at the top to hear the note read aloud. Tap it again to stop.
+- Use **Previous** and **Next** at the bottom to move between the notes in the same folder.
+- Tap **⋮** at the top for **Make flashcards**, favourites, **Edit note** and **Delete note**.
+
 ## Rename, delete and search
 - Tap **⋮** on a folder to rename or delete it. ==Deleting a folder also deletes everything in it.==
 - Use the search box at the top of the Notes tab to find any note, folder or tag.`,
@@ -169,12 +175,12 @@ You can use any names and any number of levels, like Semester › Course › Uni
     summary: 'Keep important notes close, and group notes from different folders.',
     body: `## Favourites
 Star the notes and folders you use most, like the chapter you are studying this week. They show under **Favourites** at the top of the Notes tab.
-- **Note**: open it and tap the **star** at the top.
+- **Note**: open it, tap **⋮** at the top and choose **Add to favourites**.
 - **Folder**: tap **⋮** on the folder and choose **Add to favourites**.
 
 ## Tags
 A **tag** is a coloured label, like "Exam 1", "Important" or "Revise again". A note can have several tags, and notes from any folder can share a tag.
-1. Open a note and tap **Edit**.
+1. Open a note, tap **⋮** at the top and choose **Edit note**.
 2. Under **Tags**, tap a tag to add it, or type a new one and tap **Add**.
 3. Tap **Save**.
 
@@ -208,7 +214,7 @@ You can switch a note between Plain and Cornell at any time. Nothing you wrote i
     icon: 'copy-outline',
     title: 'Turn notes into flashcards',
     summary: 'Make cards from a note in a few taps.',
-    body: `Open a note and tap **Make flashcards**. StudyMe finds cards in your note:
+    body: `Open a note, tap **⋮** at the top and choose **Make flashcards**. StudyMe finds cards in your note:
 - **Cornell notes**: each cue becomes a question, and its notes become the answer.
 - **Plain notes**: a line like "Speed: distance ÷ time" becomes a card, and so does each heading with the text under it.
 
@@ -358,9 +364,14 @@ Open **More → Account** and sign in. Everything you made as a guest moves into
 ## What it can do
 - See your decks, notes, folders and tags
 - Make new decks, add cards to a deck, and write notes (plain or Cornell) in any folder
-- It **can't** change or delete what you already have.
+- It **can't** change or delete what you already have. The one exception is each folder's **Good to know** note.
 
 Notes an AI writes show its name, like **ChatGPT**, so you can tell them apart.
+
+## Good to know
+Each time an AI writes a note in a folder, it also adds that note's key points to the folder's **Good to know** note, under the note's title. It is made with the first note and always sits last in the folder, as a yellow card with a bulb. Read it before a test to revise the whole folder from one page.
+
+For notes you already have, ask your AI app: "Add good to know for the notes in my Traffic folder."
 
 ==Tip:== be specific. "Make 15 cards on the French Revolution for my History deck" works better than "make some cards".
 

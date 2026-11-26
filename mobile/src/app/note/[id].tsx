@@ -9,6 +9,7 @@ import { AttachmentList } from '@/components/cards/attachments';
 import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
 import { FocusReader } from '@/components/notes/focus-reader';
 import { ReadAloudButton, useReadAloud } from '@/components/notes/read-aloud';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import { RichText } from '@/components/ui/rich-text';
 import { TagChip } from '@/components/tags/tag-chip';
 import { Button, colors, EmptyState, Icon, IconButton } from '@/components/ui';
@@ -17,9 +18,9 @@ import { deleteNote, getNote, listNoteAttachments, listNotes, setNoteFavorite } 
 import { listTagsForNotes } from '@/data/tags';
 import type { FolderCrumb, Note, NoteAttachment, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
-import { suggestCards } from '@/lib/notes';
+import { bodyWithoutTitle, isGoodToKnow, suggestCards } from '@/lib/notes';
 
-/** Reading a note. Edit it, turn it into flashcards, or delete it from here. */
+/** Reading a note. Read it aloud, step through the folder, and (from the ⋮ menu) make flashcards, favourite, edit or delete it. */
 export default function NoteScreen() {
   // focus=1: opened with Previous / Next from focus mode, so stay in focus mode.
   const { id, focus: startInFocus } = useLocalSearchParams<{ id: string; focus?: string }>();
@@ -29,7 +30,8 @@ export default function NoteScreen() {
   const [path, setPath] = useState<FolderCrumb[]>([]);
   const [attachments, setAttachments] = useState<NoteAttachment[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  // The other notes in the same folder, in the order the folder lists them, for Previous / Next.
+  const [menuOpen, setMenuOpen] = useState(false);
+  // The other notes in the same folder (or at the top level), in the order they're listed, for Previous / Next.
   const [siblings, setSiblings] = useState<Note[]>([]);
   const [focus, setFocus] = useState(startInFocus === '1');
   const exitFocus = useCallback(() => setFocus(false), []);
@@ -42,7 +44,7 @@ export default function NoteScreen() {
       getFolderPath(db, n?.folderId ?? null),
       listNoteAttachments(db, id),
       listTagsForNotes(db, [id]),
-      n?.folderId ? listNotes(db, n.folderId) : Promise.resolve([]),
+      n ? listNotes(db, n.folderId) : Promise.resolve([]),
     ]);
     setNote(n);
     setPath(p);
@@ -73,7 +75,9 @@ export default function NoteScreen() {
   const current = note;
   const cornell = current.style === 'cornell';
   const suggested = suggestCards(current).length;
-  const isEmpty = cornell ? current.rows.length === 0 && !current.summary : !current.body;
+  const isEmpty = cornell
+    ? current.rows.length === 0 && !current.summary
+    : !bodyWithoutTitle(current.body, current.title).trim();
   const position = siblings.findIndex((n) => n.id === current.id);
   const previous = position > 0 ? siblings[position - 1] : null;
   const next = position >= 0 && position < siblings.length - 1 ? siblings[position + 1] : null;
@@ -118,14 +122,7 @@ export default function NoteScreen() {
           headerRight: () => (
             <View className="flex-row">
               {isEmpty ? null : <ReadAloudButton speaking={readAloud.speaking} onPress={readAloud.toggle} />}
-              <IconButton
-                icon={current.favoritedAt ? 'star' : 'star-outline'}
-                label={current.favoritedAt ? 'Remove from favourites' : 'Add to favourites'}
-                tone={current.favoritedAt ? 'favorite' : 'default'}
-                onPress={toggleFavorite}
-              />
-              <IconButton icon="create-outline" label="Edit note" onPress={edit} />
-              <IconButton icon="trash-outline" label="Delete note" tone="danger" onPress={handleDelete} />
+              <IconButton icon="ellipsis-vertical" label="More options" onPress={() => setMenuOpen(true)} />
             </View>
           ),
         }}
@@ -161,13 +158,17 @@ export default function NoteScreen() {
 
         {isEmpty ? (
           <Pressable onPress={edit} accessibilityRole="button" className="rounded-2xl border border-dashed border-line bg-surface p-5">
-            <Text className="text-center text-base text-muted">This note is empty. Tap to start writing.</Text>
+            <Text className="text-center text-base text-muted">
+              {isGoodToKnow(current)
+                ? 'Key points from each note in this folder will collect here. Ask your AI app: "Add good to know for these notes". You can also write your own.'
+                : 'This note is empty. Tap to start writing.'}
+            </Text>
           </Pressable>
         ) : cornell ? (
           <CornellView note={current} />
         ) : (
           <View className="rounded-3xl border border-line bg-white p-5">
-            <RichText text={current.body} />
+            <RichText text={bodyWithoutTitle(current.body, current.title)} />
           </View>
         )}
 
@@ -180,24 +181,35 @@ export default function NoteScreen() {
       </ScrollView>
 
       <View className="border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
-        {steps}
-        <View className="w-full max-w-3xl flex-row gap-3 self-center">
+        <View className="w-full max-w-3xl flex-row items-center gap-2 self-center">
           <Button label="Focus" icon="book-outline" variant="secondary" disabled={isEmpty} onPress={() => setFocus(true)} />
-          <Button
-            label={suggested > 0 ? `Make flashcards (${suggested} found)` : 'Make flashcards'}
-            icon="copy-outline"
-            variant="cta"
-            className="flex-1"
-            onPress={() => router.push({ pathname: '/note-cards', params: { noteId: current.id } })}
-          />
+          {steps ? <View className="flex-1">{steps}</View> : null}
         </View>
       </View>
+
+      <ActionSheet
+        visible={menuOpen}
+        title={current.title}
+        onClose={() => setMenuOpen(false)}
+        actions={[
+          {
+            icon: 'copy-outline',
+            label: suggested > 0 ? `Make flashcards (${suggested} found)` : 'Make flashcards',
+            onPress: () => router.push({ pathname: '/note-cards', params: { noteId: current.id } }),
+          },
+          current.favoritedAt
+            ? { icon: 'star', label: 'Remove from favourites', onPress: toggleFavorite }
+            : { icon: 'star-outline', label: 'Add to favourites', onPress: toggleFavorite },
+          { icon: 'create-outline', label: 'Edit note', onPress: edit },
+          { icon: 'trash-outline', label: 'Delete note', tone: 'danger', onPress: handleDelete },
+        ]}
+      />
     </View>
   );
 }
 
 /**
- * Previous / Next for notes in the same folder. Replaces this screen rather than
+ * Previous / Next for notes in the same folder (or both at the top level). Replaces this screen rather than
  * stacking a new one, so Back still returns to the folder.
  */
 function NoteSteps({
@@ -216,7 +228,7 @@ function NoteSteps({
   const open = (note: Note) =>
     router.replace({ pathname: '/note/[id]', params: inFocus ? { id: note.id, focus: '1' } : { id: note.id } });
   return (
-    <View className={`w-full max-w-3xl flex-row items-center gap-2 self-center ${inFocus ? '' : 'mb-3'}`}>
+    <View className="w-full max-w-3xl flex-row items-center gap-2 self-center">
       <Pressable
         onPress={previous ? () => open(previous) : undefined}
         disabled={!previous}

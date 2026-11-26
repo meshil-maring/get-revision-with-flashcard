@@ -8,11 +8,12 @@ import { RichText } from '@/components/ui/rich-text';
 import { colors, Icon, IconButton } from '@/components/ui';
 import { getNoteFocusSize, NOTE_FOCUS_SIZES, setNoteFocusSize, type NoteFocusSize } from '@/data/settings';
 import type { Note } from '@/data/types';
+import { bodyWithoutTitle } from '@/lib/notes';
 
 const TITLE_SIZE: Record<NoteFocusSize, string> = {
-  base: 'text-3xl',
-  lg: 'text-4xl',
-  xl: 'text-5xl',
+  base: 'text-2xl',
+  lg: 'text-3xl',
+  xl: 'text-4xl',
 };
 
 const CUE_SIZE: Record<NoteFocusSize, string> = {
@@ -167,7 +168,7 @@ export function FocusReader({
             ) : null}
           </>
         ) : (
-          <RichText text={note.body} size={size} />
+          <RichText text={bodyWithoutTitle(note.body, note.title)} size={size} />
         )}
       </ScrollView>
 

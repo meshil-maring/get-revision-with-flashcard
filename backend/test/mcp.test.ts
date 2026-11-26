@@ -176,7 +176,17 @@ describe('connecting an AI app', () => {
 
     const tools = (await (await mcp(token, 'tools/list')).json()) as { result: { tools: { name: string }[] } };
     expect(tools.result.tools.map((t) => t.name).sort()).toEqual(
-      ['add_cards', 'create_deck', 'create_note', 'get_deck', 'get_note', 'list_decks', 'list_folders', 'list_notes'].sort(),
+      [
+        'add_cards',
+        'add_good_to_know',
+        'create_deck',
+        'create_note',
+        'get_deck',
+        'get_note',
+        'list_decks',
+        'list_folders',
+        'list_notes',
+      ].sort(),
     );
 
     const deck = await callTool(token, 'create_deck', {
@@ -258,6 +268,74 @@ describe('connecting an AI app', () => {
     const other = await server.signUp('someone-else@example.com');
     const otherToken = await connect(other.cookie, clientId);
     expect((await callTool(otherToken, 'list_decks')).data).toEqual([]);
+  });
+
+  it("collects each note's key points in its folder's Good to know note", async () => {
+    const clientId = await registerClient('Claude');
+    const { cookie } = await server.signUp('good-to-know@example.com');
+    const token = await connect(cookie, clientId);
+    const folder_path = ['Traffic', 'Unit 1'];
+
+    const first = await callTool(token, 'create_note', {
+      title: 'Traffic Management',
+      folder_path,
+      body: 'Planning and guiding traffic.',
+      good_to_know: ['Aim: safe, smooth, easy travel', '- Safety comes first'],
+    });
+    expect(first.data.goodToKnow).toBe('created');
+    const second = await callTool(token, 'create_note', {
+      title: 'Level of Service',
+      folder_path,
+      body: 'Grades A to F.',
+      good_to_know: ['LOS grades traffic from A (free) to F (breakdown)'],
+    });
+    expect(second.data.goodToKnow).toBe('added');
+    // Rewriting a topic replaces its points instead of listing them twice.
+    await callTool(token, 'create_note', {
+      title: 'traffic management',
+      folder_path,
+      body: 'Planning, controlling and guiding traffic.',
+      good_to_know: ['Aim: safe, smooth, easy travel for everyone'],
+    });
+    // A note without key points leaves it alone, and says so.
+    const plain = await callTool(token, 'create_note', { title: 'Extra', folder_path, body: 'More.' });
+    expect(plain.data.goodToKnow).toContain('not added');
+
+    const inFolder = (await callTool(token, 'list_notes', { folder_path })).data as { id: string; title: string }[];
+    const summaries = inFolder.filter((n) => n.title === 'Good to know');
+    expect(summaries).toHaveLength(1);
+    const summary = await callTool(token, 'get_note', { note_id: summaries[0].id });
+    expect(summary.data.body).toBe(
+      // The rewritten topic keeps its place, under the newest title.
+      '## traffic management\n- Aim: safe, smooth, easy travel for everyone\n\n' +
+        '## Level of Service\n- LOS grades traffic from A (free) to F (breakdown)',
+    );
+
+    // Notes written before Good to know existed can be added afterwards, at the top level too.
+    const older = await callTool(token, 'add_good_to_know', {
+      folder_path: [],
+      topics: [
+        { topic: 'Road Signs', points: ['Signs warn, guide and regulate'] },
+        { topic: 'Highway Capacity', points: ['Most vehicles a road can carry per hour'] },
+      ],
+    });
+    expect(older.data).toMatchObject({ folder: '(top level)', status: 'created', topics: 2 });
+    const top = (await callTool(token, 'list_notes', {})).data as { id: string; title: string; folder: string }[];
+    const topSummary = top.find((n) => n.title === 'Good to know' && n.folder === '')!;
+    expect((await callTool(token, 'get_note', { note_id: topSummary.id })).data.body).toBe(
+      '## Road Signs\n- Signs warn, guide and regulate\n\n## Highway Capacity\n- Most vehicles a road can carry per hour',
+    );
+    const missingFolder = await callTool(token, 'add_good_to_know', {
+      folder_path: ['Nope'],
+      topics: [{ topic: 'A', points: ['b'] }],
+    });
+    expect(missingFolder.isError).toBe(true);
+    expect(missingFolder.text).toContain('list_folders');
+
+    // The AI can't make its own "Good to know" note.
+    const own = await callTool(token, 'create_note', { title: 'Good to Know', folder_path, body: 'x' });
+    expect(own.isError).toBe(true);
+    expect(own.text).toContain('good_to_know');
   });
 
   it('still gives a usable token when the AI app leaves out the resource', async () => {

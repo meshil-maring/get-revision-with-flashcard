@@ -9,7 +9,7 @@ import * as store from './store.ts';
 export type McpCaller = { userId: string; appName: string };
 
 const FORMATTING =
-  'Text can use light formatting: "# Heading", "## Subheading", "### Heading 3", "#### Heading 4", "- bullet", "1. numbered", **bold**, *italic*, __underline__, ==highlight==.';
+  'Text can use light formatting: "# Heading", "## Subheading", "### Heading 3", "#### Heading 4", "- bullet", "1. numbered", tables ("| A | B |" rows, with a "|---|---|" line under the header row), **bold**, *italic*, __underline__, ==highlight==.';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const card = z.object({
@@ -148,6 +148,10 @@ export function createMcpServer(db: Db, caller: McpCaller): McpServer {
       description:
         'Writes a study note into a folder (folders that do not exist yet are made). Style "plain" uses `body`; ' +
         'style "cornell" uses `cornell_rows` (cue questions on the left, notes on the right) and a `summary`. ' +
+        'The app shows the title above the note, so do not repeat it as a heading at the start of `body`. ' +
+        `Always pass \`good_to_know\`: the note's few most important points, short. They are collected, topic by ` +
+        `topic, into the folder's "${store.GOOD_TO_KNOW_TITLE}" note (made the first time), so the student can revise ` +
+        `the whole folder from one page. Never create a note titled "${store.GOOD_TO_KNOW_TITLE}" yourself. ` +
         FORMATTING,
       inputSchema: {
         title: text(200),
@@ -161,11 +165,23 @@ export function createMcpServer(db: Db, caller: McpCaller): McpServer {
           .describe('For Cornell notes.'),
         summary: z.string().max(10_000).optional().describe('For Cornell notes.'),
         tags: z.array(text(50)).max(10).optional().describe('Tag names; new ones are made.'),
+        good_to_know: z
+          .array(text(300))
+          .max(8)
+          .optional()
+          .describe(
+            `2 to 5 key points from this note, one short line each (plain sentences, no bullet marks). ` +
+              `Added under the note's title in the folder's "${store.GOOD_TO_KNOW_TITLE}" note.`,
+          ),
       },
       annotations: ADDS,
     },
     (args) =>
       run(async () => {
+        if (args.title.trim().toLowerCase() === store.GOOD_TO_KNOW_TITLE.toLowerCase())
+          throw new store.ToolError(
+            `"${store.GOOD_TO_KNOW_TITLE}" is kept for you: write the topic as its own note and pass its key points in good_to_know.`,
+          );
         if (args.style === 'plain' && !args.body?.trim()) throw new store.ToolError('A plain note needs a body.');
         if (args.style === 'cornell' && !args.cornell_rows?.length && !args.summary?.trim())
           throw new store.ToolError('A Cornell note needs cornell_rows or a summary.');
@@ -180,11 +196,44 @@ export function createMcpServer(db: Db, caller: McpCaller): McpServer {
             cornellRows: args.cornell_rows,
             summary: args.summary,
             tags: args.tags,
+            goodToKnow: args.good_to_know,
           },
           caller.appName,
         );
-        return { noteId: note.id, title: args.title, folder: note.folder || '(top level)', tags: note.tags };
+        return {
+          noteId: note.id,
+          title: args.title,
+          folder: note.folder || '(top level)',
+          tags: note.tags,
+          goodToKnow: note.goodToKnow ?? 'not added: pass good_to_know with the key points next time',
+        };
       }),
+  );
+
+  server.registerTool(
+    'add_good_to_know',
+    {
+      title: 'Add key points to Good to know',
+      description:
+        `Adds key points for notes that already exist to their folder's "${store.GOOD_TO_KNOW_TITLE}" note ` +
+        '(made if missing). Use it when the student asks for "good to know" on existing notes: read each note ' +
+        'with get_note, then pass one topic per note. New notes get theirs through create_note instead. A topic ' +
+        "that is already there has its points replaced.",
+      inputSchema: {
+        folder_path: folderPath,
+        topics: z
+          .array(
+            z.object({
+              topic: text(200).describe("The note's title."),
+              points: z.array(text(300)).min(1).max(8).describe('2 to 5 key points, one short line each.'),
+            }),
+          )
+          .min(1)
+          .max(50),
+      },
+      annotations: ADDS,
+    },
+    ({ folder_path, topics }) => run(() => store.addGoodToKnow(db, userId, folder_path, topics, caller.appName)),
   );
 
   return server;

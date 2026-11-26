@@ -3,6 +3,7 @@
 // long notes are cut into pieces, because Android only speaks so much at once.
 
 import type { Note } from '@/data/types';
+import { bodyWithoutTitle } from '@/lib/notes';
 import { toPlainText } from '@/lib/rich-text';
 
 /** Android's limit is about 4000 characters per piece; stay a little under it. */
@@ -17,7 +18,7 @@ export function noteSpeechText(note: Note): string {
     }
     if (note.summary.trim()) parts.push('Summary.', speakable(note.summary));
   } else {
-    parts.push(speakable(note.body));
+    parts.push(speakable(bodyWithoutTitle(note.body, note.title)));
   }
   return parts.filter(Boolean).join('\n');
 }

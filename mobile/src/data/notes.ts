@@ -75,10 +75,11 @@ function cleanInput(input: NoteInput) {
   };
 }
 
-/** The notes directly in a folder (null = top level), oldest first. */
+/** The notes directly in a folder (null = top level), oldest first, with "Good to know" always last. */
 export async function listNotes(db: SQLiteDatabase, folderId: string | null): Promise<Note[]> {
   const rows = await db.getAllAsync<NoteRow>(
-    'SELECT * FROM notes WHERE folder_id IS ? AND deleted_at IS NULL ORDER BY created_at ASC',
+    `SELECT * FROM notes WHERE folder_id IS ? AND deleted_at IS NULL
+      ORDER BY lower(trim(title)) = 'good to know', created_at ASC`,
     folderId,
   );
   return rows.map(toNote);

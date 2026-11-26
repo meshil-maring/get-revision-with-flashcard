@@ -153,6 +153,14 @@ describe('notes', () => {
     expect((await listNotes(db, topic)).map((n) => n.id)).toEqual([inTopic]);
   });
 
+  it('lists the "Good to know" note last, even when it was made before other notes', async () => {
+    const a = await createNote(db, null, { title: 'Topic A', style: 'plain' });
+    const summary = await createNote(db, null, { title: ' good to know ', style: 'plain' });
+    const b = await createNote(db, null, { title: 'Topic B', style: 'plain' });
+
+    expect((await listNotes(db, null)).map((n) => n.id)).toEqual([a, b, summary]);
+  });
+
   it('keeps Cornell rows and summary, dropping empty rows', async () => {
     const id = await createNote(db, null, {
       title: 'Inertia',

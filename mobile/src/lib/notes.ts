@@ -121,3 +121,31 @@ export function notePreview(note: Pick<Note, 'style' | 'body' | 'rows' | 'summar
       : note.body;
   return snippet(text, '', 90);
 }
+
+/**
+ * The note's text without a first heading that only repeats the title. AI apps often
+ * start a note with "# <title>", and the screen already shows the title above it.
+ * Only for showing and reading the note; the saved text is left as it is.
+ */
+export function bodyWithoutTitle(body: string, title: string): string {
+  const lines = body.split('\n');
+  const first = lines.findIndex((line) => line.trim() !== '');
+  if (first === -1) return body;
+  const heading = /^#{1,4} (.*)$/.exec(lines[first].trim());
+  if (!heading || simplify(toPlainText(heading[1])) !== simplify(title)) return body;
+  const rest = lines.slice(first + 1);
+  while (rest.length > 0 && rest[0].trim() === '') rest.shift();
+  return rest.join('\n');
+}
+
+const simplify = (text: string) => text.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/**
+ * The note an AI app keeps in each folder with the key points of the other notes
+ * there (see create_note in backend/src/mcp/tools.ts). It is listed last in its folder.
+ */
+export const GOOD_TO_KNOW_TITLE = 'Good to know';
+
+export function isGoodToKnow(note: Pick<Note, 'title'>): boolean {
+  return note.title.trim().toLowerCase() === GOOD_TO_KNOW_TITLE.toLowerCase();
+}

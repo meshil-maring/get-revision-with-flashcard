@@ -199,7 +199,29 @@ export type NoteInput = {
   cornellRows?: CornellRow[];
   summary?: string;
   tags?: string[];
+  /** The note's key points, one short line each, added to the folder's "Good to know" note. */
+  goodToKnow?: string[];
 };
+
+/** The note in each folder that collects the key points of the other notes there. */
+export const GOOD_TO_KNOW_TITLE = 'Good to know';
+
+/**
+ * Puts a topic's key points into the "Good to know" text as "## Topic" with bullets.
+ * If the topic is already there (the AI rewrote that note), its section is replaced;
+ * otherwise it is added at the end, so topics stay in the order they were written.
+ */
+export function withGoodToKnowSection(body: string, topic: string, points: string[]): string {
+  const section = [`## ${topic.trim()}`, ...points.map((p) => `- ${p.trim().replace(/^[-•]\s*/, '')}`)].join('\n');
+  const lines = body.split('\n');
+  const start = lines.findIndex((line) => line.startsWith('## ') && sameName(line.slice(3), topic));
+  if (start === -1) return body.trim() ? `${body.trimEnd()}\n\n${section}` : section;
+  let end = start + 1;
+  while (end < lines.length && !lines[end].startsWith('## ')) end++;
+  const before = lines.slice(0, start).join('\n').trimEnd();
+  const after = lines.slice(end).join('\n').trim();
+  return [before, section, after].filter(Boolean).join('\n\n');
+}
 
 async function noteTagsByNote(db: Db, userId: string): Promise<Map<string, string[]>> {
   const [links, tags] = await Promise.all([
@@ -284,7 +306,7 @@ export async function createNote(
   userId: string,
   input: NoteInput,
   createdBy: string,
-): Promise<{ id: string; folder: string; tags: string[] }> {
+): Promise<{ id: string; folder: string; tags: string[]; goodToKnow?: 'added' | 'created' }> {
   const now = new Date().toISOString();
   const rows: { table: SyncedTable; id: string; data: Record<string, unknown> }[] = [];
 
@@ -334,6 +356,11 @@ export async function createNote(
     },
   });
 
+  // Good to know: add this note's key points to the folder's summary note, making it if needed.
+  const goodToKnowUpdate = await goodToKnowChange(db, userId, parentId, [{ topic: input.title, points: input.goodToKnow ?? [] }], createdBy, now);
+  if (goodToKnowUpdate) rows.push(goodToKnowUpdate.row);
+  const goodToKnow = goodToKnowUpdate?.status;
+
   // Tags: reuse by name, else make them with the next colour.
   const tags = await liveRows<TagRow>(db, userId, 'tags');
   const tagNames: string[] = [];
@@ -358,5 +385,93 @@ export async function createNote(
   }
 
   await save(db, userId, rows);
-  return { id: noteId, folder: pathNames.join(' / '), tags: tagNames };
+  return { id: noteId, folder: pathNames.join(' / '), tags: tagNames, goodToKnow };
+}
+
+// --- good to know ----------------------------------------------------------------
+
+export type GoodToKnowTopic = { topic: string; points: string[] };
+
+/**
+ * The row that puts these topics' key points into a folder's "Good to know" note:
+ * the existing note with the sections added or replaced, or a new note. Null when
+ * there are no points to add.
+ */
+async function goodToKnowChange(
+  db: Db,
+  userId: string,
+  folderId: string | null,
+  topics: GoodToKnowTopic[],
+  createdBy: string,
+  now: string,
+): Promise<{ row: { table: SyncedTable; id: string; data: Record<string, unknown> }; status: 'added' | 'created' } | null> {
+  const wanted = topics
+    .map((t) => ({ topic: t.topic.trim(), points: t.points.map((p) => p.trim()).filter(Boolean) }))
+    .filter((t) => t.topic && t.points.length > 0);
+  if (wanted.length === 0) return null;
+  const apply = (text: string) => wanted.reduce((acc, t) => withGoodToKnowSection(acc, t.topic, t.points), text);
+
+  const existing = (await liveRows<NoteRow>(db, userId, 'notes'))
+    .filter((n) => (n.folder_id ?? null) === folderId && sameName(n.title, GOOD_TO_KNOW_TITLE))
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
+  if (existing) {
+    // A Cornell "Good to know" (the student changed it) gets the points in its summary instead.
+    const field = existing.style === 'cornell' ? 'summary' : 'body';
+    return {
+      row: { table: 'notes', id: existing.id, data: { ...existing, [field]: apply(existing[field]), updated_at: now } },
+      status: 'added',
+    };
+  }
+  const id = randomUUID();
+  return {
+    row: {
+      table: 'notes',
+      id,
+      data: {
+        id,
+        folder_id: folderId,
+        title: GOOD_TO_KNOW_TITLE,
+        style: 'plain',
+        body: apply(''),
+        cornell_rows: '[]',
+        summary: '',
+        created_by: createdBy,
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+        favorited_at: null,
+      },
+    },
+    status: 'created',
+  };
+}
+
+/**
+ * Adds key points for notes that already exist (e.g. written before "Good to know"
+ * was there) to a folder's "Good to know" note. The folder must exist.
+ */
+export async function addGoodToKnow(
+  db: Db,
+  userId: string,
+  folderPath: string[],
+  topics: GoodToKnowTopic[],
+  createdBy: string,
+): Promise<{ folder: string; status: 'added' | 'created'; topics: number }> {
+  const folders = await liveRows<FolderRow>(db, userId, 'folders');
+  let folderId: string | null = null;
+  const names: string[] = [];
+  for (const raw of folderPath) {
+    const name = raw.trim();
+    if (!name) continue;
+    const found = folders
+      .filter((f) => (f.parent_id ?? null) === folderId && sameName(f.name, name))
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
+    if (!found) throw new ToolError(`No folder "${[...names, name].join(' / ')}". Use list_folders to see the folders.`);
+    folderId = found.id;
+    names.push(found.name);
+  }
+  const change = await goodToKnowChange(db, userId, folderId, topics, createdBy, new Date().toISOString());
+  if (!change) throw new ToolError('Pass at least one topic with key points.');
+  await save(db, userId, [change.row]);
+  return { folder: names.join(' / ') || '(top level)', status: change.status, topics: topics.length };
 }

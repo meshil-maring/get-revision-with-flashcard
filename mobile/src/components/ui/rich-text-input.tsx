@@ -5,7 +5,7 @@ import { Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 're
 
 import { RichText } from '@/components/ui/rich-text';
 import { colors, scaled } from '@/components/ui';
-import { toggleLinePrefix, wrapSelection, type Edit, type Selection } from '@/lib/rich-text';
+import { insertTable, toggleLinePrefix, wrapSelection, type Edit, type Selection } from '@/lib/rich-text';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 
@@ -23,6 +23,7 @@ const TOOLS: Tool[] = [
   { icon: 'marker', label: 'Highlight', apply: (t, s) => wrapSelection(t, s, '==') },
   { icon: 'format-list-bulleted', label: 'Bullet list', apply: (t, s) => toggleLinePrefix(t, s, '- ') },
   { icon: 'format-list-numbered', label: 'Numbered list', apply: (t, s) => toggleLinePrefix(t, s, '1. ') },
+  { icon: 'table', label: 'Table', apply: insertTable },
 ];
 
 type Props = {
@@ -37,7 +38,7 @@ type Props = {
   compact?: boolean;
 };
 
-/** A text box with a formatting toolbar (headings, bold, underline, highlight, lists) and a preview. */
+/** A text box with a formatting toolbar (headings, bold, underline, highlight, lists, tables) and a preview. */
 export function RichTextInput({
   value,
   onChangeText,

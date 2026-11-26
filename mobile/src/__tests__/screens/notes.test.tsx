@@ -133,6 +133,35 @@ describe('Notes tab', () => {
     expect(await screen.findByText('Nothing here yet')).toBeOnTheScreen();
   });
 
+  it('ends the notes with a Good to know card that says how to fill it', async () => {
+    jest.mocked(notes.listNotes).mockResolvedValue([note({ id: 'n-1' }), note({ id: 'n-2', title: 'Velocity' })]);
+
+    await render(<NotesScreen />);
+
+    expect(await screen.findByLabelText('Good to know, not made yet')).toBeOnTheScreen();
+    expect(screen.getByText(/these 2 notes will collect here/)).toBeOnTheScreen();
+
+    // Tapping it makes the (empty) note there and opens it.
+    jest.mocked(notes.createNote).mockResolvedValue('n-gtk');
+    await fireEvent.press(screen.getByLabelText('Good to know, not made yet'));
+    expect(notes.createNote).toHaveBeenCalledWith(expect.anything(), null, { title: 'Good to know', style: 'plain' });
+    expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n-gtk' } });
+  });
+
+  it('shows the Good to know note as its own card, not counted with the notes', async () => {
+    jest.mocked(notes.listNotes).mockResolvedValue([
+      note({ id: 'n-1' }),
+      note({ id: 'n-gtk', title: 'Good to know', body: '## Speed\n- Fast\n\n## Velocity\n- Speed with direction' }),
+    ]);
+
+    await render(<NotesScreen />);
+
+    expect(await screen.findByText('Key points from 2 notes in one place')).toBeOnTheScreen();
+    expect(screen.getByText('1')).toBeOnTheScreen(); // the Notes count leaves it out
+    await fireEvent.press(screen.getByLabelText('Good to know: key points from this folder'));
+    expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n-gtk' } });
+  });
+
   it('lists top-level folders with what is in them, then notes', async () => {
     jest.mocked(folders.listFolders).mockResolvedValue([folder({ folderCount: 3, noteCount: 1 })]);
     jest.mocked(notes.listNotes).mockResolvedValue([note({ style: 'cornell', rows: [{ cue: 'Inertia', notes: 'Keeps moving' }] })]);
@@ -399,7 +428,7 @@ describe('Note screen', () => {
     expect(await screen.findByLabelText('Exit focus mode')).toBeOnTheScreen();
   });
 
-  it('hides previous and next for a note on its own or outside a folder', async () => {
+  it('hides previous and next for a note on its own', async () => {
     mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
     jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Speed: distance ÷ time' }));
 
@@ -407,7 +436,7 @@ describe('Note screen', () => {
 
     expect(await screen.findByText('Speed: distance ÷ time')).toBeOnTheScreen();
     expect(screen.queryByText('Previous')).toBeNull();
-    expect(notes.listNotes).not.toHaveBeenCalled();
+    expect(notes.listNotes).toHaveBeenCalledWith(expect.anything(), null); // top level
   });
 });
 
@@ -440,8 +469,8 @@ describe('Make flashcards', () => {
   });
 });
 
-describe('Read aloud', () => {
-  // The speaker sits in the header, which the test router doesn't normally draw.
+describe('Note header: read aloud and the ⋮ menu', () => {
+  // The speaker and menu sit in the header, which the test router doesn't normally draw.
   const plainScreen = mockRouter.Stack.Screen;
   beforeEach(() => {
     mockRouter.Stack.Screen = (({ options }: { options?: { headerRight?: () => React.ReactNode } }) =>
@@ -486,6 +515,21 @@ describe('Read aloud', () => {
 
     expect(Speech.speak).toHaveBeenCalledWith('Speed\nDistance ÷ time', expect.anything());
     expect(screen.getByLabelText('Stop reading')).toBeOnTheScreen();
+  });
+
+  it('puts make flashcards, favourite, edit and delete in the ⋮ menu', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Speed: distance ÷ time' }));
+
+    await render(<NoteScreen />);
+    expect(screen.queryByText(/Make flashcards/)).toBeNull();
+
+    await fireEvent.press(await screen.findByLabelText('More options'));
+    expect(screen.getByText('Add to favourites')).toBeOnTheScreen();
+    expect(screen.getByText('Edit note')).toBeOnTheScreen();
+    expect(screen.getByText('Delete note')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText(/Make flashcards/));
+    expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/note-cards', params: { noteId: 'n-1' } });
   });
 
   it('has no speaker on an empty note', async () => {

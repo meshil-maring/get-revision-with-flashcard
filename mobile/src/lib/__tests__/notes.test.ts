@@ -1,4 +1,4 @@
-import { convertNote, notePreview, snippet, suggestCards } from '@/lib/notes';
+import { bodyWithoutTitle, convertNote, notePreview, snippet, suggestCards } from '@/lib/notes';
 
 describe('suggestCards', () => {
   it('turns each Cornell cue with notes into a card', () => {
@@ -99,5 +99,22 @@ describe('snippet and notePreview', () => {
     expect(
       notePreview({ style: 'cornell', body: '', rows: [{ cue: 'Q', notes: '' }, { cue: 'R', notes: 'S' }], summary: 'Sum' }),
     ).toBe('Q · R: S · Sum');
+  });
+});
+
+describe('bodyWithoutTitle', () => {
+  it('drops a first heading that repeats the title, and the blank lines after it', () => {
+    const body = '\n# Principles of Traffic Management\n\n## 1. Meaning\nText';
+    expect(bodyWithoutTitle(body, 'Principles of  traffic management ')).toBe('## 1. Meaning\nText');
+  });
+
+  it('matches through formatting marks in the heading', () => {
+    expect(bodyWithoutTitle('## **Speed**\nFast', 'Speed')).toBe('Fast');
+  });
+
+  it('keeps a first heading that says something else, or a title that is not a heading', () => {
+    expect(bodyWithoutTitle('# Meaning\nText', 'Speed')).toBe('# Meaning\nText');
+    expect(bodyWithoutTitle('Speed\nText', 'Speed')).toBe('Speed\nText');
+    expect(bodyWithoutTitle('', 'Speed')).toBe('');
   });
 });
