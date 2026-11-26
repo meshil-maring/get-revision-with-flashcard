@@ -1,0 +1,7 @@
+# Never put secrets or local data into the image; the host provides settings as variables.
+.env
+.env.*
+!.env.example
+node_modules
+data
+*.log
