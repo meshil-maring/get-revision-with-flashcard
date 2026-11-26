@@ -1,0 +1,12 @@
+# Cloudflare Pages response headers for the web app (copied into dist/ by `expo export`).
+# The local database (expo-sqlite on web) needs SharedArrayBuffer, which browsers only allow on
+# "cross-origin isolated" pages: the same two headers metro.config.js adds in development.
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Built files have a hash in their name, so they can be cached for good.
+/_expo/static/*
+  Cache-Control: public, max-age=31536000, immutable

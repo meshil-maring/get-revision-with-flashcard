@@ -1,0 +1,2 @@
+# Single-page app: any address (e.g. /account, /note/123) loads the app, which shows the right screen.
+/*  /index.html  200
