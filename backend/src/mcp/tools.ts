@@ -36,6 +36,19 @@ async function run(work: () => Promise<unknown>): Promise<CallToolResult> {
   }
 }
 
+/** Every tool this server offers, as AI apps see them (also shown by /health). */
+export const MCP_TOOL_NAMES = [
+  'list_decks',
+  'get_deck',
+  'create_deck',
+  'add_cards',
+  'list_folders',
+  'list_notes',
+  'get_note',
+  'create_note',
+  'add_good_to_know',
+] as const;
+
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 const ADDS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 

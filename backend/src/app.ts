@@ -9,6 +9,7 @@ import { fileRoutes, localFileRoutes } from './files/routes.ts';
 import { diskStorage, LOCAL_FILES_PATH, r2Storage, type FileStorage } from './files/storage.ts';
 import { oauthPages } from './mcp/pages.ts';
 import { mcpRoutes } from './mcp/routes.ts';
+import { MCP_TOOL_NAMES } from './mcp/tools.ts';
 import { syncRoutes } from './sync/routes.ts';
 
 /**
@@ -24,6 +25,8 @@ const OAUTH_CLIENT_ENDPOINTS = new Set([
   '/api/auth/oauth2/userinfo',
   '/api/auth/jwks',
 ]);
+
+const STARTED_AT = new Date().toISOString();
 
 function isOAuthClientEndpoint(path: string): boolean {
   return OAUTH_CLIENT_ENDPOINTS.has(path) || path.startsWith('/api/auth/.well-known/');
@@ -68,7 +71,17 @@ export function createApp({
   app.use('/mcp', openCors);
   app.use('/.well-known/*', openCors);
 
-  app.get('/health', (c) => c.json({ ok: true }));
+  // Shows what is running, to check that a deploy went out: the commit Railway built
+  // (it sets RAILWAY_GIT_COMMIT_SHA; the Dockerfile keeps it as GIT_COMMIT), when this
+  // server started, and the tools AI apps see.
+  app.get('/health', (c) =>
+    c.json({
+      ok: true,
+      commit: (process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT || 'unknown').slice(0, 7),
+      startedAt: STARTED_AT,
+      mcpTools: MCP_TOOL_NAMES,
+    }),
+  );
 
   /** What the sign-in screen should offer. */
   app.get('/api/config', (c) =>

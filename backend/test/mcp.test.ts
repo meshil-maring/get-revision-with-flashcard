@@ -175,6 +175,9 @@ describe('connecting an AI app', () => {
     const token = await connect(cookie, clientId);
 
     const tools = (await (await mcp(token, 'tools/list')).json()) as { result: { tools: { name: string }[] } };
+    // /health lists the same tools, to check a deploy without signing in.
+    const health = (await (await server.app.request('/health')).json()) as { mcpTools: string[] };
+    expect([...health.mcpTools].sort()).toEqual(tools.result.tools.map((t) => t.name).sort());
     expect(tools.result.tools.map((t) => t.name).sort()).toEqual(
       [
         'add_cards',
