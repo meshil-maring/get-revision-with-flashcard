@@ -22,7 +22,11 @@ if (!server) {
 }
 
 console.log(`Publishing to "${channel}" with server ${server}`);
-const result = spawnSync('npx', ['eas-cli@latest', 'update', '--channel', channel, '--message', message], {
+// On Windows the command runs through a shell, which would split the message at its spaces.
+const quotedMessage = process.platform === 'win32' ? `"${message.replace(/"/g, '\\"')}"` : message;
+// --environment is required when no one is at the keyboard; EAS names them like the channels.
+const args = ['eas-cli@latest', 'update', '--channel', channel, '--environment', channel, '--message', quotedMessage];
+const result = spawnSync('npx', args, {
   stdio: 'inherit',
   shell: process.platform === 'win32',
   // Real environment variables win over .env files, so phones get the live server.
