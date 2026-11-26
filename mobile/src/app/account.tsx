@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -16,7 +16,8 @@ import { useAccount } from '@/providers/account';
 import { authClient } from '@/services/auth-client';
 import { confirm } from '@/lib/confirm';
 import { syncedAgo } from '@/lib/dates';
-import { fetchServerConfig, type SocialProvider } from '@/services/sync-api';
+import { useServerConfig } from '@/services/queries';
+import type { SocialProvider } from '@/services/sync-api';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 
@@ -180,14 +181,10 @@ function SignInForm() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [providers, setProviders] = useState<SocialProvider[]>([]);
   const [socialBusy, setSocialBusy] = useState<SocialProvider | null>(null);
 
-  useEffect(() => {
-    fetchServerConfig()
-      .then((config) => setProviders(config.providers))
-      .catch(() => setProviders([]));
-  }, []);
+  // Until the server answers (or if it can't be reached), only email sign-in is shown.
+  const providers = useServerConfig().data?.providers ?? [];
 
   async function submit() {
     setError(null);

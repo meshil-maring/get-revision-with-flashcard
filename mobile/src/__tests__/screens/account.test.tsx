@@ -9,6 +9,7 @@ import { authClient } from '@/services/auth-client';
 import { confirm } from '@/lib/confirm';
 import { fetchServerConfig, postSync } from '@/services/sync-api';
 import { mockRouter } from '@/test-utils/mock-router';
+import { TestQueryProvider } from '@/test-utils/query';
 import { createTestDb } from '@/test-utils/test-db';
 
 let mockDb: SQLiteDatabase;
@@ -32,9 +33,11 @@ jest.mock('@/lib/confirm', () => ({ confirm: jest.fn(async () => true) }));
 
 function renderAccount() {
   return render(
-    <AccountProvider>
-      <AccountScreen />
-    </AccountProvider>,
+    <TestQueryProvider>
+      <AccountProvider>
+        <AccountScreen />
+      </AccountProvider>
+    </TestQueryProvider>,
   );
 }
 
