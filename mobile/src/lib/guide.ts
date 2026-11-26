@@ -20,8 +20,8 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     section: 'Basics',
     icon: 'rocket-outline',
     title: 'Getting started',
-    summary: 'What NoteMe does and the fastest way to begin.',
-    body: `NoteMe helps you remember what you learn with **flashcards**: a question on the front, the answer on the back.
+    summary: 'What StudyMe does and the fastest way to begin.',
+    body: `StudyMe helps you remember what you learn with **flashcards**: a question on the front, the answer on the back.
 
 ## Your first five minutes
 1. Open the **Flashcards** tab and tap **New deck**. Give it a subject name, like "Biology – Cells".
@@ -51,7 +51,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
 2. Tap **New deck**, type a name and, if you like, a short description.
 3. Tap **Save**.
 
-NoteMe picks an icon from the name, so a deck called "Chemistry" gets a flask and "Maths" gets a sigma.
+StudyMe picks an icon from the name, so a deck called "Chemistry" gets a flask and "Maths" gets a sigma.
 
 ## Change or delete a deck
 - Tap the **pencil** on a deck to rename it or change its description.
@@ -132,7 +132,7 @@ Remove one before saving with the red **×** next to it. Tap **Save** to keep yo
 
 ==Ideas:== label a diagram as the question, record how to pronounce a word in a new language, or attach the page of notes the card comes from.
 
-Files are copied into NoteMe, so they stay even if you delete the original from your phone.`,
+Files are copied into StudyMe, so they stay even if you delete the original from your phone.`,
   },
   {
     id: 'notes',
@@ -207,7 +207,7 @@ You can switch a note between Plain and Cornell at any time. Nothing you wrote i
     icon: 'copy-outline',
     title: 'Turn notes into flashcards',
     summary: 'Make cards from a note in a few taps.',
-    body: `Open a note and tap **Make flashcards**. NoteMe finds cards in your note:
+    body: `Open a note and tap **Make flashcards**. StudyMe finds cards in your note:
 - **Cornell notes**: each cue becomes a question, and its notes become the answer.
 - **Plain notes**: a line like "Speed: distance ÷ time" becomes a card, and so does each heading with the text under it.
 
@@ -242,12 +242,12 @@ Every card starts on its question, so you never see the answer by accident.`,
     icon: 'speedometer-outline',
     title: 'Hard, OK and Easy',
     summary: 'Rate each card so you can focus on what you find hard.',
-    body: `After you see an answer, tell NoteMe how it went:
+    body: `After you see an answer, tell StudyMe how it went:
 - **Hard**: you did not know it, or it took a long time
 - **OK**: you got it, but had to think
 - **Easy**: you knew it straight away
 
-NoteMe remembers the **latest** rating of every card. Cards you have not rated yet are called **New**.
+StudyMe remembers the **latest** rating of every card. Cards you have not rated yet are called **New**.
 
 ## Why rate?
 Ratings let you revise smarter. In **Create revision** you can choose only the Hard cards, so you spend your time where it matters. In a deck, each card shows its latest rating as a small coloured tag.
@@ -285,7 +285,7 @@ The name of the deck appears above each card, so you know which subject it is fr
 - How long each card took, kept hidden until you ask for it
 
 ## Time per card
-NoteMe times how long each card is on screen. Tap **Show** on the **Time per card** box to see your cards from slowest to fastest, with your average. Slow cards are often the ones you are unsure of: tick them, or tap **Select slowest 3**, to add them to your next round.
+StudyMe times how long each card is on screen. Tap **Show** on the **Time per card** box to see your cards from slowest to fastest, with your average. Slow cards are often the ones you are unsure of: tick them, or tap **Select slowest 3**, to add them to your next round.
 
 ## Revise again straight away
 Your **Hard** cards are already ticked. Tick or untick any card, or tap **Select all** / **Clear** on a group. Then tap **Revise selected** to start a new round with just those cards.
@@ -346,13 +346,13 @@ Open **More → Account** and sign in. Everything you made as a guest moves into
     icon: 'sparkles-outline',
     title: 'AI apps (ChatGPT, Claude)',
     summary: 'Let ChatGPT or Claude make notes and flashcards for you.',
-    body: `You can connect **ChatGPT** or **Claude** to your NoteMe account. Then ask it in a chat to make a deck or write notes, and they appear in NoteMe on the next sync.
+    body: `You can connect **ChatGPT** or **Claude** to your StudyMe account. Then ask it in a chat to make a deck or write notes, and they appear in StudyMe on the next sync.
 
 ## Set it up
-1. Sign in to NoteMe (**More → Account**).
+1. Sign in to StudyMe (**More → Account**).
 2. Open **More → Connect AI** and copy the connector link.
 3. Add it as a custom connector in ChatGPT or Claude. The Connect AI screen shows the steps.
-4. Sign in with your NoteMe account and tap **Allow**.
+4. Sign in with your StudyMe account and tap **Allow**.
 
 ## What it can do
 - See your decks, notes, folders and tags
@@ -364,7 +364,7 @@ Notes an AI writes show its name, like **ChatGPT**, so you can tell them apart.
 ==Tip:== be specific. "Make 15 cards on the French Revolution for my History deck" works better than "make some cards".
 
 ## Stop it
-Remove NoteMe from the AI app's connector settings.`,
+Remove StudyMe from the AI app's connector settings.`,
   },
   {
     id: 'faq',
@@ -379,10 +379,10 @@ A card needs both a question and an answer. A deck needs a name.
 Your phone needs an app that can show PDFs. Most phones have one; if not, install a PDF reader.
 
 ## Recording does not start
-NoteMe needs permission to use the microphone. Allow it when asked, or turn it on in your phone's settings for NoteMe.
+StudyMe needs permission to use the microphone. Allow it when asked, or turn it on in your phone's settings for StudyMe.
 
 ## Can I change a rating?
-Yes. Study the card again and pick a new rating. NoteMe keeps the latest one.
+Yes. Study the card again and pick a new rating. StudyMe keeps the latest one.
 
 ## How do I see the welcome tour again?
 Go to **More → App tour**.
@@ -391,7 +391,7 @@ Go to **More → App tour**.
 Each screen shows a short tip until you tap **Got it**. To see them all again, go to **More → Help & guide** and tap **Show tips again**.
 
 ## I deleted a deck by mistake
-Deleting cannot be undone yet, which is why NoteMe always asks first.`,
+Deleting cannot be undone yet, which is why StudyMe always asks first.`,
   },
 ];
 

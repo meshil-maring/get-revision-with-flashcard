@@ -5,13 +5,13 @@ import { Platform } from 'react-native';
 
 import { API_URL } from '@/services/api';
 
-// Sign-in with the NoteMe server. On phones the session is kept in the secure store.
+// Sign-in with the StudyMe server. On phones the session is kept in the secure store.
 export const authClient = createAuthClient({
   baseURL: API_URL,
   plugins: [
     expoClient({
-      scheme: 'flashcards',
-      storagePrefix: 'noteme',
+      scheme: 'studyme',
+      storagePrefix: 'studyme',
       storage: SecureStore,
     }),
   ],

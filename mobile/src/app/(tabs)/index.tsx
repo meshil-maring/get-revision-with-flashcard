@@ -50,7 +50,7 @@ export default function HomeScreen() {
       <View className="mb-7 flex-row items-center">
         <MaterialCommunityIcons name="book-open-variant" size={scaled(48)} color={colors.primary} />
         <View className="ml-2 flex-1">
-          <Text className="text-2xl font-extrabold leading-7 text-ink">NoteMe</Text>
+          <Text className="text-2xl font-extrabold leading-7 text-ink">StudyMe</Text>
           <Text className="text-base text-ink">with FlashCard</Text>
         </View>
         <Pressable

@@ -89,7 +89,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     secret: secret || 'dev-only-secret-change-me-in-production-0123456789',
     databaseUrl: source.DATABASE_URL ?? '',
     corsOrigins: list(source.CORS_ORIGINS ?? 'http://localhost:8081'),
-    appScheme: source.APP_SCHEME ?? 'flashcards',
+    appScheme: source.APP_SCHEME ?? 'studyme',
     social,
     microsoftTenantId: source.MICROSOFT_TENANT_ID || 'common',
     files: readFiles(source, isDev),

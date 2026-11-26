@@ -240,7 +240,7 @@ function SignInForm() {
           {mode === 'sign-in' ? 'Welcome back' : 'Create your account'}
         </Text>
         <Text className="text-base text-muted">
-          Back up your decks and notes, use them on every device, and connect AI apps to NoteMe. Everything you made as
+          Back up your decks and notes, use them on every device, and connect AI apps to StudyMe. Everything you made as
           a guest moves into your account.
         </Text>
       </View>

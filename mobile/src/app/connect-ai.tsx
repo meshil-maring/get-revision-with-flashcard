@@ -17,9 +17,9 @@ const APPS: App[] = [
     steps: [
       'On chatgpt.com, open Settings → Apps & Connectors → Advanced settings and turn on Developer mode.',
       'Go back to Apps & Connectors and choose Create.',
-      'Name it NoteMe, paste the link below as the server URL, choose OAuth, and create it.',
-      'Sign in with your NoteMe account and tap Allow.',
-      'In a chat, pick NoteMe from the + menu, then ask away.',
+      'Name it StudyMe, paste the link below as the server URL, choose OAuth, and create it.',
+      'Sign in with your StudyMe account and tap Allow.',
+      'In a chat, pick StudyMe from the + menu, then ask away.',
     ],
   },
   {
@@ -27,9 +27,9 @@ const APPS: App[] = [
     icon: 'sparkles-outline',
     steps: [
       'On claude.ai, open Settings → Connectors and choose Add custom connector.',
-      'Name it NoteMe, paste the link below, and add it.',
-      'Choose Connect, sign in with your NoteMe account and tap Allow.',
-      'In a chat, turn NoteMe on from the tools menu, then ask away.',
+      'Name it StudyMe, paste the link below, and add it.',
+      'Choose Connect, sign in with your StudyMe account and tap Allow.',
+      'In a chat, turn StudyMe on from the tools menu, then ask away.',
     ],
   },
 ];
@@ -58,7 +58,7 @@ export default function ConnectAiScreen() {
       <View className="gap-1">
         <Text className="text-2xl font-extrabold text-ink">Connect ChatGPT or Claude</Text>
         <Text className="text-base text-muted">
-          Add NoteMe to your AI app once. Then just ask it to make flashcards or notes, and they appear here on your
+          Add StudyMe to your AI app once. Then just ask it to make flashcards or notes, and they appear here on your
           next sync. It can read what you have and add new things, but it can&apos;t change or delete anything.
         </Text>
       </View>
@@ -67,7 +67,7 @@ export default function ConnectAiScreen() {
         <View className="gap-3 rounded-3xl bg-primary-soft p-5">
           <Text className="text-base font-bold text-ink">Sign in first</Text>
           <Text className="text-sm text-muted">
-            The AI app adds things to your NoteMe account, so you need one. Your guest decks and notes move into it.
+            The AI app adds things to your StudyMe account, so you need one. Your guest decks and notes move into it.
           </Text>
           <Button label="Sign in or create account" icon="person-outline" onPress={() => router.push('/account')} />
         </View>

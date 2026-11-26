@@ -51,9 +51,9 @@ describe('Connect AI screen', () => {
 
 describe('isReachableFromInternet', () => {
   it.each([
-    ['https://noteme.example.com/mcp', true],
+    ['https://studyme.example.com/mcp', true],
     ['https://abc.trycloudflare.com/mcp', true],
-    ['http://noteme.example.com/mcp', false],
+    ['http://studyme.example.com/mcp', false],
     ['https://localhost:4000/mcp', false],
     ['http://10.0.2.2:4000/mcp', false],
     ['https://192.168.1.5/mcp', false],

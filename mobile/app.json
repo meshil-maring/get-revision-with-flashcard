@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Flashcards",
+    "name": "StudyMe",
     "slug": "flashcards",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "flashcards",
+    "scheme": "studyme",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
@@ -40,13 +40,13 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow NoteMe to record audio for your flashcards."
+          "microphonePermission": "Allow StudyMe to record audio for your flashcards."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow NoteMe to add pictures from your library to your flashcards."
+          "photosPermission": "Allow StudyMe to add pictures from your library to your flashcards."
         }
       ],
       "expo-secure-store"

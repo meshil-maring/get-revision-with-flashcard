@@ -1,4 +1,4 @@
-// Shared building blocks so every screen uses the same NoteMe look.
+// Shared building blocks so every screen uses the same StudyMe look.
 // Colour classes (bg-primary, text-ink, bg-surface…) are defined in src/global.css.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';

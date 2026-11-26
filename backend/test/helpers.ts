@@ -8,7 +8,7 @@ import { openDatabase } from '../src/db/client.ts';
 import { readEnv } from '../src/env.ts';
 
 export async function createTestServer(extraEnv: NodeJS.ProcessEnv = {}) {
-  const filesDir = await mkdtemp(join(tmpdir(), 'noteme-files-'));
+  const filesDir = await mkdtemp(join(tmpdir(), 'studyme-files-'));
   const env = readEnv({
     NODE_ENV: 'test',
     FILES_DIR: filesDir,

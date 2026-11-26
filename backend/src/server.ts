@@ -11,5 +11,5 @@ const auth = createAuth(db, env);
 const app = createApp({ db, auth, env });
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {
-  console.log(`NoteMe API on http://localhost:${info.port} (sign-in with: ${['email', ...Object.keys(env.social)].join(', ')})`);
+  console.log(`StudyMe API on http://localhost:${info.port} (sign-in with: ${['email', ...Object.keys(env.social)].join(', ')})`);
 });

@@ -33,7 +33,7 @@ export default function HelpScreen() {
           <Icon name="book" size={22} color={colors.white} />
         </View>
         <View className="flex-1">
-          <Text className="text-base font-bold text-white">How to use NoteMe</Text>
+          <Text className="text-base font-bold text-white">How to use StudyMe</Text>
           <Text className="text-sm leading-5 text-white/75">
             Short guides to every feature. Read them in any order.
           </Text>

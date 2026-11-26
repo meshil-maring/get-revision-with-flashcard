@@ -1,4 +1,4 @@
-# NoteMe app
+# StudyMe app
 
 Expo (React Native) + TypeScript, Expo Router, Uniwind (Tailwind), expo-sqlite.
 

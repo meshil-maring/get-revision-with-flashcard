@@ -24,7 +24,7 @@ beforeEach(() => {
 describe('Welcome tour', () => {
   it('walks through every step and finishes', async () => {
     await render(<WelcomeScreen />);
-    expect(screen.getByText('Welcome to NoteMe')).toBeOnTheScreen();
+    expect(screen.getByText('Welcome to StudyMe')).toBeOnTheScreen();
     expect(screen.getByText('1 of 4')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByText('Next'));

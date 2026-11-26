@@ -6,9 +6,9 @@ import type { Db } from '../db/client.ts';
 import { oauthClient } from '../db/schema.ts';
 import { SOCIAL_PROVIDERS, type Env } from '../env.ts';
 
-// The pages an AI app sends the user to while connecting to NoteMe (OAuth):
+// The pages an AI app sends the user to while connecting to StudyMe (OAuth):
 //   /oauth/sign-in   sign in (or create an account), then the flow carries on by itself
-//   /oauth/consent   "Allow ChatGPT to use your NoteMe?" → Allow / Deny
+//   /oauth/consent   "Allow ChatGPT to use your StudyMe?" → Allow / Deny
 // Both get the authorization request as a signed query string from Better Auth, and send it
 // back as `oauth_query` so Better Auth can continue where it left off.
 
@@ -37,7 +37,7 @@ function page(title: string, body: string, script = ''): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>${escapeHtml(title)} · NoteMe</title>
+<title>${escapeHtml(title)} · StudyMe</title>
 <style>
   :root { --primary:#2f6bd8; --primary-dark:#2455b0; --page:#f9fafb; --surface:#eef1f5; --line:#e1e5eb;
           --ink:#1f2933; --muted:#5c6773; --alert:#dc3b3b; --white:#fff; }
@@ -69,7 +69,7 @@ function page(title: string, body: string, script = ''): string {
 </style>
 </head>
 <body><main>
-<div class="brand">NoteMe</div>
+<div class="brand">StudyMe</div>
 ${body}
 </main>
 ${script}
@@ -112,7 +112,7 @@ export function oauthPages(db: Db, auth: Auth, env: Env) {
       .join('\n');
     const body = `
 <h1>Sign in to connect</h1>
-<p><strong>${escapeHtml(appName)}</strong> wants to use your NoteMe decks and notes. Sign in with the account you use in the app.</p>
+<p><strong>${escapeHtml(appName)}</strong> wants to use your StudyMe decks and notes. Sign in with the account you use in the app.</p>
 <form id="form" class="card" novalidate>
   ${socialButtons ? `${socialButtons}<div class="or">or use your email</div>` : ''}
   <label id="name-field" hidden>Name <input name="name" autocomplete="name"></label>
@@ -120,7 +120,7 @@ export function oauthPages(db: Db, auth: Auth, env: Env) {
   <label>Password <input name="password" type="password" autocomplete="current-password" required minlength="8"></label>
   <div id="error" class="error" role="alert"></div>
   <button type="submit" class="primary" id="submit">Sign in</button>
-  <button type="button" class="link" id="switch">New to NoteMe? Create an account</button>
+  <button type="button" class="link" id="switch">New to StudyMe? Create an account</button>
 </form>`;
     const script = `<script>
 ${CLIENT_HELPERS}
@@ -130,7 +130,7 @@ document.getElementById('switch').addEventListener('click', () => {
   mode = mode === 'sign-in' ? 'sign-up' : 'sign-in';
   document.getElementById('name-field').hidden = mode === 'sign-in';
   document.getElementById('submit').textContent = mode === 'sign-in' ? 'Sign in' : 'Create account';
-  document.getElementById('switch').textContent = mode === 'sign-in' ? 'New to NoteMe? Create an account' : 'Have an account? Sign in';
+  document.getElementById('switch').textContent = mode === 'sign-in' ? 'New to StudyMe? Create an account' : 'Have an account? Sign in';
   form.password.autocomplete = mode === 'sign-in' ? 'current-password' : 'new-password';
   showError('');
 });
@@ -161,7 +161,7 @@ for (const button of form.querySelectorAll('[data-provider]')) {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     const appName = (await clientName(db, c.req.query('client_id'))) ?? 'This AI app';
     const body = `
-<h1>Allow ${escapeHtml(appName)} to use NoteMe?</h1>
+<h1>Allow ${escapeHtml(appName)} to use StudyMe?</h1>
 <div class="card">
   <p>${escapeHtml(appName)} will be able to:</p>
   <ul>

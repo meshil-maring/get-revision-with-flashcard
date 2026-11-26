@@ -143,12 +143,12 @@ describe('file storage settings', () => {
 });
 
 describe('R2 links', () => {
-  const r2 = r2Storage({ accountId: 'acct', accessKeyId: 'AKID', secretAccessKey: 'secret', bucket: 'noteme' });
+  const r2 = r2Storage({ accountId: 'acct', accessKeyId: 'AKID', secretAccessKey: 'secret', bucket: 'studyme' });
 
   it('signs upload links for the bucket', async () => {
     const url = new URL(await r2.uploadUrl('u/user-1/att-1', 'image/png'));
     expect(url.origin).toBe('https://acct.r2.cloudflarestorage.com');
-    expect(url.pathname).toBe('/noteme/u/user-1/att-1');
+    expect(url.pathname).toBe('/studyme/u/user-1/att-1');
     expect(url.searchParams.get('X-Amz-Expires')).toBe(String(LINK_SECONDS));
     expect(url.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
   });

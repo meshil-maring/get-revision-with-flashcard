@@ -1,4 +1,4 @@
-# NoteMe
+# StudyMe
 
 A study app for students: notes (plain or Cornell, in nested folders) and flashcard decks with a flip-to-study
 screen. Use it as a guest on the device, or sign in to back up and sync. AI apps (Claude, ChatGPT) connect

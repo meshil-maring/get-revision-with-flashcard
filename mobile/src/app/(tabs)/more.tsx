@@ -62,7 +62,7 @@ const SECTIONS: { title: string; items: MenuItem[] }[] = [
       {
         icon: 'compass-outline',
         title: 'App tour',
-        subtitle: 'A quick walk through how NoteMe works',
+        subtitle: 'A quick walk through how StudyMe works',
         href: '/welcome',
       },
     ],

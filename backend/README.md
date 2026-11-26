@@ -1,6 +1,6 @@
-# NoteMe server
+# StudyMe server
 
-Sign-in (email + password, Google, Microsoft, Facebook), backup/sync for the NoteMe app, and the MCP server that
+Sign-in (email + password, Google, Microsoft, Facebook), backup/sync for the StudyMe app, and the MCP server that
 lets AI apps (ChatGPT, Claude) read and add decks, cards and notes in a user's account.
 
 Stack: Node 22 + TypeScript (run with tsx), Hono, Better Auth (+ its OAuth provider / MCP plugins), Drizzle,
@@ -105,7 +105,7 @@ cloudflared tunnel --url http://localhost:4000    # or: ngrok http 4000
 2. **ChatGPT** (a paid plan): Settings → Apps & Connectors → Advanced settings → turn on Developer mode, then
    Create. Server URL `https://quiet-river-1234.trycloudflare.com/mcp`, authentication OAuth.
    **Claude**: Settings → Connectors → Add custom connector, same URL.
-3. Sign in on the page that opens and tap **Allow**. In a chat, turn on NoteMe and ask for a deck or a note.
+3. Sign in on the page that opens and tap **Allow**. In a chat, turn on StudyMe and ask for a deck or a note.
 4. Open the app signed in to the same account; the new items arrive on the next sync (or tap Sync now).
 
 The quick tunnel's address changes each time it starts; then update `BETTER_AUTH_URL` and the connector.
@@ -148,7 +148,7 @@ signed links itself under `/api/local-files/`. In production the server refuses 
 
 ### Set up R2
 
-1. Cloudflare dashboard → **R2** → *Create bucket* (e.g. `noteme-files`). Keep it private: no public access.
+1. Cloudflare dashboard → **R2** → *Create bucket* (e.g. `studyme-files`). Keep it private: no public access.
 2. R2 → **Manage API tokens** → *Create API token*, permission **Object Read & Write**, only this bucket.
 3. In `.env`: `R2_ACCOUNT_ID` (shown on the R2 page), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
 4. For the **web** app, the browser uploads to R2 itself, so the bucket needs a CORS policy

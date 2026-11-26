@@ -39,14 +39,14 @@ async function run(work: () => Promise<unknown>): Promise<CallToolResult> {
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 const ADDS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 
-/** The NoteMe MCP server for one request from one user. */
+/** The StudyMe MCP server for one request from one user. */
 export function createMcpServer(db: Db, caller: McpCaller): McpServer {
   const { userId } = caller;
   const server = new McpServer(
-    { name: 'noteme', title: 'NoteMe', version: '1.0.0' },
+    { name: 'studyme', title: 'StudyMe', version: '1.0.0' },
     {
       instructions:
-        "NoteMe is the user's study app: flashcard decks and notes in folders. Use these tools to read what the user " +
+        "StudyMe is the user's study app: flashcard decks and notes in folders. Use these tools to read what the user " +
         'already has and to add new decks, cards and notes for them. Look before you add: check list_decks before ' +
         'making a deck, and list_folders before choosing where a note goes, so you reuse what exists. Keep cards short ' +
         'and focused on one fact each. New items appear in the app on its next sync.',

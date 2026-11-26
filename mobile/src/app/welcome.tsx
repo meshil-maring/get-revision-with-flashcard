@@ -15,7 +15,7 @@ const WELCOME_PAGES: Page[] = [
   {
     icon: 'school',
     color: colors.primary,
-    title: 'Welcome to NoteMe',
+    title: 'Welcome to StudyMe',
     text: 'Make flashcards, study them, and revise smarter. Here is how it works in four quick steps.',
     points: [
       { icon: 'layers-outline', color: colors.primary, text: 'Keep your cards in decks, one per subject' },
