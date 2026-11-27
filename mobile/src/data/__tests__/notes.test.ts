@@ -5,10 +5,12 @@ import {
   createFolder,
   deleteFolder,
   ensureFolderPath,
+  FolderMoveError,
   FolderNameTakenError,
   getFolder,
   getFolderPath,
   listFolders,
+  moveFolders,
   renameFolder,
 } from '@/data/folders';
 import {
@@ -19,6 +21,7 @@ import {
   getNote,
   listNoteAttachments,
   listNotes,
+  moveNotes,
   searchNotes,
   updateNote,
 } from '@/data/notes';
@@ -252,5 +255,51 @@ describe('searchNotes', () => {
     await createNote(db, topic, { title: 'Speed', style: 'plain' });
     await deleteFolder(db, classId);
     expect(await searchNotes(db, 'speed')).toEqual({ folders: [], notes: [] });
+  });
+});
+
+describe('moving', () => {
+  it('moves notes into another folder and to the top level', async () => {
+    const { subject, chapter } = await makeTree();
+    const a = await createNote(db, chapter, { title: 'Speed', style: 'plain' });
+    const b = await createNote(db, chapter, { title: 'Velocity', style: 'plain' });
+
+    await moveNotes(db, [a, b], subject);
+    expect((await listNotes(db, subject)).map((n) => n.title)).toEqual(['Speed', 'Velocity']);
+    expect(await listNotes(db, chapter)).toEqual([]);
+
+    await moveNotes(db, [a], null);
+    expect((await listNotes(db, null)).map((n) => n.title)).toEqual(['Speed']);
+  });
+
+  it('moves folders with everything inside them', async () => {
+    const { classId, chapter, topic } = await makeTree();
+    await createNote(db, topic, { title: 'Speed', style: 'plain' });
+
+    await moveFolders(db, [chapter], classId);
+
+    expect(await getFolderPath(db, topic)).toEqual([
+      { id: classId, name: 'Class 10' },
+      { id: chapter, name: 'Chapter 1' },
+      { id: topic, name: 'Motion' },
+    ]);
+    expect(await countFolderContents(db, chapter)).toEqual({ folders: 1, notes: 1 });
+  });
+
+  it("won't move a folder into itself or a folder inside it", async () => {
+    const { subject, topic } = await makeTree();
+    await expect(moveFolders(db, [subject], subject)).rejects.toThrow(FolderMoveError);
+    await expect(moveFolders(db, [subject], topic)).rejects.toThrow(FolderMoveError);
+    expect((await getFolder(db, subject))?.parentId).not.toBe(topic);
+  });
+
+  it('keeps names different in the new place, and moves nothing if one clashes', async () => {
+    const { classId, subject } = await makeTree();
+    const other = await createFolder(db, { parentId: null, name: 'Class 9' });
+    const physics9 = await createFolder(db, { parentId: other, name: 'physics' });
+    const maths9 = await createFolder(db, { parentId: other, name: 'Maths' });
+
+    await expect(moveFolders(db, [maths9, physics9], classId)).rejects.toThrow(FolderNameTakenError);
+    expect((await listFolders(db, classId)).map((f) => f.id)).toEqual([subject]);
   });
 });

@@ -1,23 +1,26 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useState, type ReactNode } from 'react';
-import { Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Alert, BackHandler, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { FolderPicker } from '@/components/notes/folder-picker';
 import { ActionSheet } from '@/components/ui/action-sheet';
 import { TagRow } from '@/components/tags/tag-chip';
 import { FormModal, type FormField } from '@/components/ui/form-modal';
-import { colors, EmptyState, Icon, plural, scaled, subjectIcon } from '@/components/ui';
+import { colors, EmptyState, Icon, plural, scaled, subjectIcon, type IconName } from '@/components/ui';
 import {
   countFolderContents,
   createFolder,
   deleteFolder,
+  FolderMoveError,
   FolderNameTakenError,
   listFolders,
+  moveFolders,
   renameFolder,
   setFolderFavorite,
 } from '@/data/folders';
-import { createNote, listNotes } from '@/data/notes';
+import { createNote, deleteNote, listNotes, moveNotes, setNoteFavorite } from '@/data/notes';
 import { listTagsForNotes } from '@/data/tags';
 import type { FolderWithCounts, Note, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
@@ -26,6 +29,27 @@ import { GOOD_TO_KNOW_TITLE, isGoodToKnow, notePreview } from '@/lib/notes';
 const FOLDER_FIELDS: FormField[] = [
   { key: 'name', label: 'Name', placeholder: 'e.g. Class 10, Physics, Chapter 1 or Motion', required: true },
 ];
+
+/** Shows a short message. Uses window.alert on web, where Alert doesn't show. */
+function tell(title: string, message: string) {
+  if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+  else Alert.alert(title, message);
+}
+
+/** "2 folders and 3 notes" */
+function listWhat(folders: number, notes: number): string {
+  return [folders > 0 ? plural(folders, 'folder') : null, notes > 0 ? plural(notes, 'note') : null]
+    .filter(Boolean)
+    .join(' and ');
+}
+
+/** A copy of the set with the id added, or taken out if it was there. */
+function toggled(set: Set<string>, id: string): Set<string> {
+  const next = new Set(set);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  return next;
+}
 
 type FormState = { mode: 'closed' } | { mode: 'create' } | { mode: 'rename'; folder: FolderWithCounts };
 
@@ -103,6 +127,11 @@ export function FolderBrowser({
   const [tags, setTags] = useState<Map<string, Tag[]>>(new Map());
   const [form, setForm] = useState<FormState>({ mode: 'closed' });
   const [menuFor, setMenuFor] = useState<FolderWithCounts | null>(null);
+  // Select mode: tick several folders and notes, then move, star or delete them together.
+  const [selecting, setSelecting] = useState(false);
+  const [pickedFolders, setPickedFolders] = useState<Set<string>>(new Set());
+  const [pickedNotes, setPickedNotes] = useState<Set<string>>(new Set());
+  const [moving, setMoving] = useState(false);
 
   const refresh = useCallback(async () => {
     const [f, n] = await Promise.all([listFolders(db, folderId), listNotes(db, folderId)]);
@@ -123,6 +152,77 @@ export function FolderBrowser({
     }, [refresh]),
   );
 
+  function startSelecting(first?: { folderId?: string; noteId?: string }) {
+    setPickedFolders(new Set(first?.folderId ? [first.folderId] : []));
+    setPickedNotes(new Set(first?.noteId ? [first.noteId] : []));
+    setSelecting(true);
+  }
+
+  const stopSelecting = useCallback(() => {
+    setSelecting(false);
+    setPickedFolders(new Set());
+    setPickedNotes(new Set());
+  }, []);
+
+  // Android's back button leaves select mode before it leaves the screen.
+  useEffect(() => {
+    if (!selecting) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      stopSelecting();
+      return true;
+    });
+    return () => sub.remove();
+  }, [selecting, stopSelecting]);
+
+  async function deletePicked() {
+    const folderList = (folders ?? []).filter((f) => pickedFolders.has(f.id));
+    let insideFolders = 0;
+    let insideNotes = 0;
+    for (const folder of folderList) {
+      const inside = await countFolderContents(db, folder.id);
+      insideFolders += inside.folders;
+      insideNotes += inside.notes;
+    }
+    const inside = listWhat(insideFolders, insideNotes);
+    const ok = await confirm(
+      'Delete selected?',
+      `${listWhat(folderList.length, pickedNotes.size)} will be deleted` +
+        (inside ? `, with everything inside (${inside}).` : '.'),
+    );
+    if (!ok) return;
+    for (const folder of folderList) await deleteFolder(db, folder.id);
+    for (const id of pickedNotes) await deleteNote(db, id);
+    stopSelecting();
+    await changed();
+  }
+
+  async function favoritePicked(favorite: boolean) {
+    for (const id of pickedFolders) await setFolderFavorite(db, id, favorite);
+    for (const id of pickedNotes) await setNoteFavorite(db, id, favorite);
+    stopSelecting();
+    await changed();
+  }
+
+  async function movePicked(target: string | null) {
+    setMoving(false);
+    try {
+      await moveFolders(db, [...pickedFolders], target);
+    } catch (error) {
+      if (error instanceof FolderNameTakenError) {
+        tell('Name already used', `${error.message} Rename one of them first.`);
+        return;
+      }
+      if (error instanceof FolderMoveError) {
+        tell("Can't move there", error.message);
+        return;
+      }
+      throw error;
+    }
+    await moveNotes(db, [...pickedNotes], target);
+    stopSelecting();
+    await changed();
+  }
+
   async function handleSave(values: Record<string, string>) {
     try {
       if (form.mode === 'create') await createFolder(db, { parentId: folderId, name: values.name });
@@ -130,10 +230,7 @@ export function FolderBrowser({
     } catch (error) {
       // Keep the form open so the name can be changed.
       if (!(error instanceof FolderNameTakenError)) throw error;
-      if (Platform.OS === 'web') window.alert(`Name already used
-
-${error.message}`);
-      else Alert.alert('Name already used', error.message);
+      tell('Name already used', error.message);
       return;
     }
     setForm({ mode: 'closed' });
@@ -178,65 +275,122 @@ ${error.message}`);
   const topicNotes = notes.filter((note) => !isGoodToKnow(note));
   const loading = folders === null;
   const empty = !loading && folders.length === 0 && notes.length === 0;
+  const selectable = (folders?.length ?? 0) + topicNotes.length; // Good to know stays with its folder
+  const pickedCount = pickedFolders.size + pickedNotes.size;
+  const allPicked = pickedCount > 0 && pickedCount === selectable;
+  const pickedAreFavorites =
+    pickedCount > 0 &&
+    (folders ?? []).every((f) => !pickedFolders.has(f.id) || f.favoritedAt !== null) &&
+    topicNotes.every((n) => !pickedNotes.has(n.id) || n.favoritedAt !== null);
+
+  function selectAllOrNone() {
+    setPickedFolders(new Set(allPicked ? [] : (folders ?? []).map((f) => f.id)));
+    setPickedNotes(new Set(allPicked ? [] : topicNotes.map((n) => n.id)));
+  }
 
   return (
     <View className="flex-1">
       <ScrollView contentContainerClassName="w-full max-w-3xl self-center gap-3 px-5 pb-10 pt-4">
         {header}
 
-        <View className="flex-row gap-3">
-          <Pressable
-            onPress={() => setForm({ mode: 'create' })}
-            accessibilityRole="button"
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-line bg-white py-3.5 active:bg-surface"
-          >
-            <Icon name="folder-open-outline" size={22} color={colors.primary} />
-            <Text className="text-base font-semibold text-ink">New folder</Text>
-          </Pressable>
-          <Pressable
-            onPress={newNote}
-            accessibilityRole="button"
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-cta py-3.5 active:bg-cta-dark"
-          >
-            <Icon name="create-outline" size={22} color={colors.white} />
-            <Text className="text-base font-semibold text-white">New note</Text>
-          </Pressable>
-        </View>
+        {selecting ? (
+          <View className="flex-row items-center gap-2 rounded-2xl bg-primary-soft px-2 py-1.5">
+            <Pressable
+              onPress={stopSelecting}
+              accessibilityRole="button"
+              accessibilityLabel="Stop selecting"
+              className="h-11 w-11 items-center justify-center rounded-full active:bg-white"
+            >
+              <Icon name="close" size={24} color={colors.ink} />
+            </Pressable>
+            <Text className="flex-1 text-base font-bold text-ink">
+              {pickedCount === 0 ? 'Tap to select' : `${pickedCount} selected`}
+            </Text>
+            <Pressable onPress={selectAllOrNone} accessibilityRole="button" className="rounded-full px-3 py-2 active:bg-white">
+              <Text className="text-base font-semibold text-primary">{allPicked ? 'Select none' : 'Select all'}</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View className="flex-row gap-3">
+            <Pressable
+              onPress={() => setForm({ mode: 'create' })}
+              accessibilityRole="button"
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-line bg-white py-3.5 active:bg-surface"
+            >
+              <Icon name="folder-open-outline" size={22} color={colors.primary} />
+              <Text className="text-base font-semibold text-ink">New folder</Text>
+            </Pressable>
+            <Pressable
+              onPress={newNote}
+              accessibilityRole="button"
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-cta py-3.5 active:bg-cta-dark"
+            >
+              <Icon name="create-outline" size={22} color={colors.white} />
+              <Text className="text-base font-semibold text-white">New note</Text>
+            </Pressable>
+            {selectable > 0 ? (
+              <Pressable
+                onPress={() => startSelecting()}
+                accessibilityRole="button"
+                accessibilityLabel="Select"
+                className="flex-row items-center justify-center gap-1.5 rounded-2xl border border-line bg-white px-4 py-3.5 active:bg-surface"
+              >
+                <Icon name="checkmark-circle-outline" size={22} color={colors.primary} />
+                <Text className="text-base font-semibold text-ink">Select</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        )}
 
         {empty ? <EmptyState icon="folder-open-outline" title="Nothing here yet" text={emptyText} /> : null}
 
         {folders && folders.length > 0 ? (
           <View className="gap-2">
             <SectionTitle title="Folders" count={folders.length} />
-            {folders.map((folder) => (
-              <Pressable
-                key={folder.id}
-                onPress={() => router.push({ pathname: '/folder/[id]', params: { id: folder.id } })}
-                accessibilityRole="button"
-                accessibilityLabel={`${folder.name}, ${folderSummary(folder)}`}
-                className="flex-row items-center gap-3 rounded-2xl bg-surface p-3 pl-4 active:bg-line"
-              >
-                <FolderBadge name={folder.name} />
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-1.5">
-                    <Text className="flex-shrink text-base font-bold text-ink" numberOfLines={1}>
-                      {folder.name}
-                    </Text>
-                    {folder.favoritedAt ? <FavoriteStar /> : null}
-                  </View>
-                  <Text className="text-sm text-muted">{folderSummary(folder)}</Text>
-                </View>
+            {folders.map((folder) => {
+              const picked = pickedFolders.has(folder.id);
+              return (
                 <Pressable
-                  onPress={() => setMenuFor(folder)}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel={`More options for ${folder.name}`}
-                  className="h-11 w-11 items-center justify-center rounded-full active:bg-white"
+                  key={folder.id}
+                  onPress={() =>
+                    selecting
+                      ? setPickedFolders((set) => toggled(set, folder.id))
+                      : router.push({ pathname: '/folder/[id]', params: { id: folder.id } })
+                  }
+                  onLongPress={selecting ? undefined : () => startSelecting({ folderId: folder.id })}
+                  accessibilityRole={selecting ? 'checkbox' : 'button'}
+                  accessibilityState={selecting ? { checked: picked } : undefined}
+                  accessibilityLabel={`${folder.name}, ${folderSummary(folder)}`}
+                  className={`flex-row items-center gap-3 rounded-2xl border p-3 pl-4 ${
+                    picked ? 'border-primary bg-primary-soft' : 'border-transparent bg-surface active:bg-line'
+                  }`}
                 >
-                  <Icon name="ellipsis-vertical" size={22} color={colors.muted} />
+                  <FolderBadge name={folder.name} />
+                  <View className="flex-1">
+                    <View className="flex-row items-center gap-1.5">
+                      <Text className="flex-shrink text-base font-bold text-ink" numberOfLines={1}>
+                        {folder.name}
+                      </Text>
+                      {folder.favoritedAt ? <FavoriteStar /> : null}
+                    </View>
+                    <Text className="text-sm text-muted">{folderSummary(folder)}</Text>
+                  </View>
+                  {selecting ? (
+                    <Tick picked={picked} />
+                  ) : (
+                    <Pressable
+                      onPress={() => setMenuFor(folder)}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel={`More options for ${folder.name}`}
+                      className="h-11 w-11 items-center justify-center rounded-full active:bg-white"
+                    >
+                      <Icon name="ellipsis-vertical" size={22} color={colors.muted} />
+                    </Pressable>
+                  )}
                 </Pressable>
-              </Pressable>
-            ))}
+              );
+            })}
           </View>
         ) : null}
 
@@ -244,15 +398,44 @@ ${error.message}`);
           <View className="gap-2">
             <SectionTitle title="Notes" count={topicNotes.length} />
             {topicNotes.map((note) => (
-              <NoteRow key={note.id} note={note} tags={tags.get(note.id)} />
+              <NoteRow
+                key={note.id}
+                note={note}
+                tags={tags.get(note.id)}
+                picked={selecting ? pickedNotes.has(note.id) : undefined}
+                onPress={selecting ? () => setPickedNotes((set) => toggled(set, note.id)) : undefined}
+                onLongPress={selecting ? undefined : () => startSelecting({ noteId: note.id })}
+              />
             ))}
           </View>
         ) : null}
 
-        {topicNotes.length > 0 || goodToKnow ? (
+        {!selecting && (topicNotes.length > 0 || goodToKnow) ? (
           <GoodToKnowCard note={goodToKnow} topics={topicNotes.length} onCreate={openNewGoodToKnow} />
         ) : null}
       </ScrollView>
+
+      {selecting ? (
+        <View className="w-full max-w-3xl flex-row gap-2 self-center border-t border-line bg-page px-5 py-3">
+          <BarButton icon="folder-open-outline" label="Move" disabled={pickedCount === 0} onPress={() => setMoving(true)} />
+          <BarButton
+            icon={pickedAreFavorites ? 'star' : 'star-outline'}
+            label={pickedAreFavorites ? 'Unfavourite' : 'Favourite'}
+            disabled={pickedCount === 0}
+            onPress={() => favoritePicked(!pickedAreFavorites)}
+          />
+          <BarButton icon="trash-outline" label="Delete" danger disabled={pickedCount === 0} onPress={deletePicked} />
+        </View>
+      ) : null}
+
+      <FolderPicker
+        visible={moving}
+        title={`Move ${listWhat(pickedFolders.size, pickedNotes.size)} to`}
+        currentFolderId={folderId}
+        movingFolderIds={[...pickedFolders]}
+        onPick={movePicked}
+        onClose={() => setMoving(false)}
+      />
 
       <FormModal
         visible={form.mode !== 'closed'}
@@ -280,6 +463,46 @@ ${error.message}`);
         }
       />
     </View>
+  );
+}
+
+/** The tick circle on a row in select mode. */
+function Tick({ picked }: { picked: boolean }) {
+  return (
+    <View className="h-11 w-11 items-center justify-center">
+      <Icon name={picked ? 'checkmark-circle' : 'ellipse-outline'} size={30} color={picked ? colors.primary : colors.faint} />
+    </View>
+  );
+}
+
+/** A button in the bar at the bottom of select mode. */
+function BarButton({
+  icon,
+  label,
+  onPress,
+  disabled,
+  danger = false,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  disabled: boolean;
+  danger?: boolean;
+}) {
+  const color = disabled ? colors.faint : danger ? colors.alert : colors.ink;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      className="flex-1 items-center gap-1 rounded-2xl bg-surface py-2.5 active:bg-line"
+    >
+      <Icon name={icon} size={24} color={color} />
+      <Text className="text-sm font-semibold" style={{ color }}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -345,14 +568,35 @@ function GoodToKnowCard({ note, topics, onCreate }: { note: Note | null; topics:
 }
 
 /** A note in a list: its title and the first words of its text. */
-export function NoteRow({ note, subtitle, tags = [] }: { note: Note; subtitle?: string; tags?: Tag[] }) {
+export function NoteRow({
+  note,
+  subtitle,
+  tags = [],
+  picked,
+  onPress,
+  onLongPress,
+}: {
+  note: Note;
+  subtitle?: string;
+  tags?: Tag[];
+  /** In select mode, whether it's ticked (undefined = not selecting). */
+  picked?: boolean;
+  /** Used instead of opening the note. */
+  onPress?: () => void;
+  onLongPress?: () => void;
+}) {
   const cornell = note.style === 'cornell';
   const preview = subtitle ?? notePreview(note);
+  const selecting = picked !== undefined;
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
-      accessibilityRole="button"
-      className="flex-row items-center gap-3 rounded-2xl border border-line bg-white p-3 pl-4 active:bg-surface"
+      onPress={onPress ?? (() => router.push({ pathname: '/note/[id]', params: { id: note.id } }))}
+      onLongPress={onLongPress}
+      accessibilityRole={selecting ? 'checkbox' : 'button'}
+      accessibilityState={selecting ? { checked: picked } : undefined}
+      className={`flex-row items-center gap-3 rounded-2xl border p-3 pl-4 ${
+        picked ? 'border-primary bg-primary-soft' : 'border-line bg-white active:bg-surface'
+      }`}
     >
       <NoteBadge cornell={cornell} goodToKnow={isGoodToKnow(note)} />
       <View className="flex-1">
@@ -375,7 +619,7 @@ export function NoteRow({ note, subtitle, tags = [] }: { note: Note; subtitle?: 
         ) : null}
         <TagRow tags={tags} />
       </View>
-      <Icon name="chevron-forward" size={18} color={colors.muted} />
+      {picked !== undefined ? <Tick picked={picked} /> : <Icon name="chevron-forward" size={18} color={colors.muted} />}
     </Pressable>
   );
 }

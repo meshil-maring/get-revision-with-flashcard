@@ -1,5 +1,5 @@
 import type { Note } from '@/data/types';
-import { noteSpeechText, splitForSpeech } from '@/lib/read-aloud';
+import { noteSpeechText, speechParts, splitForSpeech } from '@/lib/read-aloud';
 
 const NOW = '2026-01-01T00:00:00.000Z';
 
@@ -48,5 +48,27 @@ describe('splitForSpeech', () => {
 
   it('returns nothing for empty text', () => {
     expect(splitForSpeech('')).toEqual([]);
+  });
+});
+
+describe('speechParts', () => {
+  it('cuts the note into lines and sentences, in reading order', () => {
+    expect(speechParts(note({ body: 'Speed is fast. Is it? Yes!\n- Velocity has a direction' }))).toEqual([
+      'Speed',
+      'Speed is fast.',
+      'Is it?',
+      'Yes!',
+      'Velocity has a direction',
+    ]);
+  });
+
+  it('cuts a very long sentence under the limit', () => {
+    const parts = speechParts(note({ title: 'T', body: 'one two three four five six seven' }), 10);
+    expect(parts.every((p) => p.length <= 10)).toBe(true);
+    expect(parts.slice(1).join(' ')).toBe('one two three four five six seven');
+  });
+
+  it('returns nothing for an empty note', () => {
+    expect(speechParts(note({ title: '' }))).toEqual([]);
   });
 });

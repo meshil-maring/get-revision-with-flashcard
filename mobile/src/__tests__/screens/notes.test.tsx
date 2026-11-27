@@ -32,6 +32,8 @@ jest.mock('@/data/folders', () => ({
   countFolderContents: jest.fn(),
   deleteFolder: jest.fn(),
   setFolderFavorite: jest.fn(),
+  moveFolders: jest.fn(),
+  listAllFolders: jest.fn(),
 }));
 jest.mock('@/data/notes', () => ({
   ...jest.requireActual('@/data/notes'),
@@ -42,6 +44,8 @@ jest.mock('@/data/notes', () => ({
   searchNotes: jest.fn(),
   listFavorites: jest.fn(),
   setNoteFavorite: jest.fn(),
+  moveNotes: jest.fn(),
+  deleteNote: jest.fn(),
 }));
 jest.mock('@/data/tags', () => ({
   ...jest.requireActual('@/data/tags'),
@@ -251,6 +255,96 @@ describe('Notes tab', () => {
       'Delete folder?',
       '"Class 10" and everything in it (4 folders and 9 notes) will be deleted.',
     );
+  });
+
+  describe('select mode', () => {
+    beforeEach(() => {
+      jest.mocked(folders.listFolders).mockResolvedValue([folder({}), folder({ id: 'f-2', name: 'Class 9' })]);
+      jest.mocked(notes.listNotes).mockResolvedValue([note({ id: 'n-1' }), note({ id: 'n-2', title: 'Velocity' })]);
+    });
+
+    it('ticks folders and notes and deletes them together', async () => {
+      jest.mocked(folders.countFolderContents).mockResolvedValue({ folders: 0, notes: 3 });
+      const { confirm } = jest.requireMock('@/lib/confirm');
+
+      await render(<NotesScreen />);
+      await fireEvent.press(await screen.findByLabelText('Select'));
+      expect(screen.getByText('Tap to select')).toBeOnTheScreen();
+      expect(screen.queryByText('New note')).toBeNull();
+
+      await fireEvent.press(screen.getByLabelText('Class 10, Empty'));
+      await fireEvent.press(screen.getByText('Velocity'));
+      expect(screen.getByText('2 selected')).toBeOnTheScreen();
+      expect(mockRouter.router.push).not.toHaveBeenCalled(); // tapping ticks, it doesn't open
+
+      await fireEvent.press(screen.getByText('Delete'));
+      await waitFor(() => expect(notes.deleteNote).toHaveBeenCalledWith(expect.anything(), 'n-2'));
+      expect(confirm).toHaveBeenCalledWith(
+        'Delete selected?',
+        '1 folder and 1 note will be deleted, with everything inside (3 notes).',
+      );
+      expect(folders.deleteFolder).toHaveBeenCalledWith(expect.anything(), 'f-1');
+      expect(folders.deleteFolder).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText('New note')).toBeOnTheScreen(); // back out of select mode
+    });
+
+    it('starts with a long press, selects all, and stars everything', async () => {
+      await render(<NotesScreen />);
+      await fireEvent(await screen.findByText('Speed'), 'longPress');
+      expect(screen.getByText('1 selected')).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByText('Select all'));
+      expect(screen.getByText('4 selected')).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByText('Favourite'));
+      await waitFor(() => expect(notes.setNoteFavorite).toHaveBeenCalledTimes(2));
+      expect(folders.setFolderFavorite).toHaveBeenCalledWith(expect.anything(), 'f-2', true);
+      expect(notes.setNoteFavorite).toHaveBeenCalledWith(expect.anything(), 'n-1', true);
+    });
+
+    it('moves the ticked items into a folder, leaving out the ones being moved', async () => {
+      jest.mocked(folders.listAllFolders).mockResolvedValue([
+        folder({}),
+        folder({ id: 'f-2', name: 'Class 9' }),
+        folder({ id: 'f-3', name: 'Physics', parentId: 'f-1' }),
+      ]);
+
+      await render(<NotesScreen />);
+      await fireEvent.press(await screen.findByLabelText('Select'));
+      await fireEvent.press(screen.getByLabelText('Class 9, Empty'));
+      await fireEvent.press(screen.getByText('Speed'));
+      await fireEvent.press(screen.getByText('Move'));
+
+      expect(await screen.findByText('Move 1 folder and 1 note to')).toBeOnTheScreen();
+      expect(screen.getByLabelText('Move to Class 10 › Physics')).toBeOnTheScreen();
+      expect(screen.queryByLabelText('Move to Class 9')).toBeNull();
+      await fireEvent.press(screen.getByLabelText('Move to Class 10'));
+
+      await waitFor(() => expect(notes.moveNotes).toHaveBeenCalledWith(expect.anything(), ['n-1'], 'f-1'));
+      expect(folders.moveFolders).toHaveBeenCalledWith(expect.anything(), ['f-2'], 'f-1');
+    });
+
+    it('says why a move failed and keeps the selection', async () => {
+      const { FolderNameTakenError } = jest.requireActual('@/data/folders');
+      jest.mocked(folders.listAllFolders).mockResolvedValue([folder({}), folder({ id: 'f-2', name: 'Class 9' })]);
+      jest.mocked(folders.moveFolders).mockRejectedValue(new FolderNameTakenError('Class 9'));
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+      await render(<NotesScreen />);
+      await fireEvent.press(await screen.findByLabelText('Select'));
+      await fireEvent.press(screen.getByLabelText('Class 9, Empty'));
+      await fireEvent.press(screen.getByText('Move'));
+      await fireEvent.press(await screen.findByLabelText('Move to Class 10'));
+
+      await waitFor(() =>
+        expect(alert).toHaveBeenCalledWith(
+          'Name already used',
+          'There is already a folder called "Class 9" here. Rename one of them first.',
+        ),
+      );
+      expect(notes.moveNotes).not.toHaveBeenCalled();
+      expect(screen.getByText('1 selected')).toBeOnTheScreen();
+    });
   });
 
   it('searches every note and shows where each one is', async () => {
@@ -480,32 +574,110 @@ describe('Note header: read aloud and the ⋮ menu', () => {
     mockRouter.Stack.Screen = plainScreen;
   });
 
-  it('reads the note out and stops when tapped again', async () => {
+  /** What the voice was asked to say, in order. */
+  const said = () => jest.mocked(Speech.speak).mock.calls.map((call) => call[0]);
+  /** Finishes the sentence the voice is on. */
+  const finishSentence = () => act(() => jest.mocked(Speech.speak).mock.calls.at(-1)?.[1]?.onDone?.());
+
+  it('reads the note out sentence by sentence and stops when tapped again', async () => {
     mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
     jest.mocked(notes.getNote).mockResolvedValue(note({ body: '**Speed**: distance ÷ time' }));
 
     await render(<NoteScreen />);
     await fireEvent.press(await screen.findByLabelText('Read note aloud'));
 
-    expect(Speech.speak).toHaveBeenCalledWith('Speed\nSpeed: distance ÷ time', expect.anything());
+    expect(said()).toEqual(['Speed']);
+    expect(screen.getByLabelText('Reading: Speed')).toBeOnTheScreen();
+    await finishSentence();
+    expect(said()).toEqual(['Speed', 'Speed: distance ÷ time']);
+    expect(screen.getByLabelText('Reading: Speed: distance ÷ time')).toBeOnTheScreen(); // the player follows the voice
+    expect(screen.getByText('2 / 2')).toBeOnTheScreen();
+
     await fireEvent.press(screen.getByLabelText('Stop reading'));
     expect(Speech.stop).toHaveBeenCalled();
     expect(screen.getByLabelText('Read note aloud')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Pause reading')).toBeNull();
   });
 
-  it('goes back to the speaker once the voice finishes', async () => {
+  it('pauses and plays on from the same sentence', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'One. Two. Three.' }));
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByLabelText('Read note aloud'));
+    await finishSentence(); // now on "One."
+    await fireEvent.press(screen.getByLabelText('Pause reading'));
+
+    expect(Speech.stop).toHaveBeenCalled();
+    await finishSentence(); // a late callback from the stopped voice changes nothing
+    expect(said()).toEqual(['Speed', 'One.']);
+
+    await fireEvent.press(screen.getByLabelText('Play reading'));
+    expect(said().at(-1)).toBe('One.');
+  });
+
+  it('skips sentences and changes the speed', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'One. Two. Three.' }));
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByLabelText('Read note aloud'));
+    await fireEvent.press(screen.getByLabelText('Next sentence'));
+    await fireEvent.press(screen.getByLabelText('Next sentence'));
+    expect(said().at(-1)).toBe('Two.');
+    expect(screen.getByText('3 / 4')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Previous sentence'));
+    expect(said().at(-1)).toBe('One.');
+
+    await fireEvent.press(screen.getByLabelText('Reading speed 1×'));
+    expect(screen.getByLabelText('Reading speed 1.25×')).toBeOnTheScreen();
+    // The sentence starts again at the new speed.
+    expect(jest.mocked(Speech.speak).mock.calls.at(-1)).toEqual(['One.', expect.objectContaining({ rate: 1.25 })]);
+    await fireEvent.press(screen.getByLabelText('Reading speed 1.25×'));
+    await fireEvent.press(screen.getByLabelText('Reading speed 1.5×'));
+    await fireEvent.press(screen.getByLabelText('Reading speed 0.75×')); // back to 1×
+  });
+
+  it('jumps when the bar is tapped, on phones (locationX) and on the web (offsetX)', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'One. Two. Three.' }));
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByLabelText('Read note aloud'));
+    const bar = screen.getByLabelText('Reading position');
+    await fireEvent(bar, 'layout', { nativeEvent: { layout: { width: 200, height: 24, x: 0, y: 0 } } });
+
+    await fireEvent.press(bar, { nativeEvent: { locationX: 190 } });
+    expect(said().at(-1)).toBe('Three.');
+    await fireEvent.press(bar, { nativeEvent: { locationX: undefined, offsetX: 60 } });
+    expect(said().at(-1)).toBe('One.');
+
+    // A press with no position at all does nothing, rather than asking the voice to read nothing.
+    const before = said().length;
+    await fireEvent.press(bar, { nativeEvent: { locationX: undefined } });
+    expect(said()).toHaveLength(before);
+    expect(said()).not.toContain(undefined);
+  });
+
+  it('stays open at the end so it can be played again from the top', async () => {
     mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
     jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Distance ÷ time' }));
 
     await render(<NoteScreen />);
     await fireEvent.press(await screen.findByLabelText('Read note aloud'));
-    const options = jest.mocked(Speech.speak).mock.calls[0][1];
-    await act(() => options?.onDone?.());
+    await finishSentence();
+    await finishSentence();
 
+    expect(screen.getByLabelText('Play reading')).toBeOnTheScreen();
+    expect(said()).toEqual(['Speed', 'Distance ÷ time']);
+    await fireEvent.press(screen.getByLabelText('Play reading'));
+    expect(said().at(-1)).toBe('Speed');
+
+    await fireEvent.press(screen.getByLabelText('Close player'));
     expect(screen.getByLabelText('Read note aloud')).toBeOnTheScreen();
   });
 
-  it('reads aloud from focus mode too', async () => {
+  it('reads aloud from focus mode too, with the player', async () => {
     mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1', focus: '1' });
     jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Distance ÷ time' }));
 
@@ -513,8 +685,9 @@ describe('Note header: read aloud and the ⋮ menu', () => {
     expect(await screen.findByLabelText('Exit focus mode')).toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Read note aloud'));
 
-    expect(Speech.speak).toHaveBeenCalledWith('Speed\nDistance ÷ time', expect.anything());
+    expect(said()).toEqual(['Speed']);
     expect(screen.getByLabelText('Stop reading')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Pause reading')).toBeOnTheScreen();
   });
 
   it('puts make flashcards, favourite, edit and delete in the ⋮ menu', async () => {

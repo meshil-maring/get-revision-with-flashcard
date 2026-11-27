@@ -64,3 +64,16 @@ export function splitForSpeech(text: string, limit = DEFAULT_LIMIT): string[] {
   if (current) pieces.push(current);
   return pieces;
 }
+
+/**
+ * The note as short parts to read one at a time: each line, cut into sentences
+ * (and long sentences cut under the limit). Reading part by part is what lets the
+ * player show the sentence being read, skip back and forward, and pause.
+ */
+export function speechParts(note: Note, limit = DEFAULT_LIMIT): string[] {
+  return noteSpeechText(note)
+    .split('\n')
+    .flatMap((line) => line.split(/(?<=[.!?])\s+/))
+    .flatMap((sentence) => splitForSpeech(sentence.trim(), limit))
+    .filter((part) => part.trim().length > 0);
+}

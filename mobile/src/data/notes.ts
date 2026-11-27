@@ -188,6 +188,16 @@ export async function listNotesWithTag(db: SQLiteDatabase, tagId: string): Promi
     .sort((a, b) => compareNames(a.title, b.title));
 }
 
+/** Moves notes into another folder (null = top level). */
+export async function moveNotes(db: SQLiteDatabase, ids: string[], folderId: string | null): Promise<void> {
+  const now = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      await db.runAsync('UPDATE notes SET folder_id = ?, updated_at = ? WHERE id = ?', folderId, now, id);
+    }
+  });
+}
+
 export async function deleteNote(db: SQLiteDatabase, id: string): Promise<void> {
   const now = new Date().toISOString();
   await db.runAsync('UPDATE notes SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);

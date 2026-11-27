@@ -216,3 +216,43 @@ export async function deleteFolder(db: SQLiteDatabase, id: string): Promise<void
     );
   });
 }
+
+/** Thrown when a folder would be moved into itself or into a folder inside it. */
+export class FolderMoveError extends Error {
+  constructor(name: string) {
+    super(`"${name}" can't go inside itself or one of its own folders.`);
+    this.name = 'FolderMoveError';
+  }
+}
+
+/**
+ * Moves folders (with everything in them) into another folder (null = top level).
+ * Checks all of them first, so either every folder moves or none does: none may go
+ * into itself or a folder inside it, and names must stay different in the new place.
+ */
+export async function moveFolders(db: SQLiteDatabase, ids: string[], parentId: string | null): Promise<void> {
+  const all = await listAllFolders(db);
+  const byId = new Map(all.map((f) => [f.id, f]));
+  const moving = ids.map((id) => byId.get(id)).filter((f): f is Folder => f !== undefined);
+  const targetPath = new Set(pathFromFolders(byId, parentId).map((p) => p.id));
+
+  const names = new Set<string>();
+  for (const folder of moving) {
+    if (targetPath.has(folder.id)) throw new FolderMoveError(folder.name);
+    if (folder.parentId === parentId) continue; // already there
+    const key = folder.name.trim().toLowerCase();
+    const clash = all.some(
+      (f) => f.parentId === parentId && f.name.trim().toLowerCase() === key && !ids.includes(f.id),
+    );
+    if (clash || names.has(key)) throw new FolderNameTakenError(folder.name.trim());
+    names.add(key);
+  }
+
+  const now = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    for (const folder of moving) {
+      if (folder.parentId === parentId) continue;
+      await db.runAsync('UPDATE folders SET parent_id = ?, updated_at = ? WHERE id = ?', parentId, now, folder.id);
+    }
+  });
+}

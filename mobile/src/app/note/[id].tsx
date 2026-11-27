@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AttachmentList } from '@/components/cards/attachments';
 import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
 import { FocusReader } from '@/components/notes/focus-reader';
-import { ReadAloudButton, useReadAloud } from '@/components/notes/read-aloud';
+import { ReadAloudButton, ReadAloudPlayer, useReadAloud } from '@/components/notes/read-aloud';
 import { ActionSheet } from '@/components/ui/action-sheet';
 import { RichText } from '@/components/ui/rich-text';
 import { TagChip } from '@/components/tags/tag-chip';
@@ -121,7 +121,7 @@ export default function NoteScreen() {
           headerShown: true,
           headerRight: () => (
             <View className="flex-row">
-              {isEmpty ? null : <ReadAloudButton speaking={readAloud.speaking} onPress={readAloud.toggle} />}
+              {isEmpty ? null : <ReadAloudButton speaking={readAloud.open} onPress={readAloud.toggle} />}
               <IconButton icon="ellipsis-vertical" label="More options" onPress={() => setMenuOpen(true)} />
             </View>
           ),
@@ -180,7 +180,8 @@ export default function NoteScreen() {
         ) : null}
       </ScrollView>
 
-      <View className="border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+      <View className="gap-3 border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+        <ReadAloudPlayer readAloud={readAloud} />
         <View className="w-full max-w-3xl flex-row items-center gap-2 self-center">
           <Button label="Focus" icon="book-outline" variant="secondary" disabled={isEmpty} onPress={() => setFocus(true)} />
           {steps ? <View className="flex-1">{steps}</View> : null}

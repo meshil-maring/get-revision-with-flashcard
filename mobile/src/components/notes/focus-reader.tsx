@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { BackHandler, Platform, Pressable, ScrollView, Text, View, type NativeScrollEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ReadAloudButton } from '@/components/notes/read-aloud';
+import { ReadAloudButton, ReadAloudPlayer, type ReadAloud } from '@/components/notes/read-aloud';
 import { RichText } from '@/components/ui/rich-text';
 import { colors, Icon, IconButton } from '@/components/ui';
 import { getNoteFocusSize, NOTE_FOCUS_SIZES, setNoteFocusSize, type NoteFocusSize } from '@/data/settings';
@@ -36,7 +36,7 @@ export function FocusReader({
 }: {
   note: Note;
   onExit: () => void;
-  readAloud?: { speaking: boolean; toggle: () => void };
+  readAloud?: ReadAloud;
   footer?: ReactNode;
 }) {
   const db = useSQLiteContext();
@@ -100,7 +100,7 @@ export function FocusReader({
       <View className="w-full max-w-3xl flex-row items-center self-center px-2">
         <IconButton icon="close" label="Exit focus mode" onPress={onExit} />
         <View className="flex-1" />
-        {readAloud ? <ReadAloudButton speaking={readAloud.speaking} onPress={readAloud.toggle} /> : null}
+        {readAloud ? <ReadAloudButton speaking={readAloud.open} onPress={readAloud.toggle} /> : null}
         {cornell && note.rows.length > 0 ? (
           <Pressable
             onPress={toggleCovered}
@@ -172,8 +172,9 @@ export function FocusReader({
         )}
       </ScrollView>
 
-      {footer ? (
-        <View className="border-t border-line px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+      {footer || readAloud?.open ? (
+        <View className="gap-3 border-t border-line px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+          {readAloud ? <ReadAloudPlayer readAloud={readAloud} /> : null}
           {footer}
         </View>
       ) : null}

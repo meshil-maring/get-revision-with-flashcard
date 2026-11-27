@@ -169,12 +169,13 @@ You can use any names and any number of levels, like Semester › Course › Uni
 3. Add pictures, PDFs or a voice note under **Attachments**, then tap **Save**.
 
 ## Read a note
-- Tap the **speaker** at the top to hear the note read aloud. Tap it again to stop.
+- Tap the **speaker** at the top to hear the note read aloud. A player opens at the bottom and shows the sentence being read. **Pause** and play on, skip back or forward a sentence, tap the bar to jump, or tap **1×** to read slower or faster. Tap the speaker again to stop.
 - Use **Previous** and **Next** at the bottom to move between the notes in the same folder.
 - Tap **⋮** at the top for **Make flashcards**, favourites, **Edit note** and **Delete note**.
 
 ## Rename, delete and search
 - Tap **⋮** on a folder to rename or delete it. ==Deleting a folder also deletes everything in it.==
+- To work on many at once, tap **Select** (or press and hold a note or folder). Tick the ones you want, then **Move** them to another folder, **Favourite** them or **Delete** them.
 - Use the search box at the top of the Notes tab to find any note, folder or tag.`,
   },
   {
