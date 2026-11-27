@@ -2,7 +2,7 @@ import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, Icon, scaled, type IconName } from '@/components/ui';
+import { Icon, scaled, type IconName, useColors } from '@/components/ui';
 import { comingSoonHref } from '@/lib/coming-soon';
 
 type MenuItem = { icon: IconName; title: string; subtitle: string; href: Href; soon?: boolean };
@@ -80,15 +80,15 @@ const SECTIONS: { title: string; items: MenuItem[] }[] = [
       {
         icon: 'settings-outline',
         title: 'Settings',
-        subtitle: 'Study options and appearance',
-        href: comingSoonHref('settings'),
-        soon: true,
+        subtitle: 'Light or dark theme, and text size',
+        href: '/settings',
       },
     ],
   },
 ];
 
 export default function MoreScreen() {
+  const colors = useColors();
   const insets = useSafeAreaInsets();
 
   return (

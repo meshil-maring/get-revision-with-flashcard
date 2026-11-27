@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FormModal, type FormField } from '@/components/ui/form-modal';
 import { ScreenTip } from '@/components/ui/screen-tip';
-import { colors, DeckBadge, EmptyState, Icon, IconButton, plural } from '@/components/ui';
+import { DeckBadge, EmptyState, Icon, IconButton, plural, useColors } from '@/components/ui';
 import { createDeck, deleteDeck, listDecks, updateDeck } from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';
 import { confirm } from '@/lib/confirm';
@@ -25,6 +25,7 @@ type FormState = { mode: 'closed' } | { mode: 'create' } | { mode: 'edit'; deck:
 
 /** The Flashcards tab: all decks. Opening /flashcards?new=deck shows the new-deck form. */
 export default function FlashcardsScreen() {
+  const colors = useColors();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ new?: string }>();
@@ -127,7 +128,7 @@ export default function FlashcardsScreen() {
               <Pressable
                 onPress={() => router.push('/favorites')}
                 accessibilityRole="button"
-                className="mb-2 flex-row items-center gap-4 rounded-3xl border border-line bg-white p-4 active:bg-surface"
+                className="mb-2 flex-row items-center gap-4 rounded-3xl border border-line bg-card p-4 active:bg-surface"
               >
                 <View className="h-12 w-12 items-center justify-center rounded-2xl bg-warning/20">
                   <Icon name="star" size={24} color={colors.warning} />

@@ -442,6 +442,33 @@ describe('Note screen', () => {
     expect(screen.getByText('Signal timing.pdf')).toBeOnTheScreen();
   });
 
+  it('shows a plain note like an article: reading time, and contents for a longer note', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(
+      note({ body: '# What is a wave\nEnergy moves.\n## Types\n- Transverse\n## Speed of sound\n340 m/s in air' }),
+    );
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('1 min read · 3 sections')).toBeOnTheScreen();
+    expect(screen.getByText('Contents')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Go to Speed of sound')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Go to Types'));
+    // The sections themselves are all there, headings included.
+    expect(screen.getByText('340 m/s in air')).toBeOnTheScreen();
+    expect(screen.getAllByText('Types').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('leaves out the contents for a short plain note', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Speed: distance ÷ time' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('1 min read')).toBeOnTheScreen();
+    expect(screen.queryByText('Contents')).toBeNull();
+  });
+
   it('shows an image inside its Cornell row, and every image in focus mode', async () => {
     mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
     jest.mocked(notes.getNote).mockResolvedValue(
@@ -544,7 +571,10 @@ describe('Note screen', () => {
 
     await render(<NoteScreen />);
 
-    expect(await screen.findByText('Cues / Questions')).toBeOnTheScreen();
+    // A classic Cornell sheet: cue and notes columns, the summary along the bottom.
+    expect(await screen.findByText('Cues')).toBeOnTheScreen();
+    expect(screen.getByText('Summary')).toBeOnTheScreen();
+    expect(screen.getByText('A large circular intersection.')).toBeOnTheScreen();
     expect(screen.getByLabelText('Diagram: Rotary layout. Tap to enlarge.')).toBeOnTheScreen();
     expect(screen.getByText('Smooth flow')).toBeOnTheScreen();
     expect(screen.getByText('Needs land')).toBeOnTheScreen();

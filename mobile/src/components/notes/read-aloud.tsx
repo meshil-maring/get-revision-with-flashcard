@@ -2,7 +2,7 @@ import * as Speech from 'expo-speech';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { colors, Icon, IconButton } from '@/components/ui';
+import { Icon, IconButton, useColors } from '@/components/ui';
 import type { Note } from '@/data/types';
 import { speechParts } from '@/lib/read-aloud';
 
@@ -170,6 +170,7 @@ function rateLabel(rate: number) {
  * follows the voice (tap it to jump), and play / pause, skip, speed and close.
  */
 export function ReadAloudPlayer({ readAloud }: { readAloud: ReadAloud }) {
+  const colors = useColors();
   const [barWidth, setBarWidth] = useState(0);
   const { open, playing, index, total, part, rate } = readAloud;
   if (!open || total === 0) return null;
@@ -202,7 +203,7 @@ export function ReadAloudPlayer({ readAloud }: { readAloud: ReadAloud }) {
           onAccessibilityAction={(e) => readAloud.skip(e.nativeEvent.actionName === 'increment' ? 1 : -1)}
           className="h-6 flex-1 justify-center"
         >
-          <View className="h-1.5 w-full overflow-hidden rounded-full bg-white">
+          <View className="h-1.5 w-full overflow-hidden rounded-full bg-card">
             <View className="h-full rounded-full bg-primary" style={{ width: `${progress * 100}%` }} />
           </View>
         </Pressable>
@@ -216,7 +217,7 @@ export function ReadAloudPlayer({ readAloud }: { readAloud: ReadAloud }) {
           onPress={readAloud.cycleRate}
           accessibilityRole="button"
           accessibilityLabel={`Reading speed ${rateLabel(rate)}`}
-          className="h-12 min-w-12 items-center justify-center rounded-full px-2 active:bg-white"
+          className="h-12 min-w-12 items-center justify-center rounded-full px-2 active:bg-card"
         >
           <Text className="text-base font-bold text-primary">{rateLabel(rate)}</Text>
         </Pressable>

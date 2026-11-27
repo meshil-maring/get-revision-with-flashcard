@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, Icon, scaled, type IconName } from '@/components/ui';
+import { Icon, scaled, type IconName, useColors } from '@/components/ui';
 
 // Icons per tab route (outline when inactive, filled when active).
 const TAB_ICONS: Record<string, { icon: IconName; activeIcon: IconName }> = {
@@ -16,13 +16,14 @@ const TAB_ICONS: Record<string, { icon: IconName; activeIcon: IconName }> = {
 
 /** The bottom bar: Home, Notes, [+], Flashcards, More. */
 export function TabBar({ state, descriptors, emitter, navigateToTab }: BottomTabBarProps) {
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <>
       <View
-        className="flex-row items-center justify-around rounded-t-3xl border-t border-line bg-white px-2 pt-2"
+        className="flex-row items-center justify-around rounded-t-3xl border-t border-line bg-card px-2 pt-2"
         style={{ paddingBottom: Math.max(insets.bottom, 10) }}
       >
         {state.routes.map((route, index) => {
@@ -80,6 +81,7 @@ type MenuItem = { icon: IconName; title: string; subtitle: string; onPress: () =
 
 /** The sheet that slides up from the + button. */
 function CreateMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const colors = useColors();
   const insets = useSafeAreaInsets();
 
   const items: MenuItem[] = [

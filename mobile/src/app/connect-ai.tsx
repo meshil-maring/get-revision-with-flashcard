@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Button, colors, Icon, type IconName } from '@/components/ui';
+import { Button, Icon, type IconName, useColors } from '@/components/ui';
 import { useAccount } from '@/providers/account';
 import { isReachableFromInternet, MCP_URL } from '@/services/api';
 
@@ -43,6 +43,7 @@ const EXAMPLES = [
 
 /** URL: /connect-ai — how to let ChatGPT or Claude make notes and flashcards in your account. */
 export default function ConnectAiScreen() {
+  const colors = useColors();
   const { user } = useAccount();
   const [copied, setCopied] = useState(false);
   const reachable = isReachableFromInternet(MCP_URL);
@@ -75,7 +76,7 @@ export default function ConnectAiScreen() {
 
       <View className="gap-3 rounded-3xl bg-surface p-5">
         <Text className="text-base font-bold text-ink">Connector link</Text>
-        <Text selectable className="rounded-xl bg-white px-4 py-3 text-base text-ink" accessibilityLabel="Connector link">
+        <Text selectable className="rounded-xl bg-card px-4 py-3 text-base text-ink" accessibilityLabel="Connector link">
           {MCP_URL}
         </Text>
         <Button

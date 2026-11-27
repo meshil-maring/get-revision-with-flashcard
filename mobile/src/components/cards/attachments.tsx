@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, Text, View } from 'react-native';
 
-import { colors, Icon, scaled } from '@/components/ui';
+import { Icon, scaled, useColors } from '@/components/ui';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import type { AttachmentKind } from '@/data/types';
 import { openFile } from '@/lib/attachment-files';
@@ -65,6 +65,7 @@ export function AttachmentList({
 }
 
 function Removable({ children, onRemove, name }: { children: React.ReactNode; onRemove?: () => void; name: string }) {
+  const colors = useColors();
   if (!onRemove) return <>{children}</>;
   return (
     <View className="flex-row items-center gap-1">
@@ -83,6 +84,7 @@ function Removable({ children, onRemove, name }: { children: React.ReactNode; on
 }
 
 function ImageThumb({ item, large }: { item: AttachmentItem; large: boolean }) {
+  const colors = useColors();
   const [open, setOpen] = useState(false);
   const size = scaled(large ? 260 : 140);
   const width = large ? size * 1.4 : size;
@@ -119,6 +121,7 @@ function ImageThumb({ item, large }: { item: AttachmentItem; large: boolean }) {
 }
 
 function DownloadingChip({ item, tone }: { item: AttachmentItem; tone: Tone }) {
+  const colors = useColors();
   return (
     <View className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${chipClasses(tone)}`}>
       <Icon name="cloud-download-outline" size={20} color={tone === 'onDark' ? colors.white : colors.muted} />
@@ -134,6 +137,7 @@ function chipClasses(tone: Tone) {
 }
 
 function FileChip({ item, tone }: { item: AttachmentItem; tone: Tone }) {
+  const colors = useColors();
   const text = tone === 'onDark' ? 'text-white' : 'text-ink';
   async function open() {
     try {
@@ -168,6 +172,7 @@ function formatTime(seconds: number) {
 }
 
 function AudioChip({ item, tone }: { item: AttachmentItem; tone: Tone }) {
+  const colors = useColors();
   const player = useAudioPlayer(item.uri);
   const status = useAudioPlayerStatus(player);
   const text = tone === 'onDark' ? 'text-white' : 'text-ink';

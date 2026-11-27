@@ -8,7 +8,7 @@ import { FolderPicker } from '@/components/notes/folder-picker';
 import { ActionSheet } from '@/components/ui/action-sheet';
 import { TagRow } from '@/components/tags/tag-chip';
 import { FormModal, type FormField } from '@/components/ui/form-modal';
-import { colors, EmptyState, Icon, plural, scaled, subjectIcon, type IconName } from '@/components/ui';
+import { EmptyState, Icon, plural, scaled, subjectIcon, type IconName, useColors } from '@/components/ui';
 import {
   countFolderContents,
   createFolder,
@@ -63,6 +63,7 @@ export function folderSummary(folder: { folderCount: number; noteCount: number }
 
 /** A folder's icon: the subject's icon if the name is a subject (Physics → atom), else a folder. */
 export function FolderBadge({ name, size = 48 }: { name: string; size?: number }) {
+  const colors = useColors();
   const icon = subjectIcon(name);
   return (
     <View
@@ -80,6 +81,7 @@ export function FolderBadge({ name, size = 48 }: { name: string; size?: number }
 
 /** The icon for a note in a list. */
 export function NoteBadge({ cornell, goodToKnow = false, size = 48 }: { cornell: boolean; goodToKnow?: boolean; size?: number }) {
+  const colors = useColors();
   if (goodToKnow) {
     // A bulb, so the folder's key-points page is easy to spot at the end of the list.
     return (
@@ -121,6 +123,7 @@ export function FolderBrowser({
   /** Called after a folder is added, renamed, starred or deleted (so a header can refresh). */
   onChange?: () => void;
 }) {
+  const colors = useColors();
   const db = useSQLiteContext();
   const [folders, setFolders] = useState<FolderWithCounts[] | null>(null); // null = loading
   const [notes, setNotes] = useState<Note[]>([]);
@@ -299,14 +302,14 @@ export function FolderBrowser({
               onPress={stopSelecting}
               accessibilityRole="button"
               accessibilityLabel="Stop selecting"
-              className="h-11 w-11 items-center justify-center rounded-full active:bg-white"
+              className="h-11 w-11 items-center justify-center rounded-full active:bg-card"
             >
               <Icon name="close" size={24} color={colors.ink} />
             </Pressable>
             <Text className="flex-1 text-base font-bold text-ink">
               {pickedCount === 0 ? 'Tap to select' : `${pickedCount} selected`}
             </Text>
-            <Pressable onPress={selectAllOrNone} accessibilityRole="button" className="rounded-full px-3 py-2 active:bg-white">
+            <Pressable onPress={selectAllOrNone} accessibilityRole="button" className="rounded-full px-3 py-2 active:bg-card">
               <Text className="text-base font-semibold text-primary">{allPicked ? 'Select none' : 'Select all'}</Text>
             </Pressable>
           </View>
@@ -315,7 +318,7 @@ export function FolderBrowser({
             <Pressable
               onPress={() => setForm({ mode: 'create' })}
               accessibilityRole="button"
-              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-line bg-white py-3.5 active:bg-surface"
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-line bg-card py-3.5 active:bg-surface"
             >
               <Icon name="folder-open-outline" size={22} color={colors.primary} />
               <Text className="text-base font-semibold text-ink">New folder</Text>
@@ -333,7 +336,7 @@ export function FolderBrowser({
                 onPress={() => startSelecting()}
                 accessibilityRole="button"
                 accessibilityLabel="Select"
-                className="flex-row items-center justify-center gap-1.5 rounded-2xl border border-line bg-white px-4 py-3.5 active:bg-surface"
+                className="flex-row items-center justify-center gap-1.5 rounded-2xl border border-line bg-card px-4 py-3.5 active:bg-surface"
               >
                 <Icon name="checkmark-circle-outline" size={22} color={colors.primary} />
                 <Text className="text-base font-semibold text-ink">Select</Text>
@@ -349,46 +352,53 @@ export function FolderBrowser({
             <SectionTitle title="Folders" count={folders.length} />
             {folders.map((folder) => {
               const picked = pickedFolders.has(folder.id);
+              // The menu button sits beside the row's button, not inside it: on the web
+              // a button inside a button is invalid HTML.
               return (
-                <Pressable
+                <View
                   key={folder.id}
-                  onPress={() =>
-                    selecting
-                      ? setPickedFolders((set) => toggled(set, folder.id))
-                      : router.push({ pathname: '/folder/[id]', params: { id: folder.id } })
-                  }
-                  onLongPress={selecting ? undefined : () => startSelecting({ folderId: folder.id })}
-                  accessibilityRole={selecting ? 'checkbox' : 'button'}
-                  accessibilityState={selecting ? { checked: picked } : undefined}
-                  accessibilityLabel={`${folder.name}, ${folderSummary(folder)}`}
-                  className={`flex-row items-center gap-3 rounded-2xl border p-3 pl-4 ${
-                    picked ? 'border-primary bg-primary-soft' : 'border-transparent bg-surface active:bg-line'
+                  className={`flex-row items-center rounded-2xl border ${
+                    picked ? 'border-primary bg-primary-soft' : 'border-transparent bg-surface'
                   }`}
                 >
-                  <FolderBadge name={folder.name} />
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-1.5">
-                      <Text className="flex-shrink text-base font-bold text-ink" numberOfLines={1}>
-                        {folder.name}
-                      </Text>
-                      {folder.favoritedAt ? <FavoriteStar /> : null}
+                  <Pressable
+                    onPress={() =>
+                      selecting
+                        ? setPickedFolders((set) => toggled(set, folder.id))
+                        : router.push({ pathname: '/folder/[id]', params: { id: folder.id } })
+                    }
+                    onLongPress={selecting ? undefined : () => startSelecting({ folderId: folder.id })}
+                    accessibilityRole={selecting ? 'checkbox' : 'button'}
+                    accessibilityState={selecting ? { checked: picked } : undefined}
+                    accessibilityLabel={`${folder.name}, ${folderSummary(folder)}`}
+                    className={`flex-1 flex-row items-center gap-3 rounded-2xl p-3 pl-4 ${
+                      picked ? '' : 'active:bg-line'
+                    }`}
+                  >
+                    <FolderBadge name={folder.name} />
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-1.5">
+                        <Text className="flex-shrink text-base font-bold text-ink" numberOfLines={1}>
+                          {folder.name}
+                        </Text>
+                        {folder.favoritedAt ? <FavoriteStar /> : null}
+                      </View>
+                      <Text className="text-sm text-muted">{folderSummary(folder)}</Text>
                     </View>
-                    <Text className="text-sm text-muted">{folderSummary(folder)}</Text>
-                  </View>
-                  {selecting ? (
-                    <Tick picked={picked} />
-                  ) : (
+                    {selecting ? <Tick picked={picked} /> : null}
+                  </Pressable>
+                  {selecting ? null : (
                     <Pressable
                       onPress={() => setMenuFor(folder)}
                       hitSlop={10}
                       accessibilityRole="button"
                       accessibilityLabel={`More options for ${folder.name}`}
-                      className="h-11 w-11 items-center justify-center rounded-full active:bg-white"
+                      className="mr-3 h-11 w-11 items-center justify-center rounded-full active:bg-card"
                     >
                       <Icon name="ellipsis-vertical" size={22} color={colors.muted} />
                     </Pressable>
                   )}
-                </Pressable>
+                </View>
               );
             })}
           </View>
@@ -468,6 +478,7 @@ export function FolderBrowser({
 
 /** The tick circle on a row in select mode. */
 function Tick({ picked }: { picked: boolean }) {
+  const colors = useColors();
   return (
     <View className="h-11 w-11 items-center justify-center">
       <Icon name={picked ? 'checkmark-circle' : 'ellipse-outline'} size={30} color={picked ? colors.primary : colors.faint} />
@@ -489,6 +500,7 @@ function BarButton({
   disabled: boolean;
   danger?: boolean;
 }) {
+  const colors = useColors();
   const color = disabled ? colors.faint : danger ? colors.alert : colors.ink;
   return (
     <Pressable
@@ -522,6 +534,7 @@ function SectionTitle({ title, count }: { title: string; count: number }) {
  * it, the card says how to get one, so students know it's there.
  */
 function GoodToKnowCard({ note, topics, onCreate }: { note: Note | null; topics: number; onCreate: () => void }) {
+  const colors = useColors();
   const sections = note ? (note.body.match(/^## /gm) ?? []).length : 0;
   const content = (
     <>
@@ -585,6 +598,7 @@ export function NoteRow({
   onPress?: () => void;
   onLongPress?: () => void;
 }) {
+  const colors = useColors();
   const cornell = note.style === 'cornell';
   const preview = subtitle ?? notePreview(note);
   const selecting = picked !== undefined;
@@ -595,7 +609,7 @@ export function NoteRow({
       accessibilityRole={selecting ? 'checkbox' : 'button'}
       accessibilityState={selecting ? { checked: picked } : undefined}
       className={`flex-row items-center gap-3 rounded-2xl border p-3 pl-4 ${
-        picked ? 'border-primary bg-primary-soft' : 'border-line bg-white active:bg-surface'
+        picked ? 'border-primary bg-primary-soft' : 'border-line bg-card active:bg-surface'
       }`}
     >
       <NoteBadge cornell={cornell} goodToKnow={isGoodToKnow(note)} />
@@ -626,6 +640,7 @@ export function NoteRow({
 
 /** "Class 10 › Physics › Chapter 1", for showing where a folder or note is. */
 export function FolderPath({ path, prefix }: { path: { id: string; name: string }[]; prefix?: string }) {
+  const colors = useColors();
   if (path.length === 0 && !prefix) return null;
   const names = path.map((p) => p.name);
   return (
@@ -640,6 +655,7 @@ export function FolderPath({ path, prefix }: { path: { id: string; name: string 
 
 /** Marks a note an AI app wrote (through MCP), e.g. "AI · Claude". */
 export function AiBadge({ by }: { by: string }) {
+  const colors = useColors();
   return (
     <View
       className="flex-row items-center gap-1 rounded-full bg-cta/15 px-2 py-0.5"
@@ -653,6 +669,7 @@ export function AiBadge({ by }: { by: string }) {
 
 /** The small star next to a favourite's name. */
 export function FavoriteStar() {
+  const colors = useColors();
   return (
     <View accessibilityLabel="Favourite">
       <Icon name="star" size={16} color={colors.warning} />

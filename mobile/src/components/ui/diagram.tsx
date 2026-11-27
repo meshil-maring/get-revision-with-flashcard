@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, Icon } from '@/components/ui';
+import { Icon, useColors } from '@/components/ui';
 import { svgAspectRatio, svgDataUri } from '@/lib/svg';
 
 /** Wider than this, a diagram's labels get bigger than the text around them. */
@@ -57,9 +57,10 @@ export function Diagram({ svg, caption, label }: { svg: string; caption: ReactNo
 
 /** The diagram filling the screen, with its caption and a close button. */
 function FullScreenDiagram({ uri, title, name, onClose }: { uri: string; title: string; name: string; onClose: () => void }) {
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
+    <View className="flex-1 bg-card" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <View className="flex-row items-center gap-2 px-3 py-2">
         <Text className="flex-1 text-base font-bold text-ink" numberOfLines={2}>
           {title}

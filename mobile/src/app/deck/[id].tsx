@@ -8,19 +8,7 @@ import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
 import { FormModal } from '@/components/ui/form-modal';
 import { ScreenTip } from '@/components/ui/screen-tip';
 import { RichText } from '@/components/ui/rich-text';
-import {
-  Button,
-  colors,
-  EmptyState,
-  Fab,
-  Icon,
-  IconButton,
-  plural,
-  RatingBadge,
-  ratingColors,
-  SubjectIcon,
-  type IconName,
-} from '@/components/ui';
+import { Button, EmptyState, Fab, Icon, IconButton, plural, RatingBadge, ratingColors, SubjectIcon, type IconName, useColors } from '@/components/ui';
 import { listAttachmentsForCards } from '@/data/attachments';
 import { createGroup, deleteGroup, listGroups, moveGroup, renameGroup } from '@/data/card-groups';
 import { deleteCard, listCards, setCardGroup, setFavorite } from '@/data/cards';
@@ -47,6 +35,7 @@ const KIND_ICONS: Record<AttachmentKind, IconName> = {
 };
 
 export default function DeckScreen() {
+  const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const [deck, setDeck] = useState<Deck | null | undefined>(undefined); // undefined = loading
@@ -257,7 +246,7 @@ export default function DeckScreen() {
                       accessibilityLabel={`Time per card: ${autoNextLabel(autoNext)}`}
                       accessibilityHint="Choose how long each card stays before moving to the next"
                       className={`w-20 items-center justify-center rounded-2xl ${
-                        autoNext > 0 ? 'bg-white' : 'border border-white/30 bg-white/15 active:bg-white/25'
+                        autoNext > 0 ? 'bg-card' : 'border border-white/30 bg-white/15 active:bg-white/25'
                       }`}
                     >
                       <Icon name="timer-outline" size={26} color={autoNext > 0 ? colors.primary : colors.white} />
@@ -355,7 +344,7 @@ export default function DeckScreen() {
           const kinds = [...new Set((attachments.get(card.id) ?? []).map((a) => a.kind))];
           const rating = ratingOf(card);
           return (
-            <View className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+            <View className="overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
               {/* Coloured edge: how this card felt last time (grey = new). */}
               <View className="absolute bottom-0 left-0 top-0 w-1.5" style={{ backgroundColor: ratingColors[rating] }} />
               <View className="flex-row items-start gap-3 p-4 pb-3 pl-5">
@@ -448,6 +437,7 @@ function GroupHeader({
   onStudy?: () => void;
   onMenu?: () => void;
 }) {
+  const colors = useColors();
   const name = section.group?.name ?? 'Other cards';
   return (
     <View className="mt-3 flex-row items-center gap-1 rounded-2xl bg-primary-soft p-1">
@@ -474,6 +464,7 @@ function GroupHeader({
 
 /** A small see-through pill on the blue deck panel. */
 function StatPill({ icon, label, accessibilityLabel }: { icon: IconName; label: string; accessibilityLabel?: string }) {
+  const colors = useColors();
   return (
     <View
       accessibilityLabel={accessibilityLabel}

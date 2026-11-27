@@ -1,10 +1,11 @@
 import { Text, View } from 'react-native';
 
-import { colors, Icon } from '@/components/ui';
+import { Icon, useColors } from '@/components/ui';
 import { COMING_SOON, type ComingSoonFeature } from '@/lib/coming-soon';
 
 /** Placeholder for a feature in the design that isn't built yet. */
 export function ComingSoon({ feature }: { feature: ComingSoonFeature }) {
+  const colors = useColors();
   const { title, icon, text } = COMING_SOON[feature];
   return (
     <View className="flex-1 items-center justify-center bg-page px-8">

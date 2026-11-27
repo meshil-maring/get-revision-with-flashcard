@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { ScrollView, Text, View, type TextStyle } from 'react-native';
 
 import { Diagram } from '@/components/ui/diagram';
-import { Icon, type IconName } from '@/components/ui';
+import { type Colors, Icon, type IconName, useColors } from '@/components/ui';
 import { parseRichText, tableColumnSizes, type Block, type BoxKind, type Span, type TableRow } from '@/lib/rich-text';
 
 type Props = {
@@ -11,29 +11,49 @@ type Props = {
   tone?: 'default' | 'onDark';
   /** Centre short answers on a flashcard; lists and headings stay readable either way. */
   center?: boolean;
-  /** 'xl' is for focus reading, where the note fills the screen. */
+  /** Text size; without it, the size picked in Settings (see ReadingSizeContext). */
   size?: RichTextSize;
 };
 
-export type RichTextSize = 'base' | 'lg' | 'xl';
+/** sm/base/lg/xl = Small, Medium, Large, Extra large in Settings. Focus mode uses base to xl. */
+export type RichTextSize = 'sm' | 'base' | 'lg' | 'xl';
+const SIZES: RichTextSize[] = ['sm', 'base', 'lg', 'xl'];
 
-/** Heading 1: a bright blue. On the blue answer side, a light blue that still reads. */
-const H1_BLUE = '#2b7fff';
+/** The text size for notes and flashcards from Settings; RichText uses it unless given a size. */
+export const ReadingSizeContext = createContext<RichTextSize>('base');
+
+export function useReadingSize(): RichTextSize {
+  return useContext(ReadingSizeContext);
+}
+
+/** The size `steps` sizes up from `size` (or down, if negative), within Small to Extra large. */
+export function stepSize(size: RichTextSize, steps: number): RichTextSize {
+  return SIZES[Math.min(SIZES.length - 1, Math.max(0, SIZES.indexOf(size) + steps))];
+}
+
+// Heading sizes go up and down a step with the text size. Whole class names, so Tailwind sees them.
+const TEXT_LADDER = ['text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl'];
+const SIZE_STEP: Record<RichTextSize, number> = { sm: -1, base: 0, lg: 1, xl: 2 };
+
+/** A text class for something that is `medium` at Medium size, scaled to `size`. */
+export function scaledText(medium: string, size: RichTextSize): string {
+  const at = TEXT_LADDER.indexOf(medium) + SIZE_STEP[size];
+  return TEXT_LADDER[Math.min(TEXT_LADDER.length - 1, Math.max(0, at))];
+}
+
+// Note colours (heading blues, blue ink, purple bullets, highlighter yellow, boxes) are in the
+// light and dark palettes in components/ui/theme.ts.
+
+/** Heading 1 on the blue answer side of a flashcard: a light blue that still reads. */
 const LIGHT_BLUE = '#bfdbfe';
-/** Heading 2: a deep navy, so it reads as a step below Heading 1. */
-const H2_NAVY = '#1e3a8a';
-
-/** Purple for bullets and the cue markers of the Cornell look. */
-export const NOTE_PURPLE = '#7c5cd6';
-/** Highlighter yellow behind headings in the Cornell look. */
-export const CHIP_YELLOW = '#fdeb8f';
 
 /**
  * How notes look, set by the screen showing them:
  * - `font`: a font family for all the text (the handwritten font of Cornell notes), or undefined
- * - `cornell`: headings on a yellow highlight and purple bullets, like a hand-made Cornell page
+ * - `cornell`: headings underlined in blue ink and purple bullets, like a paper Cornell sheet
+ * - `article`: plain notes; the top two heading levels get a coloured bar, like an article
  */
-export type NoteLook = { font?: string; cornell?: boolean };
+export type NoteLook = { font?: string; cornell?: boolean; article?: boolean };
 const NoteLookContext = createContext<NoteLook>({});
 
 export function NoteLookProvider({ look, children }: { look: NoteLook; children: ReactNode }) {
@@ -67,8 +87,9 @@ export function useNoteFont(): TextStyle | undefined {
 const SIDE_BY_SIDE_WIDTH = 520;
 
 /** Shows text written with the formatting toolbar (headings, bold, lists…), boxes and diagrams. */
-export function RichText({ text, tone = 'default', center = false, size = 'base' }: Props) {
-  return <Blocks blocks={parseRichText(text)} tone={tone} center={center} size={size} />;
+export function RichText({ text, tone = 'default', center = false, size }: Props) {
+  const readingSize = useReadingSize();
+  return <Blocks blocks={parseRichText(text)} tone={tone} center={center} size={size ?? readingSize} />;
 }
 
 /** Boxes one after another (blank lines between them don't count) are put together, to share a row. */
@@ -139,16 +160,24 @@ function Blocks({
   );
 }
 
-const BOX_STYLE: Record<BoxKind, { border: string; background: string; icon?: IconName; iconColor?: string }> = {
-  good: { border: '#9fd5ae', background: '#f3fbf5', icon: 'checkmark-circle-outline', iconColor: '#2e9d4f' },
-  bad: { border: '#f1a7a7', background: '#fff5f5', icon: 'close-circle-outline', iconColor: '#d64545' },
-  note: { border: '#c9bdf0', background: '#f8f5ff' },
-};
+function boxStyle(
+  colors: Colors,
+  kind: BoxKind,
+): { border: string; background: string; icon?: IconName; iconColor?: string } {
+  if (kind === 'good') {
+    return { border: colors.goodBorder, background: colors.goodFill, icon: 'checkmark-circle-outline', iconColor: colors.goodIcon };
+  }
+  if (kind === 'bad') {
+    return { border: colors.badBorder, background: colors.badFill, icon: 'close-circle-outline', iconColor: colors.badIcon };
+  }
+  return { border: colors.noteBorder, background: colors.noteFill };
+}
 
 /** A box of points: ✓ for advantages, ✗ for limitations, or a plain purple box. */
 function BoxView({ block, size, tone }: { block: Block; size: RichTextSize; tone: 'default' | 'onDark' }) {
+  const colors = useColors();
   const kind = block.box ?? 'note';
-  const style = BOX_STYLE[kind];
+  const style = boxStyle(colors, kind);
   const font = useNoteFont();
   const title = block.spans.map((s) => s.text).join('').trim();
   return (
@@ -160,8 +189,8 @@ function BoxView({ block, size, tone }: { block: Block; size: RichTextSize; tone
         <View className="flex-row">
           <Text
             accessibilityRole="header"
-            className="rounded-md px-2 py-0.5 text-xl font-bold text-ink"
-            style={[{ backgroundColor: CHIP_YELLOW }, font]}
+            className={`rounded-md px-2 py-0.5 ${scaledText('text-xl', size)} font-bold`}
+            style={[{ backgroundColor: colors.highlight, color: colors.highlightInk }, font]}
           >
             <Spans spans={block.spans} tone="default" />
           </Text>
@@ -187,11 +216,13 @@ function BlockView({
   tone: 'default' | 'onDark';
   boxKind?: BoxKind;
 }) {
-  const { cornell } = useContext(NoteLookContext);
+  const colors = useColors();
+  const { cornell, article } = useContext(NoteLookContext);
   const font = useNoteFont();
   if (block.type === 'blank') return <View className="h-2" />;
 
-  const body = size === 'xl' ? 'text-2xl leading-9' : size === 'lg' ? 'text-xl leading-7' : 'text-base leading-6';
+  const body = BODY_TEXT[size];
+  const heading = (medium: string) => scaledText(medium, size);
   const spans = <Spans spans={block.spans} tone={tone} />;
 
   if (block.type === 'diagram') {
@@ -204,15 +235,31 @@ function BlockView({
   if (block.type === 'image') {
     return <InlineImage imageRef={block.imageRef ?? ''} />;
   }
-  // The Cornell look: headings sit on a yellow highlight, like the section titles of a hand-made page.
+  // The Cornell look (a paper Cornell sheet): headings underlined in blue ink, as if with a pen.
   if (cornell && tone === 'default' && (block.type === 'h1' || block.type === 'h2' || block.type === 'h3')) {
-    const text = block.type === 'h1' ? 'text-3xl' : block.type === 'h2' ? 'text-2xl' : 'text-xl';
+    const text = heading(block.type === 'h1' ? 'text-2xl' : block.type === 'h2' ? 'text-xl' : 'text-lg');
     return (
       <View className="mt-1.5 flex-row">
         <Text
           accessibilityRole="header"
-          className={`${text} rounded-md px-2 py-0.5 font-bold text-ink`}
-          style={[{ backgroundColor: CHIP_YELLOW }, font]}
+          className={`${text} pb-0.5 font-bold text-ink`}
+          style={[{ borderBottomWidth: block.type === 'h3' ? 1 : 2, borderColor: colors.inkBlue }, font]}
+        >
+          {spans}
+        </Text>
+      </View>
+    );
+  }
+  // The article look (plain notes): a coloured bar beside the top two heading levels.
+  if (article && tone === 'default' && (block.type === 'h1' || block.type === 'h2')) {
+    const h1 = block.type === 'h1';
+    return (
+      <View className={`flex-row gap-3 ${h1 ? 'mb-1 mt-4' : 'mb-0.5 mt-3'}`}>
+        <View className="w-1 rounded-full" style={{ backgroundColor: h1 ? colors.headingBlue : colors.headingBar }} />
+        <Text
+          accessibilityRole="header"
+          className={`flex-1 ${h1 ? `${heading('text-2xl')} font-extrabold` : `${heading('text-xl')} font-bold`}`}
+          style={[{ color: h1 ? colors.headingInk : colors.headingNavy }, font]}
         >
           {spans}
         </Text>
@@ -223,8 +270,8 @@ function BlockView({
     return (
       <Text
         accessibilityRole="header"
-        className={`${align} mb-1 mt-1 text-3xl font-extrabold`}
-        style={[{ color: tone === 'onDark' ? LIGHT_BLUE : H1_BLUE }, font]}
+        className={`${align} mb-1 mt-1 ${heading('text-3xl')} font-extrabold`}
+        style={[{ color: tone === 'onDark' ? LIGHT_BLUE : colors.headingBlue }, font]}
       >
         {spans}
       </Text>
@@ -235,8 +282,8 @@ function BlockView({
     return (
       <Text
         accessibilityRole="header"
-        className={`${align} ${tone === 'onDark' ? ink : ''} mt-1 text-2xl font-bold`}
-        style={[tone === 'onDark' ? undefined : { color: H2_NAVY }, font]}
+        className={`${align} ${tone === 'onDark' ? ink : ''} mt-1 ${heading('text-2xl')} font-bold`}
+        style={[tone === 'onDark' ? undefined : { color: colors.headingNavy }, font]}
       >
         {spans}
       </Text>
@@ -244,14 +291,14 @@ function BlockView({
   }
   if (block.type === 'h3') {
     return (
-      <Text accessibilityRole="header" className={`${align} ${ink} mt-1 text-xl font-bold`} style={font}>
+      <Text accessibilityRole="header" className={`${align} ${ink} mt-1 ${heading('text-xl')} font-bold`} style={font}>
         {spans}
       </Text>
     );
   }
   if (block.type === 'h4') {
     return (
-      <Text accessibilityRole="header" className={`${align} ${ink} mt-0.5 text-lg font-semibold`} style={font}>
+      <Text accessibilityRole="header" className={`${align} ${ink} mt-0.5 ${heading('text-lg')} font-semibold`} style={font}>
         {spans}
       </Text>
     );
@@ -260,17 +307,17 @@ function BlockView({
     return <TableView block={block} body={body} size={size} tone={tone} />;
   }
   if (block.type === 'bullet' || block.type === 'number') {
-    const boxStyle = boxKind ? BOX_STYLE[boxKind] : undefined;
+    const box = boxKind ? boxStyle(colors, boxKind) : undefined;
     // Purple bullets in the Cornell look and in purple boxes (not on the blue side of a flashcard).
     const purple = (cornell || boxKind === 'note') && tone === 'default';
     return (
       <View className="flex-row gap-2 pl-1">
-        {boxStyle?.icon && block.type === 'bullet' ? (
+        {box?.icon && block.type === 'bullet' ? (
           <View className="pt-0.5">
-            <Icon name={boxStyle.icon} size={26} color={boxStyle.iconColor} />
+            <Icon name={box.icon} size={26} color={box.iconColor} />
           </View>
         ) : (
-          <Text className={`${ink} ${body} font-semibold`} style={[purple ? { color: NOTE_PURPLE } : undefined, font]}>
+          <Text className={`${ink} ${body} font-semibold`} style={[purple ? { color: colors.notePurple } : undefined, font]}>
             {block.type === 'bullet' ? '•' : `${block.number}.`}
           </Text>
         )}
@@ -287,10 +334,18 @@ function BlockView({
   );
 }
 
+/** Paragraph and list text at each size. */
+const BODY_TEXT: Record<RichTextSize, string> = {
+  sm: 'text-sm leading-5',
+  base: 'text-base leading-6',
+  lg: 'text-xl leading-7',
+  xl: 'text-2xl leading-9',
+};
+
 /** Up to 3 columns share the screen width; wider tables scroll sideways. */
 const MAX_FITTED_COLUMNS = 3;
 /** Rough width of one character at each text size, for sizing columns before layout. */
-const CHAR_WIDTH: Record<RichTextSize, number> = { base: 9, lg: 11, xl: 13 };
+const CHAR_WIDTH: Record<RichTextSize, number> = { sm: 8, base: 9, lg: 11, xl: 13 };
 const CELL_PADDING = 22; // px-2.5 on both sides, plus the border
 const SCROLL_COLUMN_MAX = 220;
 
@@ -306,12 +361,17 @@ function TableView({
   tone: 'default' | 'onDark';
 }) {
   const font = useNoteFont();
+  // The width the table has: narrow in a Cornell note's notes column.
+  const [available, setAvailable] = useState(0);
   const rows = block.rows ?? [];
   const sizes = tableColumnSizes(block);
   const columns = sizes.length;
   if (columns === 0) return null;
-  const scrolls = columns > MAX_FITTED_COLUMNS;
   const charWidth = CHAR_WIDTH[size];
+  // Tables scroll sideways when they have many columns, or when their longest words
+  // can't fit side by side in the space there is (otherwise the right side is cut off).
+  const narrowest = sizes.reduce((sum, { word }) => sum + word * charWidth + CELL_PADDING, 0);
+  const scrolls = columns > MAX_FITTED_COLUMNS || (available > 0 && narrowest > available);
   // Each column is at least as wide as its longest word. Fitted tables share the
   // rest of the width by how much each column has to say; scrolling tables give
   // each column its natural width, up to a limit, and wrap the rest.
@@ -354,9 +414,13 @@ function TableView({
   );
 
   return (
-    <View className="my-1" accessibilityLabel={`Table with ${columns} columns`}>
+    <View
+      className="my-1"
+      accessibilityLabel={`Table with ${columns} columns`}
+      onLayout={(e) => setAvailable(Math.round(e.nativeEvent.layout.width))}
+    >
       {scrolls ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator>
+        <ScrollView horizontal showsHorizontalScrollIndicator testID="table-scroll">
           {table}
         </ScrollView>
       ) : (
@@ -367,16 +431,19 @@ function TableView({
 }
 
 function Spans({ spans, tone }: { spans: Span[]; tone: 'default' | 'onDark' }) {
+  const colors = useColors();
   return spans.map((span, i) => {
     const classes = [
       span.bold ? 'font-extrabold' : '',
       span.italic ? 'italic' : '',
       span.underline ? 'underline' : '',
-      // Highlighter yellow; dark text on it so it stays readable on the blue answer side.
-      span.highlight ? `bg-warning/60 ${tone === 'onDark' ? 'text-ink' : ''}` : '',
+      // Highlighter yellow.
+      span.highlight ? 'bg-warning/60' : '',
     ].join(' ');
+    // Dark text on the highlight on the blue answer side, so it stays readable in both themes.
+    const style = span.highlight && tone === 'onDark' ? { color: colors.highlightInk } : undefined;
     return (
-      <Text key={i} className={classes}>
+      <Text key={i} className={classes} style={style}>
         {span.text}
       </Text>
     );

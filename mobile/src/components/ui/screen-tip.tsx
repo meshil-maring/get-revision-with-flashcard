@@ -3,7 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { colors, Icon } from '@/components/ui';
+import { Icon, useColors } from '@/components/ui';
 import { dismissTip, isTipDismissed } from '@/data/settings';
 
 type Tip = { title: string; text: string; topic: string };
@@ -65,6 +65,7 @@ export type TipId = keyof typeof TIPS;
  * Show tips again brings them back); "Learn more" opens the matching guide topic.
  */
 export function ScreenTip({ id, className = '' }: { id: TipId; className?: string }) {
+  const colors = useColors();
   const db = useSQLiteContext();
   // Hidden until we know it wasn't dismissed, so it never flashes on screen.
   const [visible, setVisible] = useState(false);
@@ -100,7 +101,7 @@ export function ScreenTip({ id, className = '' }: { id: TipId; className?: strin
       accessibilityLabel={`Tip: ${tip.title}`}
       className={`flex-row gap-3 rounded-2xl border border-primary/20 bg-primary-soft p-3.5 ${className}`}
     >
-      <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
+      <View className="h-9 w-9 items-center justify-center rounded-xl bg-card">
         <Icon name="bulb" size={20} color={colors.warning} />
       </View>
       <View className="flex-1">

@@ -20,7 +20,12 @@ jest.mock('expo-image', () => {
 jest.mock('expo-file-system', () => ({ File: jest.fn(), Directory: jest.fn(), Paths: {} }));
 jest.mock('expo-image-picker', () => ({ launchImageLibraryAsync: jest.fn() }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
-jest.mock('expo-network', () => ({ addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })) }));
+// Uniwind (Tailwind classes and light/dark themes) ships untranspiled; tests use the light theme.
+jest.mock('uniwind', () => ({
+  useUniwind: () => ({ theme: 'light', hasAdaptiveThemes: true }),
+  Uniwind: { setTheme: jest.fn(), currentTheme: 'light' },
+}));
+jest.mock('expo-network',() => ({ addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })) }));
 
 // Animations (flip cards, the image viewer's zoom): Reanimated's own mock needs its native
 // runtime, so stand-ins for the few parts the app uses; values change at once, no animation.

@@ -8,7 +8,7 @@ import {
 import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 
-import { colors, Icon } from '@/components/ui';
+import { Icon, useColors } from '@/components/ui';
 import type { PickedFile } from '@/lib/attachment-files';
 
 type Props = {
@@ -30,6 +30,7 @@ export function AudioRecorderModal({ visible, onCancel, onDone }: Props) {
 }
 
 function Recorder({ onCancel, onDone }: Omit<Props, 'visible'>) {
+  const colors = useColors();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const state = useAudioRecorderState(recorder);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +64,7 @@ function Recorder({ onCancel, onDone }: Omit<Props, 'visible'>) {
   }
 
   return (
-    <View className="w-full max-w-sm items-center rounded-3xl bg-white p-6 shadow-xl">
+    <View className="w-full max-w-sm items-center rounded-3xl bg-card p-6 shadow-xl">
       <Text className="mb-1 text-xl font-bold text-ink">Record audio</Text>
       <Text className="mb-6 text-center text-sm text-muted">
         {state.isRecording ? 'Recording… tap stop when you are done.' : 'Tap the microphone to start.'}

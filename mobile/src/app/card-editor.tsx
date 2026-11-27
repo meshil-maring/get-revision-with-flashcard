@@ -18,7 +18,7 @@ import { AttachmentList, type AttachmentItem } from '@/components/cards/attachme
 import { AudioRecorderModal } from '@/components/cards/audio-recorder';
 import { ScreenTip } from '@/components/ui/screen-tip';
 import { RichTextInput } from '@/components/ui/rich-text-input';
-import { colors, Icon, type IconName } from '@/components/ui';
+import { Icon, type IconName, lightColors, useColors } from '@/components/ui';
 import { addAttachment, deleteAttachment, listAttachmentsForCards } from '@/data/attachments';
 import { listGroups } from '@/data/card-groups';
 import { createCard, getCard, updateCard } from '@/data/cards';
@@ -52,6 +52,7 @@ function showError(title: string, message: string) {
  * or ?deckId=…&cardId=… (edit).
  */
 export default function CardEditorScreen() {
+  const colors = useColors();
   const { deckId, cardId, groupId: startGroupId } = useLocalSearchParams<{
     deckId: string;
     cardId?: string;
@@ -223,7 +224,7 @@ export default function CardEditorScreen() {
                   borderWidth: 1.5,
                   borderColor: frontFocused ? colors.primary : colors.line,
                 }}
-                className="min-h-20 rounded-xl bg-white px-4 py-3 text-lg text-ink"
+                className="min-h-20 rounded-xl bg-card px-4 py-3 text-lg text-ink"
               />
               <AttachSection
                 side="front"
@@ -253,7 +254,7 @@ export default function CardEditorScreen() {
           </ScrollView>
 
           {/* Actions stay on screen while you scroll and type. */}
-          <View className="border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+          <View className="border-t border-line bg-card px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
             <View className="w-full max-w-2xl self-center">
               {missing ? (
                 <Text className="mb-2 text-center text-xs text-muted">Add {missing} to save this card</Text>
@@ -262,7 +263,7 @@ export default function CardEditorScreen() {
                 <Pressable
                   onPress={() => router.back()}
                   accessibilityRole="button"
-                  className="flex-1 items-center justify-center rounded-2xl border border-line bg-white py-4 active:bg-surface"
+                  className="flex-1 items-center justify-center rounded-2xl border border-line bg-card py-4 active:bg-surface"
                 >
                   <Text className="text-base font-semibold text-ink">Cancel</Text>
                 </Pressable>
@@ -308,6 +309,7 @@ function GroupPicker({
   value: string | null;
   onChange: (groupId: string | null) => void;
 }) {
+  const colors = useColors();
   const options = [{ id: null, name: 'No group' }, ...groups.map((g) => ({ id: g.id as string | null, name: g.name }))];
   const current = groups.some((g) => g.id === value) ? value : null;
   return (
@@ -326,7 +328,7 @@ function GroupPicker({
               accessibilityRole="radio"
               accessibilityState={{ checked: selected }}
               className={`rounded-full px-3.5 py-2 ${
-                selected ? 'bg-primary' : 'border border-line bg-white active:bg-surface'
+                selected ? 'bg-primary' : 'border border-line bg-card active:bg-surface'
               }`}
             >
               <Text className={`text-sm font-semibold ${selected ? 'text-white' : 'text-ink'}`} numberOfLines={1}>
@@ -343,8 +345,8 @@ function GroupPicker({
 type Accent = 'primary' | 'calm';
 
 const ACCENTS: Record<Accent, { color: string; chip: string }> = {
-  primary: { color: colors.primary, chip: 'bg-primary-soft active:bg-primary/20' },
-  calm: { color: colors.calm, chip: 'bg-calm-soft active:bg-calm/20' },
+  primary: { color: lightColors.primary, chip: 'bg-primary-soft active:bg-primary/20' },
+  calm: { color: lightColors.calm, chip: 'bg-calm-soft active:bg-calm/20' },
 };
 
 /** A white card holding one side of the flashcard, with a coloured icon and a tick once it's filled in. */
@@ -361,8 +363,9 @@ function SectionCard({
   filled: boolean;
   children: ReactNode;
 }) {
+  const colors = useColors();
   return (
-    <View className="rounded-3xl border border-line bg-white p-4 shadow-sm">
+    <View className="rounded-3xl border border-line bg-card p-4 shadow-sm">
       <View className="mb-3 flex-row items-center gap-2.5">
         <View className="h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: ACCENTS[accent].color }}>
           <Icon name={icon} size={22} color={colors.white} />

@@ -19,7 +19,7 @@ import { AudioRecorderModal } from '@/components/cards/audio-recorder';
 import { FolderPath } from '@/components/notes/folder-browser';
 import { RichTextInput } from '@/components/ui/rich-text-input';
 import { TagPicker, type TagChoice } from '@/components/tags/tag-picker';
-import { colors, Icon, IconButton, type IconName } from '@/components/ui';
+import { Icon, IconButton, type IconName, useColors } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
 import {
   addNoteAttachment,
@@ -68,6 +68,7 @@ const STYLES: { style: NoteStyle; label: string; icon: IconName; hint: string }[
  * top level) or ?noteId=… (edit).
  */
 export default function NoteEditorScreen() {
+  const colors = useColors();
   const { folderId, noteId } = useLocalSearchParams<{ folderId?: string; noteId?: string }>();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
@@ -224,7 +225,7 @@ export default function NoteEditorScreen() {
               onFocus={() => setTitleFocused(true)}
               onBlur={() => setTitleFocused(false)}
               style={{ ...NO_WEB_FOCUS_RING, borderWidth: 1.5, borderColor: titleFocused ? colors.primary : colors.line }}
-              className="rounded-xl bg-white px-4 py-3 text-xl font-bold text-ink"
+              className="rounded-xl bg-card px-4 py-3 text-xl font-bold text-ink"
             />
 
             {/* Plain or Cornell */}
@@ -239,7 +240,7 @@ export default function NoteEditorScreen() {
                     accessibilityState={{ checked: selected }}
                     accessibilityLabel={`${option.label} notes: ${option.hint}`}
                     className={`flex-1 flex-row items-center gap-2.5 rounded-2xl border p-3 ${
-                      selected ? 'border-primary bg-primary-soft' : 'border-line bg-white active:bg-surface'
+                      selected ? 'border-primary bg-primary-soft' : 'border-line bg-card active:bg-surface'
                     }`}
                   >
                     <Icon name={option.icon} size={24} color={selected ? colors.primary : colors.muted} />
@@ -266,7 +267,7 @@ export default function NoteEditorScreen() {
                   <Text className="font-bold text-calm">notes</Text>. Cover the notes later and use the cues to test yourself.
                 </Text>
                 {rows.map((row, index) => (
-                  <View key={row.key} className="gap-2 rounded-3xl border border-line bg-white p-3">
+                  <View key={row.key} className="gap-2 rounded-3xl border border-line bg-card p-3">
                     <View className="flex-row items-center gap-2">
                       <View className="h-8 w-8 items-center justify-center rounded-full bg-primary-soft">
                         <Text className="text-xs font-extrabold text-primary">{index + 1}</Text>
@@ -322,7 +323,7 @@ export default function NoteEditorScreen() {
             <TagPicker allTags={allTags} selected={tags} onChange={setTags} />
 
             {/* Attachments */}
-            <View className="gap-3 rounded-3xl border border-line bg-white p-4">
+            <View className="gap-3 rounded-3xl border border-line bg-card p-4">
               <Text className="text-base font-bold text-ink">Attachments</Text>
               <View className="flex-row flex-wrap gap-2">
                 {(
@@ -349,14 +350,14 @@ export default function NoteEditorScreen() {
             </View>
           </ScrollView>
 
-          <View className="border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+          <View className="border-t border-line bg-card px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
             <View className="w-full max-w-2xl self-center">
               {!title.trim() ? <Text className="mb-2 text-center text-xs text-muted">Add a title to save this note</Text> : null}
               <View className="flex-row gap-3">
                 <Pressable
                   onPress={() => router.back()}
                   accessibilityRole="button"
-                  className="flex-1 items-center justify-center rounded-2xl border border-line bg-white py-4 active:bg-surface"
+                  className="flex-1 items-center justify-center rounded-2xl border border-line bg-card py-4 active:bg-surface"
                 >
                   <Text className="text-base font-semibold text-ink">Cancel</Text>
                 </Pressable>

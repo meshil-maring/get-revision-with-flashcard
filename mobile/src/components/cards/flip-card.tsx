@@ -3,8 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { AttachmentList, type AttachmentItem } from '@/components/cards/attachments';
-import { RichText } from '@/components/ui/rich-text';
-import { colors, Icon } from '@/components/ui';
+import { RichText, scaledText, stepSize, useReadingSize } from '@/components/ui/rich-text';
+import { Icon, useColors } from '@/components/ui';
 
 type Props = {
   front: string;
@@ -29,6 +29,8 @@ export function FlipCard({
   onPress,
   onEdit,
 }: Props) {
+  // Text size from Settings; the answer is a size larger than in notes, as it fills the card.
+  const size = useReadingSize();
   const rotation = useSharedValue(flipped ? 180 : 0);
 
   useEffect(() => {
@@ -51,14 +53,14 @@ export function FlipCard({
       {/* Only the side facing up can be touched (so hidden audio/PDF buttons can't be pressed). */}
       <Animated.View style={[styles.face, frontStyle]} pointerEvents={flipped ? 'none' : 'auto'}>
         <Face label="Question" tone="front" onPress={onPress} onEdit={onEdit} attachments={frontAttachments}>
-          <Text className="text-center text-3xl font-extrabold leading-10 text-ink">{front}</Text>
+          <Text className={`text-center ${scaledText('text-3xl', size)} font-extrabold leading-tight text-ink`}>{front}</Text>
         </Face>
       </Animated.View>
       <Animated.View style={[styles.face, backStyle]} pointerEvents={flipped ? 'auto' : 'none'}>
         {/* The answer isn't rendered at all until the card is turned over. */}
         {flipped ? (
           <Face label="Answer" tone="back" onPress={onPress} onEdit={onEdit} attachments={backAttachments}>
-            <RichText text={back} tone="onDark" center size="lg" />
+            <RichText text={back} tone="onDark" center size={stepSize(size, 1)} />
           </Face>
         ) : (
           <View className="flex-1 rounded-3xl bg-primary" />
@@ -83,10 +85,11 @@ function Face({
   attachments: AttachmentItem[];
   children: React.ReactNode;
 }) {
+  const colors = useColors();
   const front = tone === 'front';
   return (
     <View
-      className={`flex-1 overflow-hidden rounded-3xl shadow-lg ${front ? 'border border-line bg-white' : 'bg-primary'}`}
+      className={`flex-1 overflow-hidden rounded-3xl shadow-lg ${front ? 'border border-line bg-card' : 'bg-primary'}`}
     >
       <Decoration front={front} />
 
@@ -118,7 +121,7 @@ function Face({
           accessibilityRole="button"
           accessibilityLabel="Edit card"
           className={`absolute right-5 top-5 flex-row items-center gap-1 rounded-full px-3.5 py-2 ${
-            front ? 'border border-line bg-white active:bg-surface' : 'bg-white/20 active:bg-white/30'
+            front ? 'border border-line bg-card active:bg-surface' : 'bg-white/20 active:bg-white/30'
           }`}
         >
           <Icon name="create-outline" size={20} color={front ? colors.primary : colors.white} />

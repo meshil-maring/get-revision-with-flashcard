@@ -1,9 +1,11 @@
-import { colors } from '@/components/ui';
+import type { Colors } from '@/components/ui';
 
 // Same header look for every screen: blends into the page, bold title, no shadow line.
-export const headerOptions = {
-  headerStyle: { backgroundColor: colors.page },
-  headerShadowVisible: false,
-  headerTintColor: colors.ink,
-  headerTitleStyle: { fontWeight: '700' as const, fontSize: 15 },
-};
+export function headerOptions(colors: Colors) {
+  return {
+    headerStyle: { backgroundColor: colors.page },
+    headerShadowVisible: false,
+    headerTintColor: colors.ink,
+    headerTitleStyle: { fontWeight: '700' as const, fontSize: 15 },
+  };
+}

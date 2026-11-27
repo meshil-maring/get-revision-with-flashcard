@@ -1,4 +1,4 @@
-import { bodyWithoutTitle, convertNote, notePreview, snippet, suggestCards } from '@/lib/notes';
+import { bodyWithoutTitle, convertNote, notePreview, noteSections, readingMinutes, snippet, suggestCards } from '@/lib/notes';
 
 describe('suggestCards', () => {
   it('turns each Cornell cue with notes into a card', () => {
@@ -116,5 +116,30 @@ describe('bodyWithoutTitle', () => {
     expect(bodyWithoutTitle('# Meaning\nText', 'Speed')).toBe('# Meaning\nText');
     expect(bodyWithoutTitle('Speed\nText', 'Speed')).toBe('Speed\nText');
     expect(bodyWithoutTitle('', 'Speed')).toBe('');
+  });
+});
+
+describe('noteSections', () => {
+  it('splits at the top two heading levels, keeping all the text', () => {
+    const body = 'Intro line\n# Waves\nEnergy\n### Detail\nmore\n## **Types**\n- Transverse';
+    const sections = noteSections(body);
+    expect(sections.map((s) => s.heading)).toEqual([null, 'Waves', 'Types']);
+    expect(sections.map((s) => s.text).join('\n')).toBe(body);
+  });
+
+  it('ignores headings inside boxes and code, but not after an image line', () => {
+    const body = '# One\n:::note Box\n# not a section\n:::\n:::image abc\n```\n# code\n```\n## Two\nx';
+    expect(noteSections(body).map((s) => s.heading)).toEqual(['One', 'Two']);
+  });
+
+  it('has no empty first section when the note starts with a heading', () => {
+    expect(noteSections('\n# A\nx').map((s) => s.heading)).toEqual(['A']);
+  });
+});
+
+describe('readingMinutes', () => {
+  it('is at least a minute, about 200 words a minute', () => {
+    expect(readingMinutes('a few words')).toBe(1);
+    expect(readingMinutes(Array(1000).fill('word').join(' '))).toBe(5);
   });
 });

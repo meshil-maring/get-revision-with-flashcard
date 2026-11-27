@@ -4,14 +4,18 @@ import {
   dismissTip,
   getAutoNext,
   getAutoNextPauseOnAnswer,
+  getReadingSize,
   getSetting,
+  getThemePreference,
   hasSeenWelcome,
   isTipDismissed,
   markWelcomeSeen,
   resetTips,
   setAutoNext,
   setAutoNextPauseOnAnswer,
+  setReadingSize,
   setSetting,
+  setThemePreference,
   SETTINGS,
 } from '@/data/settings';
 import { createTestDb } from '@/test-utils/test-db';
@@ -77,5 +81,21 @@ describe('pause on answer', () => {
     expect(await getAutoNextPauseOnAnswer(db, 'deck-2')).toBe(false);
     await setAutoNextPauseOnAnswer(db, 'deck-1', false);
     expect(await getAutoNextPauseOnAnswer(db, 'deck-1')).toBe(false);
+  });
+
+  it('uses Medium text until another size is picked', async () => {
+    expect(await getReadingSize(db)).toBe('base');
+    await setReadingSize(db, 'xl');
+    expect(await getReadingSize(db)).toBe('xl');
+    await setSetting(db, SETTINGS.readingSize, 'huge'); // unknown value
+    expect(await getReadingSize(db)).toBe('base');
+  });
+
+  it("follows the phone's theme until light or dark is picked", async () => {
+    expect(await getThemePreference(db)).toBe('system');
+    await setThemePreference(db, 'dark');
+    expect(await getThemePreference(db)).toBe('dark');
+    await setSetting(db, SETTINGS.theme, 'purple'); // unknown value
+    expect(await getThemePreference(db)).toBe('system');
   });
 });

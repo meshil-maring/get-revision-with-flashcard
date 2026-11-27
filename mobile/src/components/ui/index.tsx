@@ -7,6 +7,8 @@ import { Pressable, Text, View } from 'react-native';
 
 import { RATING_LABELS, type RatingFilter } from '@/lib/revision';
 
+import { lightColors, useColors } from './theme';
+
 export type IconName = ComponentProps<typeof Ionicons>['name'];
 type SubjectIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -21,26 +23,12 @@ export function scaled(size: number) {
   return Math.round(size * SCALE);
 }
 
-// Same values as global.css, for places that need a colour value (icons, headers).
-export const colors = {
-  primary: '#2f6bd8',
-  primarySoft: '#e6eefc',
-  calm: '#23988a',
-  calmSoft: '#def3ef',
-  cta: '#f08a24',
-  alert: '#dc3b3b',
-  warning: '#f2a516',
-  page: '#f9fafb',
-  surface: '#eef1f5',
-  line: '#e1e5eb',
-  ink: '#1f2933',
-  muted: '#5c6773',
-  faint: '#9aa4b0',
-  white: '#ffffff',
-};
+// Colour values for icons, headers and inline styles, for the light or dark theme (theme.ts).
+export { darkColors, lightColors, useColors, type Colors } from './theme';
 
-export function Icon({ name, size = 20, color = colors.ink }: { name: IconName; size?: number; color?: string }) {
-  return <Ionicons name={name} size={scaled(size)} color={color} />;
+export function Icon({ name, size = 20, color }: { name: IconName; size?: number; color?: string }) {
+  const colors = useColors();
+  return <Ionicons name={name} size={scaled(size)} color={color ?? colors.ink} />;
 }
 
 // --- Buttons ---------------------------------------------------------------
@@ -56,6 +44,7 @@ type ButtonProps = {
 };
 
 export function Button({ label, onPress, icon, variant = 'primary', disabled, className = '' }: ButtonProps) {
+  const colors = useColors();
   const filled = variant !== 'secondary';
   const color = disabled ? colors.faint : filled ? colors.white : colors.ink;
   return (
@@ -70,7 +59,7 @@ export function Button({ label, onPress, icon, variant = 'primary', disabled, cl
             ? 'bg-cta active:bg-cta-dark'
             : variant === 'primary'
               ? 'bg-primary active:bg-primary-dark'
-              : 'border border-line bg-white active:bg-surface'
+              : 'border border-line bg-card active:bg-surface'
       } ${className}`}
     >
       {icon ? <Icon name={icon} size={20} color={color} /> : null}
@@ -97,6 +86,7 @@ export function IconButton({
   label: string; // for screen readers
   tone?: 'default' | 'danger' | 'favorite';
 }) {
+  const colors = useColors();
   return (
     <Pressable
       onPress={onPress}
@@ -112,6 +102,7 @@ export function IconButton({
 
 /** The floating "+" button in the bottom-right corner. */
 export function Fab({ label, onPress }: { label: string; onPress: () => void }) {
+  const colors = useColors();
   return (
     <Pressable
       onPress={onPress}
@@ -138,6 +129,7 @@ export function EmptyState({
   text: string;
   action?: ReactNode;
 }) {
+  const colors = useColors();
   return (
     <View className="items-center px-8 py-16">
       <View className="mb-5 h-20 w-20 items-center justify-center rounded-3xl bg-primary-soft">
@@ -152,6 +144,7 @@ export function EmptyState({
 
 /** A rounded tag, e.g. "12 cards". */
 export function Pill({ icon, label }: { icon?: IconName; label: string }) {
+  const colors = useColors();
   return (
     <View className="flex-row items-center gap-1 rounded-full bg-surface px-2.5 py-1">
       {icon ? <Icon name={icon} size={13} color={colors.muted} /> : null}
@@ -162,6 +155,7 @@ export function Pill({ icon, label }: { icon?: IconName; label: string }) {
 
 /** A bold section title with an optional ">" link on the right, like "Continue Studying". */
 export function SectionHeader({ title, onMore }: { title: string; onMore?: () => void }) {
+  const colors = useColors();
   return (
     <View className="mb-3 flex-row items-center justify-between">
       <Text className="text-xl font-bold text-ink">{title}</Text>
@@ -200,8 +194,9 @@ export function subjectIcon(name: string): SubjectIconName {
   return SUBJECT_ICONS.find(([pattern]) => pattern.test(name))?.[1] ?? 'book-outline';
 }
 
-export function SubjectIcon({ name, size = 26, color = colors.calm }: { name: string; size?: number; color?: string }) {
-  return <MaterialCommunityIcons name={subjectIcon(name)} size={scaled(size)} color={color} />;
+export function SubjectIcon({ name, size = 26, color }: { name: string; size?: number; color?: string }) {
+  const colors = useColors();
+  return <MaterialCommunityIcons name={subjectIcon(name)} size={scaled(size)} color={color ?? colors.calm} />;
 }
 
 /** A soft teal square with the subject's icon, used for decks everywhere. */
@@ -218,12 +213,12 @@ export function DeckBadge({ name, size = 48 }: { name: string; size?: number }) 
 
 // --- Ratings -----------------------------------------------------------------------
 
-/** Colour per rating: red = hard, amber = OK, teal = easy, gray = not rated yet. */
+/** Colour per rating: red = hard, amber = OK, teal = easy, gray = not rated yet (these read in both themes). */
 export const ratingColors: Record<RatingFilter, string> = {
-  hard: colors.alert,
-  ok: colors.warning,
-  easy: colors.calm,
-  new: colors.faint,
+  hard: lightColors.alert,
+  ok: lightColors.warning,
+  easy: lightColors.calm,
+  new: lightColors.faint,
 };
 
 export const ratingIcons: Record<RatingFilter, IconName> = {

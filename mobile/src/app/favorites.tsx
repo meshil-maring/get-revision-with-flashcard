@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, SectionList, Text, View } from 'react-native';
 
 import { ScreenTip } from '@/components/ui/screen-tip';
-import { Button, colors, DeckBadge, EmptyState, Icon, plural, RatingBadge } from '@/components/ui';
+import { Button, DeckBadge, EmptyState, Icon, plural, RatingBadge, useColors } from '@/components/ui';
 import { listFavoriteCards, setFavorite } from '@/data/cards';
 import type { FavoriteCard } from '@/data/types';
 import { ratingOf } from '@/lib/revision';
@@ -24,6 +24,7 @@ function byDeck(cards: FavoriteCard[]): Section[] {
 
 /** Every favourite card, grouped by the deck it comes from. */
 export default function FavoritesScreen() {
+  const colors = useColors();
   const db = useSQLiteContext();
   const [cards, setCards] = useState<FavoriteCard[] | null>(null); // null = loading
 
@@ -86,7 +87,7 @@ export default function FavoritesScreen() {
           </Pressable>
         )}
         renderItem={({ item: card }) => (
-          <View className="mb-2 flex-row items-center gap-3 rounded-2xl border border-line bg-white p-3.5">
+          <View className="mb-2 flex-row items-center gap-3 rounded-2xl border border-line bg-card p-3.5">
             <View className="flex-1 gap-1">
               <Text className="text-base font-medium text-ink" numberOfLines={3}>
                 {card.front}
@@ -109,7 +110,7 @@ export default function FavoritesScreen() {
       />
 
       {cards.length > 0 ? (
-        <View className="absolute bottom-0 left-0 right-0 border-t border-line bg-white px-4 pb-5 pt-3">
+        <View className="absolute bottom-0 left-0 right-0 border-t border-line bg-card px-4 pb-5 pt-3">
           <View className="w-full max-w-184 self-center">
             <Button
               label={`Revise favourites (${cards.length})`}

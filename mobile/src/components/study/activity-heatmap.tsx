@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { colors, plural, scaled } from '@/components/ui';
+import { plural, scaled, useColors } from '@/components/ui';
 import type { DayActivity } from '@/data/activity';
 import { formatStudyTotal } from '@/hooks/use-study-timer';
 import { addDays, dayKey } from '@/lib/dates';
@@ -17,7 +17,6 @@ const DAY_LABELS: Record<number, string> = { 1: 'Mon', 3: 'Wed', 5: 'Fri' };
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Calm teal shades from "none" to "a lot".
-const LEVEL_COLORS = [colors.line, '#bfe6df', '#86d0c4', '#45b0a2', '#1f8a7d'];
 
 /**
  * 0 = no study, 1–4 = how much: cards reviewed that day, or minutes studied
@@ -58,6 +57,7 @@ type Props = {
 };
 
 export function ActivityHeatmap({ activity, today }: Props) {
+  const colors = useColors();
   const [width, setWidth] = useState(0);
   const [selected, setSelected] = useState<string | null>(null); // tapped day, "YYYY-MM-DD"
 
@@ -150,7 +150,7 @@ export function ActivityHeatmap({ activity, today }: Props) {
                         height: CELL,
                         marginBottom: GAP,
                         borderRadius: scaled(5),
-                        backgroundColor: future ? 'transparent' : LEVEL_COLORS[level],
+                        backgroundColor: future ? 'transparent' : colors.heat[level],
                         borderWidth: isSelected ? 2.5 : key === todayKey ? 1.5 : 0,
                         borderColor: isSelected ? colors.primary : colors.ink,
                       }}
@@ -164,7 +164,7 @@ export function ActivityHeatmap({ activity, today }: Props) {
           {/* The tapped day */}
           <View
             accessibilityLiveRegion="polite"
-            className="mt-1 flex-row items-center justify-between rounded-2xl bg-white px-3 py-2"
+            className="mt-1 flex-row items-center justify-between rounded-2xl bg-card px-3 py-2"
           >
             <Text className="text-sm font-semibold text-ink">{dayTitle(selectedDay, today)}</Text>
             <Text className="text-sm text-ink">{describeDay(activity.get(selectedKey))}</Text>
@@ -181,7 +181,7 @@ export function ActivityHeatmap({ activity, today }: Props) {
             </Text>
             <View className="flex-row items-center" style={{ gap: GAP }}>
               <Text className="text-xs text-muted">Less</Text>
-              {LEVEL_COLORS.map((color) => (
+              {colors.heat.map((color) => (
                 <View
                   key={color}
                   style={{ width: CELL, height: CELL, borderRadius: scaled(5), backgroundColor: color }}

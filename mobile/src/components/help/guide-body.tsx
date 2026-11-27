@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
-import { colors, Icon, ratingColors, ratingIcons, type IconName } from '@/components/ui';
+import { Icon, ratingColors, ratingIcons, type IconName, useColors } from '@/components/ui';
 import { parseRichText, type Block, type Span } from '@/lib/rich-text';
 
 // Lays out a help topic (see src/lib/guide.ts) as a page rather than plain text:
@@ -100,12 +100,13 @@ const RATING_WORDS: Record<string, keyof typeof ratingColors> = { hard: 'hard', 
 // --- Page ----------------------------------------------------------------------
 
 export function GuideBody({ text }: { text: string }) {
+  const colors = useColors();
   const { intro, sections } = splitSections(text);
   return (
     <View className="gap-4">
       {intro.length > 0 ? <Intro blocks={intro} /> : null}
       {sections.map((section, i) => (
-        <View key={i} className="rounded-3xl border border-line bg-white p-5 shadow-sm">
+        <View key={i} className="rounded-3xl border border-line bg-card p-5 shadow-sm">
           <View className="mb-3 flex-row items-center gap-2.5">
             <Icon name={sectionIcon(section.title)} size={30} color={colors.calm} />
             <Text className="flex-1 text-xl font-extrabold text-ink" accessibilityRole="header">
@@ -121,12 +122,13 @@ export function GuideBody({ text }: { text: string }) {
 
 /** The opening lines, in a soft blue box with a little flashcard drawing. */
 function Intro({ blocks }: { blocks: Block[] }) {
+  const colors = useColors();
   return (
     <View className="flex-row items-center gap-4 rounded-3xl bg-primary-soft p-4">
       <View className="h-16 w-16 items-center justify-center" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <View
           style={{ transform: [{ rotate: '-12deg' }] }}
-          className="absolute left-0 top-1 h-10 w-10 items-center justify-center rounded-xl border-2 border-primary bg-white">
+          className="absolute left-0 top-1 h-10 w-10 items-center justify-center rounded-xl border-2 border-primary bg-card">
           <Text className="text-lg font-extrabold text-primary">?</Text>
         </View>
         <View
@@ -194,6 +196,7 @@ function Steps({ blocks }: { blocks: Block[] }) {
 
 /** "- **Label**: meaning" becomes a labelled row; other bullets stay as bullets. */
 function Rows({ blocks }: { blocks: Block[] }) {
+  const colors = useColors();
   return (
     <View>
       {blocks.map((block, i) => {
@@ -243,6 +246,7 @@ function isTip(block: Block) {
 }
 
 function Tip({ block }: { block: Block }) {
+  const colors = useColors();
   const [label, ...rest] = block.spans;
   if (rest[0]) rest[0] = { ...rest[0], text: capitalize(rest[0].text.trimStart()) };
   return (
@@ -258,6 +262,7 @@ function Tip({ block }: { block: Block }) {
 
 /** Bold words become tinted chips; Hard / OK / Easy / New use their rating colours. */
 function Spans({ spans, chips }: { spans: Span[]; chips: boolean }): ReactNode {
+  const colors = useColors();
   return spans.map((span, i) => {
     const style = [span.italic ? 'italic' : '', span.underline ? 'underline' : ''].join(' ');
     if (span.bold) {

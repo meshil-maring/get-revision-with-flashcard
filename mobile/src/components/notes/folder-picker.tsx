@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, Icon, scaled } from '@/components/ui';
+import { Icon, scaled, useColors } from '@/components/ui';
 import { compareNames, listAllFolders, pathFromFolders } from '@/data/folders';
 
 type Place = { id: string | null; label: string; depth: number };
@@ -27,6 +27,7 @@ export function FolderPicker({
   onPick: (folderId: string | null) => void;
   onClose: () => void;
 }) {
+  const colors = useColors();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [places, setPlaces] = useState<Place[] | null>(null);

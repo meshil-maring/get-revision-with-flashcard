@@ -10,7 +10,7 @@ import {
   type TextStyle,
 } from 'react-native';
 
-import { colors } from '@/components/ui';
+import { useColors } from '@/components/ui';
 
 // Browsers draw their own focus ring over the input; we show a primary-colour border instead.
 // ('none' works on web but isn't in React Native's types.)
@@ -65,6 +65,7 @@ function Form({
   onCancel,
   onSave,
 }: Omit<Props, 'visible' | 'initialValues'> & { initialValues: Values }) {
+  const colors = useColors();
   const [values, setValues] = useState<Values>(() =>
     Object.fromEntries(fields.map((f) => [f.key, initialValues[f.key] ?? ''])),
   );
@@ -72,7 +73,7 @@ function Form({
   const canSave = fields.every((f) => !f.required || values[f.key].trim().length > 0);
 
   return (
-    <View className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+    <View className="w-full max-w-md rounded-3xl bg-card p-6 shadow-xl">
       <Text className="mb-5 text-xl font-bold text-ink">{title}</Text>
 
       {fields.map((field, index) => (
@@ -96,7 +97,7 @@ function Form({
               ...NO_WEB_FOCUS_RING,
               borderWidth: 1.5,
               borderColor: focused === field.key ? colors.primary : colors.line,
-              backgroundColor: focused === field.key ? colors.white : colors.surface,
+              backgroundColor: focused === field.key ? colors.card : colors.surface,
             }}
             className={`rounded-xl px-4 py-3 text-base text-ink ${
               field.multiline ? 'min-h-24' : ''

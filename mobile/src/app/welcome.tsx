@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, colors, Icon, type IconName } from '@/components/ui';
+import { Button, Icon, type IconName, lightColors, useColors } from '@/components/ui';
 import { markWelcomeSeen } from '@/data/settings';
 
 type Point = { icon: IconName; color: string; text: string };
@@ -14,52 +14,53 @@ type Page = { icon: IconName; color: string; title: string; text: string; points
 const WELCOME_PAGES: Page[] = [
   {
     icon: 'school',
-    color: colors.primary,
+    color: lightColors.primary,
     title: 'Welcome to StudyMe',
     text: 'Make flashcards, study them, and revise smarter. Here is how it works in four quick steps.',
     points: [
-      { icon: 'layers-outline', color: colors.primary, text: 'Keep your cards in decks, one per subject' },
-      { icon: 'flash-outline', color: colors.cta, text: 'Test yourself, then rate how well you knew it' },
-      { icon: 'flame-outline', color: colors.alert, text: 'Study a little every day to build a streak' },
+      { icon: 'layers-outline', color: lightColors.primary, text: 'Keep your cards in decks, one per subject' },
+      { icon: 'flash-outline', color: lightColors.cta, text: 'Test yourself, then rate how well you knew it' },
+      { icon: 'flame-outline', color: lightColors.alert, text: 'Study a little every day to build a streak' },
     ],
   },
   {
     icon: 'albums',
-    color: colors.calm,
+    color: lightColors.calm,
     title: 'Make your cards',
     text: 'Create a deck in the Flashcards tab (or with the + button), then add cards to it.',
     points: [
-      { icon: 'help-circle-outline', color: colors.primary, text: 'Put a question on the front and the answer on the back' },
-      { icon: 'text-outline', color: colors.calm, text: 'Format answers with headings, bold, underline, highlights and lists' },
-      { icon: 'attach-outline', color: colors.cta, text: 'Attach pictures, PDFs, or record your voice' },
+      { icon: 'help-circle-outline', color: lightColors.primary, text: 'Put a question on the front and the answer on the back' },
+      { icon: 'text-outline', color: lightColors.calm, text: 'Format answers with headings, bold, underline, highlights and lists' },
+      { icon: 'attach-outline', color: lightColors.cta, text: 'Attach pictures, PDFs, or record your voice' },
     ],
   },
   {
     icon: 'eye',
-    color: colors.cta,
+    color: lightColors.cta,
     title: 'Study and rate',
     text: 'Press ▶ on a deck. Try to remember the answer before you look.',
     points: [
-      { icon: 'eye-outline', color: colors.primary, text: 'Tap Show answer (or the card) to turn it over' },
-      { icon: 'alert-circle', color: colors.alert, text: 'Rate it Hard, OK or Easy, so the app knows what to bring back' },
-      { icon: 'star', color: colors.warning, text: 'Tap the star to keep a card in your Favourites' },
+      { icon: 'eye-outline', color: lightColors.primary, text: 'Tap Show answer (or the card) to turn it over' },
+      { icon: 'alert-circle', color: lightColors.alert, text: 'Rate it Hard, OK or Easy, so the app knows what to bring back' },
+      { icon: 'star', color: lightColors.warning, text: 'Tap the star to keep a card in your Favourites' },
     ],
   },
   {
     icon: 'git-merge',
-    color: colors.primary,
+    color: lightColors.primary,
     title: 'Revise smarter',
     text: 'Use Create revision to mix decks into one session, and focus on what you need.',
     points: [
-      { icon: 'funnel-outline', color: colors.primary, text: 'Pick only Hard cards, new ones, or your favourites' },
-      { icon: 'stats-chart-outline', color: colors.calm, text: 'At the end, see how it went, grouped by rating' },
-      { icon: 'refresh', color: colors.cta, text: 'Revise the cards you pick again, straight away' },
+      { icon: 'funnel-outline', color: lightColors.primary, text: 'Pick only Hard cards, new ones, or your favourites' },
+      { icon: 'stats-chart-outline', color: lightColors.calm, text: 'At the end, see how it went, grouped by rating' },
+      { icon: 'refresh', color: lightColors.cta, text: 'Revise the cards you pick again, straight away' },
     ],
   },
 ];
 
 /** The welcome tour: shown once on first launch, and again from More → App tour. */
 export default function WelcomeScreen() {
+  const colors = useColors();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(0);
@@ -106,7 +107,7 @@ export default function WelcomeScreen() {
 
         <View className="gap-3">
           {page.points.map((point) => (
-            <View key={point.text} className="flex-row items-center gap-3 rounded-2xl bg-white p-3.5">
+            <View key={point.text} className="flex-row items-center gap-3 rounded-2xl bg-card p-3.5">
               <View
                 className="h-10 w-10 items-center justify-center rounded-xl"
                 style={{ backgroundColor: `${point.color}1f` }}
@@ -139,7 +140,7 @@ export default function WelcomeScreen() {
               onPress={() => setIndex(index - 1)}
               accessibilityRole="button"
               accessibilityLabel="Back"
-              className="h-14 w-14 items-center justify-center rounded-2xl border border-line bg-white active:bg-surface"
+              className="h-14 w-14 items-center justify-center rounded-2xl border border-line bg-card active:bg-surface"
             >
               <Icon name="arrow-back" size={22} color={colors.ink} />
             </Pressable>

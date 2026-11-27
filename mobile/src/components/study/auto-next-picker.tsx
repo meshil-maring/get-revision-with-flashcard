@@ -11,7 +11,7 @@ import {
   type TextStyle,
 } from 'react-native';
 
-import { colors, Icon, type IconName } from '@/components/ui';
+import { Icon, type IconName, useColors } from '@/components/ui';
 import { AUTO_NEXT_MAX, AUTO_NEXT_MIN, AUTO_NEXT_OPTIONS } from '@/data/settings';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
@@ -77,6 +77,7 @@ function Picker({
   onChange,
   onClose,
 }: Omit<Props, 'visible'>) {
+  const colors = useColors();
   // The last custom time goes first, unless it's already one of the usual choices.
   const showRecent = recent > 0 && !AUTO_NEXT_OPTIONS.includes(recent);
   const isCustomValue = value > 0 && !AUTO_NEXT_OPTIONS.includes(value) && !(showRecent && value === recent);
@@ -92,7 +93,7 @@ function Picker({
   }
 
   return (
-    <View className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+    <View className="w-full max-w-sm rounded-3xl bg-card p-6 shadow-xl">
       <View className="mb-1 flex-row items-center gap-2">
         <Icon name="timer-outline" size={28} color={colors.primary} />
         <Text className="text-xl font-bold text-ink">Time per card</Text>
@@ -195,6 +196,7 @@ function Chip({
   icon?: IconName;
   hint?: string;
 }) {
+  const colors = useColors();
   return (
     <Pressable
       onPress={onPress}
@@ -203,7 +205,7 @@ function Chip({
       accessibilityLabel={label}
       accessibilityHint={hint}
       className={`min-w-24 flex-grow flex-row items-center justify-center gap-1.5 rounded-2xl border px-3 py-3 ${
-        chosen ? 'border-primary bg-primary' : 'border-line bg-white active:bg-surface'
+        chosen ? 'border-primary bg-primary' : 'border-line bg-card active:bg-surface'
       }`}
     >
       {icon ? <Icon name={icon} size={18} color={chosen ? colors.white : colors.primary} /> : null}
@@ -225,6 +227,7 @@ function TimeBox({
   onChangeText: (text: string) => void;
   autoFocus?: boolean;
 }) {
+  const colors = useColors();
   return (
     <View className="flex-row items-center gap-1">
       <TextInput
@@ -253,7 +256,7 @@ function TimeBox({
           paddingHorizontal: 2,
           includeFontPadding: false,
         }}
-        className="rounded-lg border border-line bg-white"
+        className="rounded-lg border border-line bg-card"
       />
       <Text className="text-xs font-semibold text-muted">{unit}</Text>
     </View>

@@ -1,7 +1,7 @@
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, Icon, scaled, type IconName } from '@/components/ui';
+import { Icon, scaled, type IconName, useColors } from '@/components/ui';
 
 export type SheetAction = { icon: IconName; label: string; onPress: () => void; tone?: 'default' | 'danger' };
 
@@ -17,6 +17,7 @@ export function ActionSheet({
   actions: SheetAction[];
   onClose: () => void;
 }) {
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

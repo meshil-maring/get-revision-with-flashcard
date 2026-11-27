@@ -3,7 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native';
 
-import { colors, EmptyState, Icon } from '@/components/ui';
+import { EmptyState, Icon, useColors } from '@/components/ui';
 import { resetTips } from '@/data/settings';
 import { GUIDE_SECTIONS, searchGuide, type GuideTopic } from '@/lib/guide';
 
@@ -11,6 +11,7 @@ const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 
 /** Help & guide: every topic of the user guide, with a search box. */
 export default function HelpScreen() {
+  const colors = useColors();
   const db = useSQLiteContext();
   const [query, setQuery] = useState('');
   const [tipsReset, setTipsReset] = useState(false);
@@ -40,7 +41,7 @@ export default function HelpScreen() {
         </View>
       </View>
 
-      <View className="mb-5 flex-row items-center gap-2 rounded-2xl border border-line bg-white px-4">
+      <View className="mb-5 flex-row items-center gap-2 rounded-2xl border border-line bg-card px-4">
         <Icon name="search-outline" size={20} color={colors.muted} />
         <TextInput
           value={query}
@@ -96,6 +97,7 @@ export default function HelpScreen() {
 }
 
 function TopicGroup({ title, topics }: { title: string; topics: GuideTopic[] }) {
+  const colors = useColors();
   if (topics.length === 0) return null;
   return (
     <View className="mb-6">
@@ -108,7 +110,7 @@ function TopicGroup({ title, topics }: { title: string; topics: GuideTopic[] }) 
             accessibilityRole="button"
             className={`flex-row items-center gap-4 p-4 active:bg-line ${i > 0 ? 'border-t border-line' : ''}`}
           >
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-white">
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-card">
               <Icon name={topic.icon} size={22} color={colors.primary} />
             </View>
             <View className="flex-1">

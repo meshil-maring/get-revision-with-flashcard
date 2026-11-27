@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
 import { ScreenTip } from '@/components/ui/screen-tip';
-import { Button, colors, DeckBadge, EmptyState, Icon, plural, ratingColors, ratingIcons } from '@/components/ui';
+import { Button, DeckBadge, EmptyState, Icon, plural, ratingColors, ratingIcons, useColors } from '@/components/ui';
 import { listCardsForDecks } from '@/data/cards';
 import { listDecks } from '@/data/decks';
 import type { Card, DeckWithCount } from '@/data/types';
@@ -133,7 +133,7 @@ export default function NewRevisionScreen() {
               onPress={() => toggle(deck.id)}
               accessibilityRole="checkbox"
               accessibilityState={{ checked, disabled: empty }}
-              className={`flex-row items-center gap-3 rounded-2xl border-2 bg-white p-3.5 ${
+              className={`flex-row items-center gap-3 rounded-2xl border-2 bg-card p-3.5 ${
                 checked ? 'border-primary' : 'border-transparent'
               } ${empty ? 'opacity-50' : 'active:bg-surface'}`}
             >
@@ -163,7 +163,7 @@ export default function NewRevisionScreen() {
       />
 
       {decks.length > 0 ? (
-        <View className="absolute bottom-0 left-0 right-0 border-t border-line bg-white px-4 pb-5 pt-3">
+        <View className="absolute bottom-0 left-0 right-0 border-t border-line bg-card px-4 pb-5 pt-3">
           <View className="w-full max-w-184 self-center">
             <Text className="mb-2 text-center text-sm text-muted">
               {selected.length === 0
@@ -192,8 +192,9 @@ function RevisionFilter({
   favoritesOnly: boolean;
   onToggleFavorites: () => void;
 }) {
+  const colors = useColors();
   return (
-    <View className="mb-4 rounded-2xl border border-line bg-white p-3.5">
+    <View className="mb-4 rounded-2xl border border-line bg-card p-3.5">
       <Text className="mb-1 text-base font-bold text-ink">Which cards?</Text>
       <Text className="mb-3 text-sm text-muted">Based on how you rated them last time.</Text>
       <View className="mb-3 flex-row flex-wrap gap-2">
@@ -228,7 +229,7 @@ function RevisionFilter({
         <Icon name={favoritesOnly ? 'star' : 'star-outline'} size={20} color={favoritesOnly ? colors.warning : colors.muted} />
         <Text className="flex-1 text-sm font-semibold text-ink">Favourites only</Text>
         <View className={`h-6 w-11 justify-center rounded-full px-0.5 ${favoritesOnly ? 'bg-primary' : 'bg-line'}`}>
-          <View className={`h-5 w-5 rounded-full bg-white ${favoritesOnly ? 'self-end' : 'self-start'}`} />
+          <View className={`h-5 w-5 rounded-full bg-card ${favoritesOnly ? 'self-end' : 'self-start'}`} />
         </View>
       </Pressable>
     </View>

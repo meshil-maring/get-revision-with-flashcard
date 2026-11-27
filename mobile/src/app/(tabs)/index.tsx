@@ -6,15 +6,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScreenTip } from '@/components/ui/screen-tip';
-import {
-  colors,
-  DeckBadge,
-  Icon,
-  plural,
-  scaled,
-  SectionHeader,
-  SubjectIcon,
-} from '@/components/ui';
+import { DeckBadge, Icon, plural, scaled, SectionHeader, SubjectIcon, useColors } from '@/components/ui';
 import { ActivityHeatmap } from '@/components/study/activity-heatmap';
 import { listActivity, type DayActivity } from '@/data/activity';
 import { listDecks, pickContinueDeck } from '@/data/decks';
@@ -25,6 +17,7 @@ import { currentStreak, dayKey, longestStreak } from '@/lib/dates';
 const NEW_DECK: Href = { pathname: '/flashcards', params: { new: 'deck' } };
 
 export default function HomeScreen() {
+  const colors = useColors();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [decks, setDecks] = useState<DeckWithCount[]>([]);
@@ -159,6 +152,7 @@ export default function HomeScreen() {
 }
 
 function Consistency({ activity }: { activity: Map<string, DayActivity> }) {
+  const colors = useColors();
   const today = new Date();
   const studiedDays = new Set(activity.keys());
   const streak = currentStreak(studiedDays, today);
@@ -174,7 +168,7 @@ function Consistency({ activity }: { activity: Map<string, DayActivity> }) {
   return (
     <View className="rounded-3xl bg-surface p-4">
       <View className="mb-4 flex-row items-center gap-3">
-        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
+        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-card">
           <Icon name="flame" size={28} color={streak > 0 ? colors.cta : colors.faint} />
         </View>
         <View className="flex-1">
@@ -210,6 +204,7 @@ function SubjectTile({ deck, fill = false }: { deck: DeckWithCount; fill?: boole
 }
 
 function AddSubjectTile({ fill = false }: { fill?: boolean }) {
+  const colors = useColors();
   return (
     <Pressable
       onPress={() => router.navigate(NEW_DECK)}

@@ -12,7 +12,7 @@ import {
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, Icon } from '@/components/ui';
+import { Icon, useColors } from '@/components/ui';
 
 export type ViewerImage = { key: string; uri: string; name: string; caption?: string | null; altText?: string | null };
 
@@ -175,6 +175,7 @@ export function ImageViewer({
 }
 
 function ViewerButton({ icon, label, onPress }: { icon: 'add' | 'remove' | 'close' | 'chevron-back' | 'chevron-forward'; label: string; onPress: () => void }) {
+  const colors = useColors();
   return (
     <Pressable
       onPress={onPress}

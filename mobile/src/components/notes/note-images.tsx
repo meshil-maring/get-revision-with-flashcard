@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
-import { colors, Icon } from '@/components/ui';
+import { Icon, useColors } from '@/components/ui';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { NoteImageProvider } from '@/components/ui/rich-text';
 import type { Note, NoteAttachment } from '@/data/types';
@@ -96,6 +96,7 @@ export function NoteImages({ images }: { images: NoteAttachment[] }) {
 }
 
 function Figure({ image, sync, onOpen }: { image: NoteAttachment; sync: ImageSyncState; onOpen: () => void }) {
+  const colors = useColors();
   const [ratio, setRatio] = useState(4 / 3);
   const [failed, setFailed] = useState(false);
   const description = image.altText || image.caption || image.name || 'Image';
@@ -131,6 +132,7 @@ function Figure({ image, sync, onOpen }: { image: NoteAttachment; sync: ImageSyn
 }
 
 function Downloading({ sync, name }: { sync: ImageSyncState; name: string }) {
+  const colors = useColors();
   return (
     <View
       className="items-center gap-2 rounded-2xl border border-dashed border-line bg-surface px-4 py-8"
@@ -155,6 +157,7 @@ function Downloading({ sync, name }: { sync: ImageSyncState; name: string }) {
 
 /** A picture only on this device: it uploads with the next sync (or failed to). */
 function NotUploaded({ error }: { error: string | null }) {
+  const colors = useColors();
   return (
     <View className="flex-row items-center gap-1.5 px-1">
       <Icon name={error ? 'alert-circle-outline' : 'cloud-upload-outline'} size={14} color={error ? colors.alert : colors.muted} />

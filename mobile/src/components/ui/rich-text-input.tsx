@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native';
 
 import { RichText } from '@/components/ui/rich-text';
-import { colors, scaled } from '@/components/ui';
+import { scaled, useColors } from '@/components/ui';
 import { insertBox, insertTable, toggleLinePrefix, wrapSelection, type Edit, type Selection } from '@/lib/rich-text';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
@@ -46,10 +46,11 @@ export function RichTextInput({
   value,
   onChangeText,
   placeholder,
-  accent = colors.primary,
+  accent,
   label = 'Answer',
   compact = false,
 }: Props) {
+  const colors = useColors();
   const minHeight = compact ? 'min-h-20' : 'min-h-32';
   const selection = useRef<Selection>({ start: value.length, end: value.length });
   // Set only right after a toolbar edit, to put the cursor in the right place; then let the user move it.
@@ -67,7 +68,7 @@ export function RichTextInput({
   return (
     <View
       className="overflow-hidden rounded-xl"
-      style={{ borderWidth: 1.5, borderColor: focused ? accent : colors.line }}
+      style={{ borderWidth: 1.5, borderColor: focused ? (accent ?? colors.primary) : colors.line }}
     >
       <View className="flex-row items-center border-b border-line bg-surface">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="px-1" keyboardShouldPersistTaps="always">
@@ -89,7 +90,7 @@ export function RichTextInput({
           accessibilityRole="switch"
           accessibilityLabel="Preview"
           accessibilityState={{ checked: preview }}
-          className={`mx-1 flex-row items-center gap-1 rounded-full border px-2.5 py-1.5 ${preview ? 'border-primary bg-primary' : 'border-line bg-white'}`}
+          className={`mx-1 flex-row items-center gap-1 rounded-full border px-2.5 py-1.5 ${preview ? 'border-primary bg-primary' : 'border-line bg-card'}`}
         >
           <MaterialCommunityIcons name={preview ? 'pencil-outline' : 'eye-outline'} size={scaled(24)} color={preview ? colors.white : colors.primary} />
           <Text className={`text-xs font-bold ${preview ? 'text-white' : 'text-primary'}`}>{preview ? 'Edit' : 'Preview'}</Text>
@@ -97,7 +98,7 @@ export function RichTextInput({
       </View>
 
       {preview ? (
-        <View className={`${minHeight} bg-white px-4 py-3`}>
+        <View className={`${minHeight} bg-card px-4 py-3`}>
           {value.trim() ? <RichText text={value} /> : <Text className="text-base text-muted">Nothing to preview yet</Text>}
         </View>
       ) : (
@@ -117,7 +118,7 @@ export function RichTextInput({
           onBlur={() => setFocused(false)}
           accessibilityLabel={label}
           style={NO_WEB_FOCUS_RING}
-          className={`${minHeight} bg-white px-4 py-3 text-base text-ink`}
+          className={`${minHeight} bg-card px-4 py-3 text-base text-ink`}
         />
       )}
     </View>

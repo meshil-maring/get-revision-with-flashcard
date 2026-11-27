@@ -11,7 +11,7 @@ import {
   type TextStyle,
 } from "react-native";
 
-import { Button, colors, Icon, type IconName } from "@/components/ui";
+import { Button, Icon, type IconName, useColors } from "@/components/ui";
 import { useAccount } from "@/providers/account";
 import { authClient } from "@/services/auth-client";
 import { confirm } from "@/lib/confirm";
@@ -29,6 +29,7 @@ const PROVIDERS: Record<SocialProvider, { label: string; icon: IconName }> = {
 
 /** URL: /account — sign in, or see the account and its sync. */
 export default function AccountScreen() {
+  const colors = useColors();
   const { user, isPending } = useAccount();
   if (isPending) {
     return (
@@ -43,6 +44,7 @@ export default function AccountScreen() {
 // --- signed in ---------------------------------------------------------------------
 
 function SignedIn() {
+  const colors = useColors();
   const { user, syncStatus, syncError, lastSyncedAt, syncNow, signOut } =
     useAccount();
   const [signingOut, setSigningOut] = useState(false);
@@ -155,6 +157,7 @@ function Field(props: {
   keyboard?: "email-address" | "default";
   autoComplete?: "email" | "password" | "new-password" | "name";
 }) {
+  const colors = useColors();
   const [focused, setFocused] = useState(false);
   const [shown, setShown] = useState(false);
   return (
@@ -181,7 +184,7 @@ function Field(props: {
             ...NO_WEB_FOCUS_RING,
             borderWidth: 1.5,
             borderColor: focused ? colors.primary : colors.line,
-            backgroundColor: focused ? colors.white : colors.surface,
+            backgroundColor: focused ? colors.card : colors.surface,
           }}
           className={`rounded-xl px-4 py-3 text-base text-ink ${props.secure ? "pr-14" : ""}`}
         />
@@ -206,6 +209,7 @@ function Field(props: {
 }
 
 function SignInForm() {
+  const colors = useColors();
   const [mode, setMode] = useState<Mode>("sign-in");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -379,7 +383,7 @@ function SignInForm() {
               onPress={() => switchMode(m)}
               accessibilityRole="tab"
               accessibilityState={{ selected: mode === m }}
-              className={`flex-1 items-center rounded-xl py-2.5 ${mode === m ? "bg-white" : ""}`}
+              className={`flex-1 items-center rounded-xl py-2.5 ${mode === m ? "bg-card" : ""}`}
             >
               <Text
                 className={`text-base font-semibold ${mode === m ? "text-ink" : "text-muted"}`}

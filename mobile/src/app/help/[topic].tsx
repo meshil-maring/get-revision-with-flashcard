@@ -2,11 +2,12 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { GuideBody } from '@/components/help/guide-body';
-import { colors, EmptyState, Icon } from '@/components/ui';
+import { EmptyState, Icon, useColors } from '@/components/ui';
 import { findTopic, GUIDE_TOPICS } from '@/lib/guide';
 
 /** One topic of the user guide, with links to the previous and next topic. */
 export default function HelpTopicScreen() {
+  const colors = useColors();
   const { topic: topicId } = useLocalSearchParams<{ topic: string }>();
   const topic = findTopic(topicId);
 
@@ -71,6 +72,7 @@ function NavButton({
   title: string;
   onPress: () => void;
 }) {
+  const colors = useColors();
   const isNext = direction === 'next';
   return (
     <Pressable
@@ -78,7 +80,7 @@ function NavButton({
       accessibilityRole="button"
       accessibilityLabel={`${isNext ? 'Next' : 'Previous'}: ${title}`}
       className={`flex-1 justify-center gap-1 rounded-2xl p-4 ${
-        isNext ? 'items-end bg-primary shadow-md active:bg-primary-dark' : 'items-start border border-line bg-white active:bg-surface'
+        isNext ? 'items-end bg-primary shadow-md active:bg-primary-dark' : 'items-start border border-line bg-card active:bg-surface'
       }`}
     >
       <View className="flex-row items-center gap-1">

@@ -1,28 +1,26 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AttachmentList } from '@/components/cards/attachments';
 import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
 import { FocusReader } from '@/components/notes/focus-reader';
+import { ArticleHeader, ArticleNote, CornellPaper } from '@/components/notes/note-layouts';
 import { NoteImages, NoteImagesProvider, placedImageIds, type ImageSyncState } from '@/components/notes/note-images';
 import { ReadAloudButton, ReadAloudPlayer, useReadAloud } from '@/components/notes/read-aloud';
 import { PatrickHand_400Regular, useFonts } from '@expo-google-fonts/patrick-hand';
 
 import { ActionSheet } from '@/components/ui/action-sheet';
 import {
-  CHIP_YELLOW,
-  NOTE_PURPLE,
   NoteLookProvider,
-  RichText,
   useNoteFont,
   type NoteLook,
 } from '@/components/ui/rich-text';
 import { TagChip } from '@/components/tags/tag-chip';
-import { Button, colors, EmptyState, Icon, IconButton } from '@/components/ui';
+import { Button, EmptyState, Icon, IconButton, useColors } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
 import { deleteNote, getNote, listNoteAttachments, listNotes, setNoteFavorite } from '@/data/notes';
 import { getNoteHandwriting, setNoteHandwriting } from '@/data/settings';
@@ -43,6 +41,8 @@ export default function NoteScreen() {
   const [attachments, setAttachments] = useState<NoteAttachment[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The page scrolls to a section when one is picked from a plain note's contents.
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   // The other notes in the same folder (or at the top level), in the order they're listed, for Previous / Next.
   const [siblings, setSiblings] = useState<Note[]>([]);
   const [focus, setFocus] = useState(startInFocus === '1');
@@ -122,7 +122,8 @@ export default function NoteScreen() {
   const next = position >= 0 && position < siblings.length - 1 ? siblings[position + 1] : null;
   const look: NoteLook = cornell
     ? { cornell: true, font: handwriting && fontLoaded ? 'PatrickHand_400Regular' : undefined }
-    : {};
+    : { article: true };
+  const plainBody = bodyWithoutTitle(current.body, current.title);
 
   async function toggleHandwriting() {
     await setNoteHandwriting(db, !handwriting);
@@ -187,10 +188,14 @@ export default function NoteScreen() {
 
       <NoteLookProvider look={look}>
       <NoteImagesProvider images={images} sync={imageSync}>
-      <ScrollView contentContainerClassName="w-full max-w-3xl self-center gap-4 px-5 pb-8 pt-2">
+      <ScrollView ref={scroll} contentContainerClassName="w-full max-w-3xl self-center gap-4 px-5 pb-8 pt-2">
         <View className="gap-1">
           <FolderPath path={path} prefix="Notes" />
-          <NoteTitle title={current.title} cornell={cornell} />
+          {!cornell ? (
+            <ArticleHeader title={current.title} body={plainBody} />
+          ) : isEmpty ? (
+            <NoteTitle title={current.title} />
+          ) : null}
           {cornell || current.createdBy ? (
             <View className="mt-1 flex-row gap-2">
               {cornell ? (
@@ -224,11 +229,9 @@ export default function NoteScreen() {
             </Text>
           </Pressable>
         ) : cornell ? (
-          <CornellView note={current} />
+          <CornellPaper note={current} />
         ) : (
-          <View className="rounded-3xl border border-line bg-white p-5">
-            <RichText text={bodyWithoutTitle(current.body, current.title)} />
-          </View>
+          <ArticleNote body={plainBody} onJump={(y) => scroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: true })} />
         )}
 
         {otherImages.length > 0 ? (
@@ -249,7 +252,7 @@ export default function NoteScreen() {
       </NoteImagesProvider>
       </NoteLookProvider>
 
-      <View className="gap-3 border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+      <View className="gap-3 border-t border-line bg-card px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
         <ReadAloudPlayer readAloud={readAloud} />
         <View className="w-full max-w-3xl flex-row items-center gap-2 self-center">
           <Button label="Focus" icon="book-outline" variant="secondary" disabled={isEmpty} onPress={() => setFocus(true)} />
@@ -304,6 +307,7 @@ function NoteSteps({
   total: number;
   inFocus: boolean;
 }) {
+  const colors = useColors();
   const open = (note: Note) =>
     router.replace({ pathname: '/note/[id]', params: inFocus ? { id: note.id, focus: '1' } : { id: note.id } });
   return (
@@ -347,93 +351,19 @@ function NoteSteps({
   );
 }
 
-/** The note's title; on a Cornell note it sits on a yellow highlight, in the note's font. */
-function NoteTitle({ title, cornell }: { title: string; cornell: boolean }) {
+/** An empty Cornell note's title (a Cornell note with content has it on its sheet). */
+function NoteTitle({ title }: { title: string }) {
+  const colors = useColors();
   const font = useNoteFont();
-  if (!cornell) return <Text className="text-3xl font-extrabold text-ink">{title}</Text>;
   return (
     <View className="flex-row">
       <Text
         accessibilityRole="header"
-        className="rounded-lg px-2 py-0.5 text-3xl font-extrabold text-ink"
-        style={[{ backgroundColor: CHIP_YELLOW }, font]}
+        className="rounded-lg px-2 py-0.5 text-3xl font-extrabold"
+        style={[{ backgroundColor: colors.highlight, color: colors.highlightInk }, font]}
       >
         {title}
       </Text>
-    </View>
-  );
-}
-
-/** Lavender behind the cue column and the Summary label, and the yellow of the summary box. */
-const CUE_LAVENDER = '#f6f3ff';
-const SUMMARY_YELLOW = '#fff8d6';
-const SUMMARY_BORDER = '#efd77a';
-const SUMMARY_CHIP = '#e4dcfb';
-
-/**
- * Cornell layout, like a hand-made Cornell page: cue questions (each with a purple ▸) on the
- * left, notes on the right, and the summary in a yellow box along the bottom.
- */
-function CornellView({ note }: { note: Note }) {
-  const font = useNoteFont();
-  return (
-    <View className="gap-3">
-      <View className="overflow-hidden rounded-3xl border-2 border-line bg-white">
-        <View className="flex-row border-b-2 border-line" style={{ backgroundColor: '#fffbe8' }}>
-          <View className="w-1/3 px-3 py-2">
-            <Text className="text-lg font-bold text-ink" style={font}>
-              Cues / Questions
-            </Text>
-          </View>
-          <View className="flex-1 flex-row items-center gap-1.5 border-l-2 border-line px-3 py-2">
-            <Icon name="create-outline" size={20} color={colors.ink} />
-            <Text className="text-lg font-bold text-ink" style={font}>
-              Notes
-            </Text>
-          </View>
-        </View>
-        {note.rows.map((row, i) => (
-          <View key={i} className={`flex-row ${i < note.rows.length - 1 ? 'border-b border-line' : ''}`}>
-            <View className="w-1/3 flex-row gap-1 p-3" style={{ backgroundColor: CUE_LAVENDER }}>
-              {row.cue.trim() ? (
-                <>
-                  <View className="pt-1">
-                    <Icon name="caret-forward" size={18} color={NOTE_PURPLE} />
-                  </View>
-                  <Text className="flex-1 text-base font-semibold text-ink" style={font}>
-                    {row.cue}
-                  </Text>
-                </>
-              ) : null}
-            </View>
-            <View className="flex-1 border-l-2 border-line p-3">
-              <RichText text={row.notes} />
-            </View>
-          </View>
-        ))}
-      </View>
-
-      <View
-        className="flex-row flex-wrap items-start gap-3 rounded-3xl border-2 p-4"
-        style={{ backgroundColor: SUMMARY_YELLOW, borderColor: SUMMARY_BORDER }}
-      >
-        <Text
-          accessibilityRole="header"
-          className="rounded-lg px-2.5 py-0.5 text-xl font-bold text-ink"
-          style={[{ backgroundColor: SUMMARY_CHIP, transform: [{ rotate: '-3deg' }] }, font]}
-        >
-          Summary
-        </Text>
-        <View className="min-w-48 flex-1">
-          {note.summary ? (
-            <RichText text={note.summary} />
-          ) : (
-            <Text className="text-sm text-muted" style={font}>
-              No summary yet. Sum up the page in a few lines.
-            </Text>
-          )}
-        </View>
-      </View>
     </View>
   );
 }

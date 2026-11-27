@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View, type TextStyle } from 'react-native';
 
 import { TagChip } from '@/components/tags/tag-chip';
-import { colors, Icon } from '@/components/ui';
+import { Icon, useColors } from '@/components/ui';
 import type { Tag, TagColor } from '@/data/types';
 import { nextTagColor } from '@/lib/tags';
 
@@ -24,6 +24,7 @@ export function TagPicker({
   selected: TagChoice[];
   onChange: (tags: TagChoice[]) => void;
 }) {
+  const colors = useColors();
   const [text, setText] = useState('');
   const [focused, setFocused] = useState(false);
 
@@ -51,7 +52,7 @@ export function TagPicker({
   }
 
   return (
-    <View className="gap-3 rounded-3xl border border-line bg-white p-4">
+    <View className="gap-3 rounded-3xl border border-line bg-card p-4">
       <View className="flex-row items-center gap-1.5">
         <Icon name="pricetags-outline" size={20} color={colors.ink} />
         <Text className="text-base font-bold text-ink">Tags</Text>

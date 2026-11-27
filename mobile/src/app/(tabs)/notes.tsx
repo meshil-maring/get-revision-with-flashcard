@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FavoriteStar, FolderBadge, FolderBrowser, folderSummary, NoteRow } from '@/components/notes/folder-browser';
 import { ScreenTip } from '@/components/ui/screen-tip';
 import { TagChip } from '@/components/tags/tag-chip';
-import { colors, EmptyState, Icon } from '@/components/ui';
+import { EmptyState, Icon, useColors } from '@/components/ui';
 import { listFavorites, noteText, searchNotes } from '@/data/notes';
 import { listTags, listTagsForNotes, searchTags } from '@/data/tags';
 import type {
@@ -37,6 +37,7 @@ function placeText(path: FolderCrumb[]) {
 
 /** The Notes tab: top-level folders and notes, and search across every note. */
 export default function NotesScreen() {
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const searching = query.trim().length > 0;
@@ -94,6 +95,7 @@ export default function NotesScreen() {
 }
 
 function SearchResults({ query }: { query: string }) {
+  const colors = useColors();
   const db = useSQLiteContext();
   const [results, setResults] = useState<Results | null>(null);
 
@@ -176,6 +178,7 @@ function SearchResults({ query }: { query: string }) {
 
 /** The top of the Notes tab: every tag (tap one to see its notes), then starred folders and notes. */
 function TagsAndFavorites() {
+  const colors = useColors();
   const db = useSQLiteContext();
   const [tags, setTags] = useState<TagWithCount[]>([]);
   const [folders, setFolders] = useState<FavoriteFolder[]>([]);

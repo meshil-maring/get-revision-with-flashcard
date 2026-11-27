@@ -8,27 +8,59 @@
  *   cta (orange)    - actions: Study, Next, Start revision, Save, the + button
  *   alert (red)     - warnings and delete, used sparingly; warning (amber) for reminders
  *   page/surface/ink - off-white and soft gray backgrounds, charcoal text (no pure black)
+ *   card            - raised cards and inputs (white in the light theme); use bg-card, not bg-white
  * Use as classes, e.g. bg-primary, text-ink, bg-surface, bg-cta.
+ *
+ * Every colour has a light and a dark value; the app picks one from the Appearance setting
+ * (providers/theme.tsx). Keep these in step with the palettes in src/components/ui/theme.ts.
+ * text-white stays white in both, for text on primary, calm and cta backgrounds.
  */
-@theme {
-  --color-primary: #2f6bd8;
-  --color-primary-dark: #2455b0; /* pressed state */
-  --color-primary-soft: #e6eefc;
+@layer theme {
+  :root {
+    @variant light {
+      --color-primary: #2f6bd8;
+      --color-primary-dark: #2455b0; /* pressed state */
+      --color-primary-soft: #e6eefc;
 
-  --color-calm: #23988a;
-  --color-calm-soft: #def3ef;
+      --color-calm: #23988a;
+      --color-calm-soft: #def3ef;
 
-  --color-cta: #f08a24;
-  --color-cta-dark: #d6741a; /* pressed state */
+      --color-cta: #f08a24;
+      --color-cta-dark: #d6741a; /* pressed state */
 
-  --color-alert: #dc3b3b;
-  --color-warning: #f2a516;
+      --color-alert: #dc3b3b;
+      --color-warning: #f2a516;
 
-  --color-page: #f9fafb; /* off-white screen background */
-  --color-surface: #eef1f5; /* soft gray cards, search box, tiles */
-  --color-line: #e1e5eb; /* borders */
-  --color-ink: #1f2933; /* dark charcoal text */
-  --color-muted: #5c6773; /* secondary text */
+      --color-page: #f9fafb; /* off-white screen background */
+      --color-card: #ffffff; /* raised cards and inputs */
+      --color-surface: #eef1f5; /* soft gray cards, search box, tiles */
+      --color-line: #e1e5eb; /* borders */
+      --color-ink: #1f2933; /* dark charcoal text */
+      --color-muted: #5c6773; /* secondary text */
+    }
+
+    @variant dark {
+      --color-primary: #4a82e8;
+      --color-primary-dark: #3a6ccc;
+      --color-primary-soft: #1c2a45;
+
+      --color-calm: #2fae9e;
+      --color-calm-soft: #15312d;
+
+      --color-cta: #f08a24;
+      --color-cta-dark: #d6741a;
+
+      --color-alert: #ec5a5a;
+      --color-warning: #f2b02e;
+
+      --color-page: #111418; /* near-black screen background */
+      --color-card: #1a1f25;
+      --color-surface: #222830;
+      --color-line: #2f3740;
+      --color-ink: #e6eaef; /* soft white text (no pure white) */
+      --color-muted: #9aa5b1;
+    }
+  }
 }
 
 /*

@@ -6,6 +6,8 @@ export const SETTINGS = {
   lastCustomAutoNext: 'last_custom_auto_next',
   noteFocusSize: 'note_focus_size',
   noteHandwriting: 'note_handwriting',
+  theme: 'theme',
+  readingSize: 'reading_size',
 } as const;
 
 // Screen tips are saved one key each, e.g. 'tip:study' (see components/ui/screen-tip.tsx).
@@ -104,6 +106,34 @@ export async function getNoteHandwriting(db: SQLiteDatabase): Promise<boolean> {
 
 export async function setNoteHandwriting(db: SQLiteDatabase, on: boolean): Promise<void> {
   await setSetting(db, SETTINGS.noteHandwriting, on ? '1' : '0');
+}
+
+/** Light or dark colours, or follow the phone's setting. */
+export const THEME_PREFERENCES = ['system', 'light', 'dark'] as const;
+export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+
+/** The chosen theme (follows the phone by default). */
+export async function getThemePreference(db: SQLiteDatabase): Promise<ThemePreference> {
+  const value = await getSetting(db, SETTINGS.theme);
+  return THEME_PREFERENCES.find((theme) => theme === value) ?? 'system';
+}
+
+export async function setThemePreference(db: SQLiteDatabase, theme: ThemePreference): Promise<void> {
+  await setSetting(db, SETTINGS.theme, theme);
+}
+
+/** Text sizes for notes and flashcards, smallest first ('base' = Medium, the default). */
+export const READING_SIZES = ['sm', 'base', 'lg', 'xl'] as const;
+export type ReadingSize = (typeof READING_SIZES)[number];
+
+/** The text size for reading notes and flashcards (Medium by default). */
+export async function getReadingSize(db: SQLiteDatabase): Promise<ReadingSize> {
+  const value = await getSetting(db, SETTINGS.readingSize);
+  return READING_SIZES.find((size) => size === value) ?? 'base';
+}
+
+export async function setReadingSize(db: SQLiteDatabase, size: ReadingSize): Promise<void> {
+  await setSetting(db, SETTINGS.readingSize, size);
 }
 
 /** Shows every screen tip again. */

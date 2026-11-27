@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import { TagChip } from '@/components/tags/tag-chip';
-import { colors, Icon } from '@/components/ui';
+import { Icon, useColors } from '@/components/ui';
 import type { TagColor } from '@/data/types';
 import { TAG_COLORS } from '@/lib/tags';
 
@@ -56,12 +56,13 @@ function Form({
   onCancel: () => void;
   onSave: (values: Values) => void;
 }) {
+  const colors = useColors();
   const [name, setName] = useState(initial.name);
   const [color, setColor] = useState<TagColor>(initial.color);
   const canSave = name.trim().length > 0;
 
   return (
-    <View className="w-full max-w-md gap-4 rounded-3xl bg-white p-6 shadow-xl">
+    <View className="w-full max-w-md gap-4 rounded-3xl bg-card p-6 shadow-xl">
       <Text className="text-xl font-bold text-ink">{title}</Text>
 
       <View className="gap-1.5">
@@ -74,7 +75,7 @@ function Form({
           accessibilityLabel="Tag name"
           autoFocus
           style={{ ...NO_WEB_FOCUS_RING, borderWidth: 1.5, borderColor: colors.primary }}
-          className="rounded-xl bg-white px-4 py-3 text-base text-ink"
+          className="rounded-xl bg-card px-4 py-3 text-base text-ink"
         />
       </View>
 

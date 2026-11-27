@@ -160,6 +160,48 @@ export function bodyWithoutTitle(body: string, title: string): string {
 
 const simplify = (text: string) => text.trim().replace(/\s+/g, ' ').toLowerCase();
 
+/** A part of a plain note: from one "# " or "## " heading to the next (the first may have none). */
+export type NoteSection = { heading: string | null; text: string };
+
+/**
+ * Splits a plain note at its top two heading levels, for the article look's contents list.
+ * Headings inside ::: boxes, diagrams or ``` fences don't count. Joined back together, the
+ * sections are the original text.
+ */
+export function noteSections(body: string): NoteSection[] {
+  const sections: NoteSection[] = [];
+  let current: string[] = [];
+  let heading: string | null = null;
+  let depth = 0;
+  let inCode = false;
+  const flush = () => {
+    if (current.length > 0 && (heading !== null || current.some((l) => l.trim() !== ''))) {
+      sections.push({ heading, text: current.join('\n') });
+    }
+  };
+  for (const line of body.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('```')) inCode = !inCode;
+    else if (!inCode && trimmed === ':::') depth = Math.max(0, depth - 1);
+    else if (!inCode && /^:::\s*[a-z]/i.test(trimmed) && !/^:::\s*image\s/i.test(trimmed)) depth++;
+    const top = /^#{1,2} (.+)$/.exec(line);
+    if (top && depth === 0 && !inCode) {
+      flush();
+      current = [];
+      heading = plainLine(top[1]) || top[1].trim();
+    }
+    current.push(line);
+  }
+  flush();
+  return sections;
+}
+
+/** About how long reading a text takes, in whole minutes (at least 1). */
+export function readingMinutes(text: string): number {
+  const words = toPlainText(text).split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
 /**
  * The note an AI app keeps in each folder with the key points of the other notes
  * there (see create_note in backend/src/mcp/tools.ts). It is listed last in its folder.

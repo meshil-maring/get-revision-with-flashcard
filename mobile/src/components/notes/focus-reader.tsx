@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ReadAloudButton, ReadAloudPlayer, type ReadAloud } from '@/components/notes/read-aloud';
 import { RichText } from '@/components/ui/rich-text';
-import { colors, Icon, IconButton } from '@/components/ui';
+import { Icon, IconButton, useColors } from '@/components/ui';
 import { getNoteFocusSize, NOTE_FOCUS_SIZES, setNoteFocusSize, type NoteFocusSize } from '@/data/settings';
 import type { Note } from '@/data/types';
 import { bodyWithoutTitle } from '@/lib/notes';
@@ -42,6 +42,7 @@ export function FocusReader({
   /** Shown after the note, e.g. its images that the text doesn't place itself. */
   after?: ReactNode;
 }) {
+  const colors = useColors();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [size, setSize] = useState<NoteFocusSize>('lg');
@@ -99,7 +100,7 @@ export function FocusReader({
   }
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-card" style={{ paddingTop: insets.top }}>
       <View className="w-full max-w-3xl flex-row items-center self-center px-2">
         <IconButton icon="close" label="Exit focus mode" onPress={onExit} />
         <View className="flex-1" />
