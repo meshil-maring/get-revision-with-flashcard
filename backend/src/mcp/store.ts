@@ -29,7 +29,10 @@ export type NoteRow = Row & {
   updated_at: string;
 };
 export type TagRow = Row & { name: string; color: string };
-type NoteTagRow = { note_id: string; tag_id: string; deleted_at: string | null };
+export type NoteTagRow = { note_id: string; tag_id: string; deleted_at: string | null };
+
+/** The most tags a note can have (same as the app's MAX_TAGS_PER_NOTE). */
+export const MAX_TAGS_PER_NOTE = 3;
 
 /** Same order as the app's tag colours (mobile/src/lib/tags.ts), so new tags look different. */
 const TAG_COLORS = ['blue', 'teal', 'orange', 'red', 'amber', 'purple', 'pink', 'gray'] as const;
@@ -42,7 +45,7 @@ export function compareNames(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
-function sameName(a: string, b: string): boolean {
+export function sameName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
@@ -64,7 +67,7 @@ export async function liveRow<T>(db: Db, userId: string, table: SyncedTable, id:
 export type NewRow = { table: SyncedTable; id: string; data: Record<string, unknown> };
 
 /** Saves new rows for the user in one transaction. */
-async function save(db: Db, userId: string, rows: { table: SyncedTable; id: string; data: Record<string, unknown> }[]) {
+export async function save(db: Db, userId: string, rows: NewRow[]) {
   const modifiedAt = new Date().toISOString();
   const changes: Change[] = rows.map((r) => ({ ...r, modifiedAt }));
   await db.transaction(async (tx) => {
@@ -76,7 +79,7 @@ async function save(db: Db, userId: string, rows: { table: SyncedTable; id: stri
 // --- folders -----------------------------------------------------------------------
 
 /** "Class 10 / Physics / Chapter 1" for every folder, by id. */
-function folderPaths(folders: FolderRow[]): Map<string, string> {
+export function folderPaths(folders: FolderRow[]): Map<string, string> {
   const byId = new Map(folders.map((f) => [f.id, f]));
   const paths = new Map<string, string>();
   for (const folder of folders) {
@@ -91,6 +94,51 @@ function folderPaths(folders: FolderRow[]): Map<string, string> {
     paths.set(folder.id, names.join(' / '));
   }
   return paths;
+}
+
+/** The folder at this path of names (null = top level), matching names as the app does. */
+export function findFolder(folders: FolderRow[], path: string[]): { id: string | null; names: string[] } {
+  let id: string | null = null;
+  const names: string[] = [];
+  for (const raw of path) {
+    const name = raw.trim();
+    if (!name) continue;
+    const found = folders
+      .filter((f) => (f.parent_id ?? null) === id && sameName(f.name, name))
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
+    if (!found) throw new ToolError(`No folder "${[...names, name].join(' / ')}". Use list_folders to see the folders.`);
+    id = found.id;
+    names.push(found.name);
+  }
+  return { id, names };
+}
+
+/**
+ * The folder at this path, with rows for the folders on it that don't exist yet (reusing the
+ * ones that do). `folders` gets the new ones too, so later calls see them.
+ */
+export function ensureFolderPath(folders: FolderRow[], path: string[], now: string) {
+  let id: string | null = null;
+  const names: string[] = [];
+  const rows: NewRow[] = [];
+  for (const raw of path) {
+    const name = raw.trim();
+    if (!name) continue;
+    names.push(name);
+    const existing = folders
+      .filter((f) => (f.parent_id ?? null) === id && sameName(f.name, name))
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
+    if (existing) {
+      id = existing.id;
+      continue;
+    }
+    const newId = randomUUID();
+    const folder = { id: newId, parent_id: id, name, created_at: now, updated_at: now, deleted_at: null, favorited_at: null };
+    folders.push(folder);
+    rows.push({ table: 'folders', id: newId, data: folder });
+    id = newId;
+  }
+  return { id, names, rows };
 }
 
 export async function listFolders(db: Db, userId: string): Promise<{ id: string; path: string }[]> {
@@ -136,7 +184,7 @@ export async function getDeck(db: Db, userId: string, deckId: string) {
 export type CardInput = { front: string; back: string; group?: string };
 
 /** The deck's card groups, in the app's order. */
-async function deckGroups(db: Db, userId: string, deckId: string): Promise<CardGroupRow[]> {
+export async function deckGroups(db: Db, userId: string, deckId: string): Promise<CardGroupRow[]> {
   return (await liveRows<CardGroupRow>(db, userId, 'card_groups'))
     .filter((g) => g.deck_id === deckId)
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || String(a.created_at).localeCompare(String(b.created_at)));
@@ -146,7 +194,7 @@ async function deckGroups(db: Db, userId: string, deckId: string): Promise<CardG
  * The group id for each card (null = no group), reusing the deck's groups by name (ignoring
  * case) and making rows for the groups that don't exist yet, at the end of the deck.
  */
-function resolveGroups(deckId: string, existing: CardGroupRow[], cards: CardInput[], now: string) {
+export function resolveGroups(deckId: string, existing: CardGroupRow[], cards: CardInput[], now: string) {
   const groups = [...existing];
   const newRows: { table: 'card_groups'; id: string; data: Record<string, unknown> }[] = [];
   let position = groups.reduce((max, g) => Math.max(max, g.position ?? 0), -1);
@@ -285,6 +333,8 @@ async function noteTagsByNote(db: Db, userId: string): Promise<Map<string, strin
     if (!name) continue;
     byNote.set(link.note_id, [...(byNote.get(link.note_id) ?? []), name]);
   }
+  // Sorted by name, as the app shows them.
+  for (const names of byNote.values()) names.sort(compareNames);
   return byNote;
 }
 
@@ -376,26 +426,10 @@ export async function buildNote(
   const rows: NewRow[] = [];
 
   // Folders: walk the path, reusing folders that exist.
-  const folders = await liveRows<FolderRow>(db, userId, 'folders');
-  let parentId: string | null = null;
-  const pathNames: string[] = [];
-  for (const raw of input.folderPath ?? []) {
-    const name = raw.trim();
-    if (!name) continue;
-    pathNames.push(name);
-    const existing = folders
-      .filter((f) => (f.parent_id ?? null) === parentId && sameName(f.name, name))
-      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
-    if (existing) {
-      parentId = existing.id;
-      continue;
-    }
-    const id = randomUUID();
-    const folder = { id, parent_id: parentId, name, created_at: now, updated_at: now, deleted_at: null, favorited_at: null };
-    folders.push(folder);
-    rows.push({ table: 'folders', id, data: folder });
-    parentId = id;
-  }
+  const path = ensureFolderPath(await liveRows<FolderRow>(db, userId, 'folders'), input.folderPath ?? [], now);
+  rows.push(...path.rows);
+  const parentId = path.id;
+  const pathNames = path.names;
 
   // The note itself.
   const noteId = randomUUID();
@@ -427,11 +461,25 @@ export async function buildNote(
   const goodToKnow = goodToKnowUpdate?.status;
 
   // Tags: reuse by name, else make them with the next colour.
-  const tags = await liveRows<TagRow>(db, userId, 'tags');
-  const tagNames: string[] = [];
-  for (const raw of input.tags ?? []) {
+  const tagged = noteTagRows(await liveRows<TagRow>(db, userId, 'tags'), [], noteId, input.tags ?? [], now);
+  rows.push(...tagged.rows);
+  const tagNames = tagged.names;
+
+  return { rows, note: { id: noteId, folder: pathNames.join(' / '), tags: tagNames, goodToKnow } };
+}
+
+/**
+ * The rows that make these (up to three) tags the note's tags: tags are reused by name, else made
+ * with the next colour; links in `current` that aren't wanted any more are taken off.
+ */
+export function noteTagRows(tags: TagRow[], current: NoteTagRow[], noteId: string, wanted: string[], now: string) {
+  const rows: NewRow[] = [];
+  const names: string[] = [];
+  const keep = new Set<string>();
+  for (const raw of wanted) {
     const name = raw.trim();
-    if (!name || tagNames.some((t) => sameName(t, name))) continue;
+    if (names.length >= MAX_TAGS_PER_NOTE) break;
+    if (!name || names.some((t) => sameName(t, name))) continue;
     let tag = tags
       .filter((t) => sameName(t.name, name))
       .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
@@ -441,15 +489,20 @@ export async function buildNote(
       tags.push(tag);
       rows.push({ table: 'tags', id, data: tag });
     }
-    tagNames.push(tag.name);
+    names.push(tag.name);
+    keep.add(tag.id);
+    if (current.some((link) => link.tag_id === tag.id)) continue; // already on the note
     rows.push({
       table: 'note_tags',
       id: `${noteId}:${tag.id}`,
       data: { note_id: noteId, tag_id: tag.id, created_at: now, deleted_at: null },
     });
   }
-
-  return { rows, note: { id: noteId, folder: pathNames.join(' / '), tags: tagNames, goodToKnow } };
+  for (const link of current) {
+    if (keep.has(link.tag_id)) continue;
+    rows.push({ table: 'note_tags', id: `${noteId}:${link.tag_id}`, data: { ...link, deleted_at: now } });
+  }
+  return { rows, names };
 }
 
 // --- good to know ----------------------------------------------------------------
@@ -461,7 +514,7 @@ export type GoodToKnowTopic = { topic: string; points: string[] };
  * the existing note with the sections added or replaced, or a new note. Null when
  * there are no points to add.
  */
-async function goodToKnowChange(
+export async function goodToKnowChange(
   db: Db,
   userId: string,
   folderId: string | null,
@@ -521,19 +574,7 @@ export async function addGoodToKnow(
   topics: GoodToKnowTopic[],
   createdBy: string,
 ): Promise<{ folder: string; status: 'added' | 'created'; topics: number }> {
-  const folders = await liveRows<FolderRow>(db, userId, 'folders');
-  let folderId: string | null = null;
-  const names: string[] = [];
-  for (const raw of folderPath) {
-    const name = raw.trim();
-    if (!name) continue;
-    const found = folders
-      .filter((f) => (f.parent_id ?? null) === folderId && sameName(f.name, name))
-      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
-    if (!found) throw new ToolError(`No folder "${[...names, name].join(' / ')}". Use list_folders to see the folders.`);
-    folderId = found.id;
-    names.push(found.name);
-  }
+  const { id: folderId, names } = findFolder(await liveRows<FolderRow>(db, userId, 'folders'), folderPath);
   const change = await goodToKnowChange(db, userId, folderId, topics, createdBy, new Date().toISOString());
   if (!change) throw new ToolError('Pass at least one topic with key points.');
   await save(db, userId, [change.row]);

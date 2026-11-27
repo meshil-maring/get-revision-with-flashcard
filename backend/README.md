@@ -104,9 +104,15 @@ How connecting works: the AI app calls `/mcp`, gets a 401 pointing to the metada
 
 Tools: `list_decks`, `get_deck`, `create_deck`, `add_cards`, `list_folders`, `list_notes`, `get_note`,
 `create_note`, `add_good_to_know`, and for images `upload_image`, `attach_image_to_note`,
-`create_note_with_images`, `list_note_attachments`, `remove_note_attachment` (below). Apart from
-`remove_note_attachment` they only read and add. What they write goes into `synced_rows` like a device's
-changes, so the app picks it up on its next sync. `GET /health` lists them, to check what a deploy serves.
+`create_note_with_images`, `list_note_attachments`, `remove_note_attachment` (below). To change what is
+there: `update_deck` (name, description, rename or delete card groups), `delete_deck`, `update_cards`,
+`move_cards`, `delete_cards`, `update_note` (only the fields given; `tags` and `good_to_know` replace),
+`move_notes`, `delete_notes`, `rename_folder`, `move_folder`, `delete_folder` (`src/mcp/edits.ts`). They follow
+the app's rules: deleting marks rows deleted, a deck takes its cards and groups and a folder everything inside
+it, folder names in one place differ, a folder can't go inside itself, a note has at most 3 tags. Each call
+saves all or nothing. Changing and deleting tools are marked destructive, so AI apps ask the user first.
+What the tools write goes into `synced_rows` like a device's changes, so the app picks it up on its next sync.
+`GET /health` lists them, to check what a deploy serves.
 
 ### Try it with ChatGPT or Claude on your computer
 
