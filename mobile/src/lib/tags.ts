@@ -12,6 +12,9 @@ export const TAG_COLORS: { key: TagColor; label: string; value: string }[] = [
   { key: 'gray', label: 'Gray', value: '#5c6773' },
 ];
 
+/** The most tags a note can have. */
+export const MAX_TAGS_PER_NOTE = 3;
+
 const BY_KEY = new Map(TAG_COLORS.map((c) => [c.key, c.value]));
 
 export function isTagColor(value: string): value is TagColor {
