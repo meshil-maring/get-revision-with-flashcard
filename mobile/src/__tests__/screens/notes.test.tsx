@@ -38,6 +38,7 @@ jest.mock('@/data/folders', () => ({
 jest.mock('@/data/notes', () => ({
   ...jest.requireActual('@/data/notes'),
   listNotes: jest.fn(),
+  markNoteRead: jest.fn(),
   getNote: jest.fn(),
   createNote: jest.fn(),
   listNoteAttachments: jest.fn(),

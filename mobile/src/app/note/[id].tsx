@@ -22,7 +22,7 @@ import {
 import { TagChip } from '@/components/tags/tag-chip';
 import { Button, EmptyState, Icon, IconButton, useColors } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
-import { deleteNote, getNote, listNoteAttachments, listNotes, setNoteFavorite } from '@/data/notes';
+import { deleteNote, getNote, listNoteAttachments, listNotes, markNoteRead, setNoteFavorite } from '@/data/notes';
 import { getNoteHandwriting, setNoteHandwriting } from '@/data/settings';
 import { listTagsForNotes } from '@/data/tags';
 import type { FolderCrumb, Note, NoteAttachment, Tag } from '@/data/types';
@@ -55,6 +55,8 @@ export default function NoteScreen() {
 
   const load = useCallback(async () => {
     const n = await getNote(db, id);
+    // Shown under "Continue Studying" on Home.
+    if (n) void markNoteRead(db, n.id);
     const [p, a, t, s, h] = await Promise.all([
       getFolderPath(db, n?.folderId ?? null),
       listNoteAttachments(db, id),

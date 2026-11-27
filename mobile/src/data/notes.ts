@@ -1,7 +1,8 @@
 import { randomUUID } from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { compareNames, listAllFolders, pathFromFolders, toFolder } from './folders';
+import { compareNames, getFolderPath, listAllFolders, pathFromFolders, toFolder } from './folders';
+import { getSetting, setSetting, SETTINGS } from './settings';
 import type {
   AttachmentKind,
   CornellRow,
@@ -325,4 +326,28 @@ export async function addNoteAttachment(
 
 export async function deleteNoteAttachment(db: SQLiteDatabase, id: string): Promise<void> {
   await db.runAsync('UPDATE note_attachments SET deleted_at = ? WHERE id = ?', new Date().toISOString(), id);
+}
+
+/** Remembers this note as the last one read, for "Continue Studying" on Home. */
+export async function markNoteRead(db: SQLiteDatabase, id: string): Promise<void> {
+  await setSetting(db, SETTINGS.lastReadNote, JSON.stringify({ id, at: new Date().toISOString() }));
+}
+
+/** The note read most recently, when it was read and where it is (null if none, or it was deleted). */
+export type LastReadNote = { note: Note; readAt: string; folder: string };
+
+export async function getLastReadNote(db: SQLiteDatabase): Promise<LastReadNote | null> {
+  const saved = await getSetting(db, SETTINGS.lastReadNote);
+  if (!saved) return null;
+  let last: { id?: unknown; at?: unknown };
+  try {
+    last = JSON.parse(saved);
+  } catch {
+    return null;
+  }
+  if (typeof last.id !== 'string' || typeof last.at !== 'string') return null;
+  const note = await getNote(db, last.id);
+  if (!note) return null;
+  const path = await getFolderPath(db, note.folderId);
+  return { note, readAt: last.at, folder: path.map((p) => p.name).join(' / ') };
 }

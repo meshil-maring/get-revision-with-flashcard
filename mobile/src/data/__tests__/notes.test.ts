@@ -18,9 +18,11 @@ import {
   createNote,
   deleteNote,
   deleteNoteAttachment,
+  getLastReadNote,
   getNote,
   listNoteAttachments,
   listNotes,
+  markNoteRead,
   moveNotes,
   searchNotes,
   updateNote,
@@ -244,6 +246,25 @@ describe('notes', () => {
       id,
     );
     expect(await listNoteAttachments(db, id)).toEqual([]);
+  });
+});
+
+describe('last read note', () => {
+  it('remembers the note read last, with its folder, and forgets it once deleted', async () => {
+    expect(await getLastReadNote(db)).toBeNull();
+    const classId = await createFolder(db, { parentId: null, name: 'Class 10' });
+    const biology = await createFolder(db, { parentId: classId, name: 'Biology' });
+    const cells = await createNote(db, biology, { title: 'Cells', style: 'plain' });
+    const top = await createNote(db, null, { title: 'Top', style: 'plain' });
+
+    await markNoteRead(db, top);
+    await markNoteRead(db, cells);
+    const last = await getLastReadNote(db);
+    expect(last).toMatchObject({ note: { id: cells, title: 'Cells' }, folder: 'Class 10 / Biology' });
+    expect(Date.parse(last!.readAt)).not.toBeNaN();
+
+    await deleteNote(db, cells);
+    expect(await getLastReadNote(db)).toBeNull();
   });
 });
 
