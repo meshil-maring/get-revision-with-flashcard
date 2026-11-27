@@ -34,8 +34,26 @@ export class TagNameTakenError extends Error {
   }
 }
 
-/** Every tag with how many notes have it, sorted by name. */
+/**
+ * Deletes tags that were on notes but have none left (taken off, or their notes deleted).
+ * A tag that was never on a note is kept: it may have just been made, or synced before its notes.
+ */
+export async function deleteUnusedTags(db: SQLiteDatabase): Promise<void> {
+  const now = new Date().toISOString();
+  await db.runAsync(
+    `UPDATE tags SET deleted_at = ?, updated_at = ?
+      WHERE deleted_at IS NULL
+        AND EXISTS (SELECT 1 FROM note_tags nt WHERE nt.tag_id = tags.id)
+        AND NOT EXISTS (SELECT 1 FROM note_tags nt JOIN notes n ON n.id = nt.note_id
+                         WHERE nt.tag_id = tags.id AND nt.deleted_at IS NULL AND n.deleted_at IS NULL)`,
+    now,
+    now,
+  );
+}
+
+/** Every tag with how many notes have it, sorted by name. Tags with no notes left are deleted first. */
 export async function listTags(db: SQLiteDatabase): Promise<TagWithCount[]> {
+  await deleteUnusedTags(db);
   const rows = await db.getAllAsync<TagRow & { note_count: number }>(
     `SELECT t.*,
             (SELECT COUNT(*) FROM note_tags nt JOIN notes n ON n.id = nt.note_id

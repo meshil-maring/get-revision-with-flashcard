@@ -104,6 +104,26 @@ describe('tags', () => {
     await expect(createTag(db, { name: 'Exam 1' })).resolves.toBeTruthy(); // name free again
   });
 
+  it('deletes tags that have no notes left, but keeps ones never used yet', async () => {
+    const a = await createNote(db, null, { title: 'Speed', style: 'plain' });
+    const b = await createNote(db, null, { title: 'Cells', style: 'plain' });
+    const removed = await createTag(db, { name: 'Removed' });
+    const orphaned = await createTag(db, { name: 'Orphaned' });
+    const kept = await createTag(db, { name: 'Kept' });
+    await createTag(db, { name: 'Fresh' });
+
+    await setNoteTags(db, a, [removed, kept]);
+    await setNoteTags(db, b, [orphaned]);
+    await setNoteTags(db, a, [kept]); // "Removed" taken off its only note
+    await deleteNote(db, b); // "Orphaned" loses its only note
+
+    expect((await listTags(db)).map((t) => [t.name, t.noteCount])).toEqual([
+      ['Fresh', 0],
+      ['Kept', 1],
+    ]);
+    await expect(createTag(db, { name: 'Removed' })).resolves.toBeTruthy(); // name free again
+  });
+
   it('finds tags by part of the name', async () => {
     await createTag(db, { name: 'Exam 1' });
     await createTag(db, { name: 'Important' });
