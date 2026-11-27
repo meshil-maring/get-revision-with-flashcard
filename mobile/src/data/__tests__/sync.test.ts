@@ -280,6 +280,55 @@ describe('attachment sync', () => {
     expect((await listNoteAttachments(tablet, noteId)).map((a) => a.name)).toEqual(['waves.pdf']);
   });
 
+  it('brings an image an AI app attached: loading at first, then shown with its caption', async () => {
+    const noteId = await createNote(phone, null, { title: 'Intersections', style: 'plain', body: 'Where roads meet.' });
+    const store = new Map<string, string>();
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone', store).files);
+
+    // The server writes the row as backend/src/mcp/note-images.ts does (no uri: that is per device).
+    const at = new Date(Date.now() + 1000).toISOString();
+    server.rows.set('note_attachments/ai-1', {
+      table: 'note_attachments',
+      id: 'ai-1',
+      modifiedAt: at,
+      rev: 10_000,
+      data: {
+        id: 'ai-1',
+        note_id: noteId,
+        kind: 'image',
+        name: 'crossroads.png',
+        mime_type: 'image/png',
+        created_at: at,
+        deleted_at: null,
+        remote_key: 'u/user-1/ai-1',
+        caption: 'Figure 1: A crossroads',
+        alt_text: 'Two roads crossing',
+        position: 0,
+      },
+    });
+
+    // The file isn't reachable yet (e.g. offline): the note lists it as downloading.
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone', store).files);
+    expect(await listNoteAttachments(phone, noteId)).toMatchObject([{ id: 'ai-1', uri: '', caption: 'Figure 1: A crossroads' }]);
+    expect(await countPendingChanges(phone)).toBe(0); // saving it is not a change to send back
+
+    store.set('u/user-1/ai-1', 'png bytes');
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone', store).files);
+    expect(await listNoteAttachments(phone, noteId)).toMatchObject([
+      { uri: 'file:///phone/ai-1.bin', caption: 'Figure 1: A crossroads', altText: 'Two roads crossing', position: 0 },
+    ]);
+  });
+
+  it('syncs a changed caption', async () => {
+    const noteId = await createNote(phone, null, { title: 'Signals', style: 'plain', body: 'x' });
+    const id = await addNoteAttachment(phone, noteId, { kind: 'image', uri: 'file:///phone/s.png', name: 's.png' });
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone').files);
+    await phone.runAsync("UPDATE note_attachments SET caption = 'Signal phases' WHERE id = ?", id);
+    expect(await countPendingChanges(phone)).toBe(1);
+    await runSync(phone, 'user-1', server.sync, fakeFiles('phone').files);
+    expect(server.rows.get(`note_attachments/${id}`)!.data.caption).toBe('Signal phases');
+  });
+
   it('hands back the files to delete on sign-out', async () => {
     await cardWithImage(phone);
     expect(await clearAccountData(phone)).toEqual(['file:///phone/cell.jpg']);

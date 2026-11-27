@@ -17,6 +17,8 @@ export type FileStorage = {
   uploadUrl(key: string, mimeType: string): Promise<string>;
   /** A link the app can GET the file from; the response has the given Content-Type. */
   downloadUrl(key: string, mimeType: string): Promise<string>;
+  /** Stores bytes the server already has (images AI apps send through MCP). */
+  put(key: string, bytes: Uint8Array, mimeType: string): Promise<void>;
   /** The stored file's size in bytes, or null if there is no such file. */
   size(key: string): Promise<number | null>;
   /** Removes a file. A missing file is fine. */
@@ -53,6 +55,15 @@ export function r2Storage(config: R2Config): FileStorage {
   return {
     uploadUrl: (key) => presign('PUT', key),
     downloadUrl: (key, mimeType) => presign('GET', key, { 'response-content-type': mimeType }),
+    async put(key, bytes, mimeType) {
+      if (!isValidKey(key)) throw new Error('Bad file key.');
+      const res = await client.fetch(objectUrl(key), {
+        method: 'PUT',
+        body: new Uint8Array(bytes), // a copy on a plain ArrayBuffer, as fetch requires
+        headers: { 'Content-Type': mimeType, 'Content-Length': String(bytes.byteLength) },
+      });
+      if (!res.ok) throw new Error(`R2 PUT failed: ${res.status}`);
+    },
     async size(key) {
       const res = await client.fetch(objectUrl(key), { method: 'HEAD' });
       if (res.status === 404) return null;
@@ -103,6 +114,11 @@ export function diskStorage(folder: string, baseURL: string, secret: string): Di
   return {
     uploadUrl: async (key) => link('PUT', key),
     downloadUrl: async (key, mimeType) => link('GET', key, { type: mimeType }),
+    async put(key, bytes) {
+      const path = pathOf(key);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, bytes);
+    },
     async size(key) {
       try {
         return (await stat(pathOf(key))).size;

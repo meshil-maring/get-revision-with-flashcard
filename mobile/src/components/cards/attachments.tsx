@@ -1,15 +1,25 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Platform, Pressable, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, Text, View } from 'react-native';
 
 import { colors, Icon, scaled } from '@/components/ui';
+import { ImageViewer } from '@/components/ui/image-viewer';
 import type { AttachmentKind } from '@/data/types';
 import { openFile } from '@/lib/attachment-files';
 import { claimAudio, releaseAudio } from '@/lib/audio-focus';
 
 /** What's needed to show an attachment, saved or not yet saved. */
-export type AttachmentItem = { key: string; kind: AttachmentKind; uri: string; name: string; mimeType: string | null };
+export type AttachmentItem = {
+  key: string;
+  kind: AttachmentKind;
+  /** '' while the file is still downloading from the account. */
+  uri: string;
+  name: string;
+  mimeType: string | null;
+  caption?: string | null;
+  altText?: string | null;
+};
 
 type Tone = 'default' | 'onDark';
 
@@ -41,7 +51,13 @@ export function AttachmentList({
       ) : null}
       {others.map((item) => (
         <Removable key={item.key} onRemove={onRemove && (() => onRemove(item))} name={item.name}>
-          {item.kind === 'audio' ? <AudioChip item={item} tone={tone} /> : <FileChip item={item} tone={tone} />}
+          {item.uri === '' ? (
+            <DownloadingChip item={item} tone={tone} />
+          ) : item.kind === 'audio' ? (
+            <AudioChip item={item} tone={tone} />
+          ) : (
+            <FileChip item={item} tone={tone} />
+          )}
         </Removable>
       ))}
     </View>
@@ -69,22 +85,47 @@ function Removable({ children, onRemove, name }: { children: React.ReactNode; on
 function ImageThumb({ item, large }: { item: AttachmentItem; large: boolean }) {
   const [open, setOpen] = useState(false);
   const size = scaled(large ? 260 : 140);
+  const width = large ? size * 1.4 : size;
+  const box = { width, height: size, borderRadius: scaled(16), backgroundColor: colors.surface };
   return (
-    <>
-      <Pressable onPress={() => setOpen(true)} accessibilityRole="imagebutton" accessibilityLabel={`Open image ${item.name}`}>
-        <Image
-          source={{ uri: item.uri }}
-          contentFit="cover"
-          style={{ width: large ? size * 1.4 : size, height: size, borderRadius: scaled(16), backgroundColor: colors.surface }}
-        />
-      </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable onPress={() => setOpen(false)} className="flex-1 items-center justify-center bg-black/90 p-4">
-          <Image source={{ uri: item.uri }} contentFit="contain" style={{ width: '100%', height: '85%' }} />
-          <Text className="mt-4 text-sm text-white/75">Tap to close</Text>
+    <View style={{ width }} className="gap-1">
+      {item.uri === '' ? (
+        <View style={box} className="items-center justify-center gap-1 p-2" accessibilityLabel={`${item.name} is downloading`}>
+          <Icon name="cloud-download-outline" size={24} color={colors.muted} />
+          <Text className="text-center text-xs text-muted">Downloading…</Text>
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => setOpen(true)}
+          accessibilityRole="imagebutton"
+          accessibilityLabel={`Open image ${item.altText || item.caption || item.name}`}
+        >
+          <Image source={{ uri: item.uri }} contentFit="cover" style={box} />
         </Pressable>
-      </Modal>
-    </>
+      )}
+      {item.caption ? (
+        <Text className="text-center text-xs italic text-muted" numberOfLines={2}>
+          {item.caption}
+        </Text>
+      ) : null}
+      <ImageViewer
+        images={[{ key: item.key, uri: item.uri, name: item.name, caption: item.caption, altText: item.altText }]}
+        index={open ? 0 : null}
+        onIndexChange={() => undefined}
+        onClose={() => setOpen(false)}
+      />
+    </View>
+  );
+}
+
+function DownloadingChip({ item, tone }: { item: AttachmentItem; tone: Tone }) {
+  return (
+    <View className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${chipClasses(tone)}`}>
+      <Icon name="cloud-download-outline" size={20} color={tone === 'onDark' ? colors.white : colors.muted} />
+      <Text className={`flex-1 text-sm ${tone === 'onDark' ? 'text-white' : 'text-muted'}`} numberOfLines={1}>
+        {item.name || 'File'}: downloading…
+      </Text>
+    </View>
   );
 }
 

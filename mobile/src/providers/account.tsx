@@ -1,6 +1,6 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
 import { clearAccountData, countPendingChanges, getLastSyncedAt, runSync } from '@/data/sync';
@@ -12,34 +12,13 @@ import { filesApi } from '@/services/files-api';
 import { queryKeys } from '@/services/queries';
 import { postSync } from '@/services/sync-api';
 
+import { AccountContext, type AccountUser, type SyncStatus } from './account-context';
+
 /** How often to sync while the app is open. */
 const SYNC_EVERY_MS = 2 * 60 * 1000;
 
-export type AccountUser = {
-  id: string;
-  name: string;
-  email: string;
-  image?: string | null;
-};
-export type SyncStatus = 'idle' | 'syncing' | 'error';
+export type { AccountUser, SyncStatus } from './account-context';
 
-type AccountContextValue = {
-  /** null = guest */
-  user: AccountUser | null;
-  /** true while the saved session is being checked on start-up */
-  isPending: boolean;
-  syncStatus: SyncStatus;
-  syncError: string | null;
-  lastSyncedAt: string | null;
-  syncNow: () => Promise<void>;
-  /**
-   * Syncs, removes the account's data from this device and signs out. If some changes
-   * could not be sent, nothing happens and their count is returned, unless `force` is set.
-   */
-  signOut: (options?: { force?: boolean }) => Promise<{ unsynced: number } | null>;
-};
-
-const AccountContext = createContext<AccountContextValue | null>(null);
 
 export function AccountProvider({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
@@ -135,8 +114,4 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
 
-export function useAccount(): AccountContextValue {
-  const value = useContext(AccountContext);
-  if (!value) throw new Error('useAccount must be used inside <AccountProvider>.');
-  return value;
-}
+export { useAccount, useOptionalAccount } from './account-context';

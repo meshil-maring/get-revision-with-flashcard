@@ -33,11 +33,14 @@ export function FocusReader({
   onExit,
   readAloud,
   footer,
+  after,
 }: {
   note: Note;
   onExit: () => void;
   readAloud?: ReadAloud;
   footer?: ReactNode;
+  /** Shown after the note, e.g. its images that the text doesn't place itself. */
+  after?: ReactNode;
 }) {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
@@ -170,6 +173,7 @@ export function FocusReader({
         ) : (
           <RichText text={bodyWithoutTitle(note.body, note.title)} size={size} />
         )}
+        {after}
       </ScrollView>
 
       {footer || readAloud?.open ? (

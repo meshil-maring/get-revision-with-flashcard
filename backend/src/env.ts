@@ -24,6 +24,10 @@ export type FilesConfig = {
   maxFileBytes: number;
   /** Most bytes one user may store in total. */
   quotaBytes: number;
+  /** Largest image an AI app may upload through MCP (upload_image), in bytes. */
+  maxImageBytes: number;
+  /** Most images one user's AI apps may upload in an hour. */
+  imageUploadsPerHour: number;
 };
 
 export type Env = {
@@ -69,6 +73,8 @@ function readFiles(source: NodeJS.ProcessEnv, isDev: boolean): FilesConfig {
     dir: source.FILES_DIR || './data/files',
     maxFileBytes: Number(source.MAX_FILE_MB || 25) * MB,
     quotaBytes: Number(source.FILE_QUOTA_MB || 1024) * MB,
+    maxImageBytes: Number(source.MAX_IMAGE_MB || 10) * MB,
+    imageUploadsPerHour: Number(source.IMAGE_UPLOADS_PER_HOUR || 60),
   };
 }
 

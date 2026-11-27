@@ -1,4 +1,14 @@
-import { insertTable, parseInline, parseRichText, toggleLinePrefix, toPlainText, tableColumnSizes, wrapSelection } from '@/lib/rich-text';
+import {
+  imageRefs,
+  insertTable,
+  parseInline,
+  parseRichText,
+  removeImageRefs,
+  tableColumnSizes,
+  toggleLinePrefix,
+  toPlainText,
+  wrapSelection,
+} from '@/lib/rich-text';
 
 describe('parseInline', () => {
   it('reads bold, italic, underline and highlight', () => {
@@ -153,5 +163,33 @@ describe('tableColumnSizes', () => {
       { text: 40, word: 40 },
       { text: 1, word: 1 },
     ]);
+  });
+});
+
+describe(':::image lines', () => {
+  it('is an image block, with its id', () => {
+    expect(parseRichText('Before\n:::image 1b2c-3d\nAfter').map((b) => [b.type, b.imageRef])).toEqual([
+      ['paragraph', undefined],
+      ['image', '1b2c-3d'],
+      ['paragraph', undefined],
+    ]);
+  });
+
+  it('can sit inside a box without closing it early', () => {
+    const [box, after] = parseRichText(':::note Layout\n- Four arms\n:::image abc\n- Islands\n:::\nAfter');
+    expect(box.type).toBe('box');
+    expect(box.children?.map((c) => c.type)).toEqual(['bullet', 'image', 'bullet']);
+    expect(after.spans[0].text).toBe('After');
+  });
+
+  it('finds and removes image lines by id', () => {
+    const text = 'A\n:::image one\nB\n  :::image two  \nC';
+    expect(imageRefs(text)).toEqual(['one', 'two']);
+    expect(removeImageRefs(text, ['one'])).toBe('A\nB\n  :::image two  \nC');
+    expect(imageRefs('::: image not-a-line here')).toEqual([]);
+  });
+
+  it('has nothing to read aloud', () => {
+    expect(toPlainText('Roads\n:::image one\nmeet')).toBe('Roads\n\nmeet');
   });
 });

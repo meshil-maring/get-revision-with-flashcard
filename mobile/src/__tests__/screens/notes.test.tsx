@@ -63,6 +63,8 @@ jest.mock('@/data/settings', () => ({
   isTipDismissed: jest.fn(),
   getNoteFocusSize: jest.fn(),
   setNoteFocusSize: jest.fn(),
+  getNoteHandwriting: jest.fn(() => Promise.resolve(true)),
+  setNoteHandwriting: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('expo-speech', () => ({
   speak: jest.fn(),
@@ -414,6 +416,65 @@ describe('Note editor', () => {
 });
 
 describe('Note screen', () => {
+  it('shows images an AI app attached, with captions, apart from other files', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Where roads meet.' }));
+    const attachment = {
+      noteId: 'n-1',
+      mimeType: null,
+      createdAt: '2026-11-27T10:00:00.000Z',
+      caption: null,
+      altText: null,
+      remoteKey: 'u/user-1/x',
+    };
+    jest.mocked(notes.listNoteAttachments).mockResolvedValue([
+      { ...attachment, id: 'a', kind: 'image', uri: 'file:///a.png', name: 'a.png', position: 0, caption: 'Figure 1: A crossroads' },
+      { ...attachment, id: 'b', kind: 'image', uri: '', name: 'b.png', position: 1 },
+      { ...attachment, id: 'c', kind: 'pdf', uri: 'file:///c.pdf', name: 'Signal timing.pdf', position: 2 },
+    ]);
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('Images')).toBeOnTheScreen();
+    expect(screen.getByText('Figure 1: A crossroads')).toBeOnTheScreen();
+    expect(screen.getByText('This image appears after the next sync.')).toBeOnTheScreen();
+    expect(screen.getByText('Attachments')).toBeOnTheScreen();
+    expect(screen.getByText('Signal timing.pdf')).toBeOnTheScreen();
+  });
+
+  it('shows an image inside its Cornell row, and every image in focus mode', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(
+      note({
+        style: 'cornell',
+        rows: [
+          { cue: 'Layout?', notes: '- Four arms\n:::image upload-1' },
+          { cue: 'Control?', notes: '- Signals' },
+        ],
+        summary: 'Where roads meet.',
+      }),
+    );
+    const attachment = { noteId: 'n-1', kind: 'image' as const, mimeType: 'image/png', createdAt: '2026-11-27T10:00:00.000Z', altText: null };
+    jest.mocked(notes.listNoteAttachments).mockResolvedValue([
+      { ...attachment, id: 'row-1', uri: 'file:///a.png', name: 'a.png', position: 0, caption: 'Figure 1: Layout', remoteKey: 'u/user-1/upload-1' },
+      { ...attachment, id: 'row-2', uri: 'file:///b.png', name: 'b.png', position: 1, caption: 'Figure 2: Extra', remoteKey: 'u/user-1/b' },
+    ]);
+
+    await render(<NoteScreen />);
+
+    // In the row, and not again at the end; the other image is at the end.
+    expect(await screen.findByText('Figure 1: Layout')).toBeOnTheScreen();
+    expect(screen.getAllByText('Figure 1: Layout')).toHaveLength(1);
+    expect(screen.getByText('Image')).toBeOnTheScreen();
+    expect(screen.getByText('Figure 2: Extra')).toBeOnTheScreen();
+    expect(screen.queryByText(/:::image/)).toBeNull();
+
+    await fireEvent.press(screen.getByText('Focus'));
+    expect(await screen.findByLabelText('Exit focus mode')).toBeOnTheScreen();
+    expect(screen.getByText('Figure 1: Layout')).toBeOnTheScreen();
+    expect(screen.getByText('Figure 2: Extra')).toBeOnTheScreen();
+  });
+
   it('shows the tags on a note and opens one', async () => {
     mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
     jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Speed: distance ÷ time' }));
@@ -462,6 +523,32 @@ describe('Note screen', () => {
 
     await fireEvent.press(screen.getByLabelText('Show notes for What is speed?'));
     expect(screen.getByText('Distance over time')).toBeOnTheScreen();
+  });
+
+  it('shows a Cornell note with its diagram and boxes', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(
+      note({
+        style: 'cornell',
+        title: 'Rotary',
+        rows: [
+          {
+            cue: 'What does it look like?',
+            notes: ':::diagram Rotary layout\n<svg viewBox="0 0 400 300"><circle r="50"/></svg>\n:::',
+          },
+          { cue: 'Pros and cons?', notes: ':::good Advantages\n- Smooth flow\n:::\n:::bad Limitations\n- Needs land\n:::' },
+        ],
+        summary: 'A large circular intersection.',
+      }),
+    );
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('Cues / Questions')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Diagram: Rotary layout. Tap to enlarge.')).toBeOnTheScreen();
+    expect(screen.getByText('Smooth flow')).toBeOnTheScreen();
+    expect(screen.getByText('Needs land')).toBeOnTheScreen();
+    expect(screen.queryByText(/<svg|:::/)).toBeNull();
   });
 
   it('turns off focus mode for an empty note', async () => {
@@ -703,6 +790,19 @@ describe('Note header: read aloud and the ⋮ menu', () => {
     expect(screen.getByText('Delete note')).toBeOnTheScreen();
     await fireEvent.press(screen.getByText(/Make flashcards/));
     expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/note-cards', params: { noteId: 'n-1' } });
+    // Only Cornell notes have the handwritten font, so a plain note doesn't offer the switch.
+    expect(screen.queryByText('Use normal font')).toBeNull();
+  });
+
+  it('switches the handwritten font of Cornell notes off from the ⋮ menu', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ style: 'cornell', rows: [{ cue: 'Speed?', notes: 'Fast' }] }));
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByLabelText('More options'));
+    await fireEvent.press(screen.getByText('Use normal font'));
+
+    expect(settings.setNoteHandwriting).toHaveBeenCalledWith(expect.anything(), false);
   });
 
   it('has no speaker on an empty note', async () => {

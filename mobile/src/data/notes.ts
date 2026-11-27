@@ -268,11 +268,21 @@ type NoteAttachmentRow = {
   name: string;
   mime_type: string | null;
   created_at: string;
+  caption: string | null;
+  alt_text: string | null;
+  position: number | null;
+  remote_key: string | null;
 };
 
+/**
+ * A note's attachments in order. Includes ones still downloading from the account
+ * (uri '', e.g. an image an AI app just added), so the note can show them as loading.
+ */
 export async function listNoteAttachments(db: SQLiteDatabase, noteId: string): Promise<NoteAttachment[]> {
   const rows = await db.getAllAsync<NoteAttachmentRow>(
-    `SELECT * FROM note_attachments WHERE note_id = ? AND deleted_at IS NULL AND uri != '' ORDER BY created_at ASC`,
+    `SELECT * FROM note_attachments
+      WHERE note_id = ? AND deleted_at IS NULL AND (uri != '' OR remote_key IS NOT NULL)
+      ORDER BY position ASC, created_at ASC`,
     noteId,
   );
   return rows.map((row) => ({
@@ -283,6 +293,10 @@ export async function listNoteAttachments(db: SQLiteDatabase, noteId: string): P
     name: row.name,
     mimeType: row.mime_type,
     createdAt: row.created_at,
+    caption: row.caption || null,
+    altText: row.alt_text || null,
+    position: row.position ?? 0,
+    remoteKey: row.remote_key,
   }));
 }
 
@@ -292,9 +306,11 @@ export async function addNoteAttachment(
   input: { kind: AttachmentKind; uri: string; name: string; mimeType?: string | null },
 ): Promise<string> {
   const id = randomUUID();
+  // After the note's other attachments (including ones an AI app added).
   await db.runAsync(
-    `INSERT INTO note_attachments (id, note_id, kind, uri, name, mime_type, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO note_attachments (id, note_id, kind, uri, name, mime_type, created_at, position)
+     VALUES (?, ?, ?, ?, ?, ?, ?,
+       (SELECT COALESCE(MAX(position), -1) + 1 FROM note_attachments WHERE note_id = ? AND deleted_at IS NULL))`,
     id,
     noteId,
     input.kind,
@@ -302,6 +318,7 @@ export async function addNoteAttachment(
     input.name,
     input.mimeType ?? null,
     new Date().toISOString(),
+    noteId,
   );
   return id;
 }

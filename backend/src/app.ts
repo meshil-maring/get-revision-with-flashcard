@@ -6,7 +6,10 @@ import { accountPages } from './auth/pages.ts';
 import type { Db } from './db/client.ts';
 import { SOCIAL_PROVIDERS, type Env } from './env.ts';
 import { fileRoutes, localFileRoutes } from './files/routes.ts';
+import type { ImageFetcher } from './files/fetch-image.ts';
 import { diskStorage, LOCAL_FILES_PATH, r2Storage, type FileStorage } from './files/storage.ts';
+import { uploadPageRoutes } from './files/upload-page.ts';
+import { UPLOAD_PAGE_PATH } from './files/uploads.ts';
 import { oauthPages } from './mcp/pages.ts';
 import { mcpRoutes } from './mcp/routes.ts';
 import { MCP_TOOL_NAMES } from './mcp/tools.ts';
@@ -44,11 +47,14 @@ export function createApp({
   auth,
   env,
   files = createStorage(env),
+  fetchImage,
 }: {
   db: Db;
   auth: Auth;
   env: Env;
   files?: { storage: FileStorage; disk: ReturnType<typeof diskStorage> | null };
+  /** Downloads image links for upload_image; tests pass one that doesn't use the network. */
+  fetchImage?: ImageFetcher;
 }) {
   const app = new Hono();
 
@@ -104,7 +110,9 @@ export function createApp({
   app.route('/api/sync', syncRoutes(db, auth, files.storage));
   if (files.disk) app.route(LOCAL_FILES_PATH, localFileRoutes(files.disk, env.files));
   app.route('/api/files', fileRoutes(db, auth, files.storage, env.files));
-  app.route('/mcp', mcpRoutes(db, auth, env));
+  const imageDeps = { db, storage: files.storage, config: env.files };
+  app.route('/mcp', mcpRoutes(db, auth, env, { ...imageDeps, baseURL: env.baseURL, secret: env.secret, fetchImage }));
+  app.route(UPLOAD_PAGE_PATH, uploadPageRoutes(imageDeps, env.secret));
   app.route('/oauth', oauthPages(db, auth, env));
   app.route('/account', accountPages());
 

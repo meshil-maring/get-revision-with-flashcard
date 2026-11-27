@@ -8,16 +8,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AttachmentList } from '@/components/cards/attachments';
 import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
 import { FocusReader } from '@/components/notes/focus-reader';
+import { NoteImages, NoteImagesProvider, placedImageIds, type ImageSyncState } from '@/components/notes/note-images';
 import { ReadAloudButton, ReadAloudPlayer, useReadAloud } from '@/components/notes/read-aloud';
+import { PatrickHand_400Regular, useFonts } from '@expo-google-fonts/patrick-hand';
+
 import { ActionSheet } from '@/components/ui/action-sheet';
-import { RichText } from '@/components/ui/rich-text';
+import {
+  CHIP_YELLOW,
+  NOTE_PURPLE,
+  NoteLookProvider,
+  RichText,
+  useNoteFont,
+  type NoteLook,
+} from '@/components/ui/rich-text';
 import { TagChip } from '@/components/tags/tag-chip';
 import { Button, colors, EmptyState, Icon, IconButton } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
 import { deleteNote, getNote, listNoteAttachments, listNotes, setNoteFavorite } from '@/data/notes';
+import { getNoteHandwriting, setNoteHandwriting } from '@/data/settings';
 import { listTagsForNotes } from '@/data/tags';
 import type { FolderCrumb, Note, NoteAttachment, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
+import { useOptionalAccount } from '@/providers/account-context';
 import { bodyWithoutTitle, isGoodToKnow, suggestCards } from '@/lib/notes';
 
 /** Reading a note. Read it aloud, step through the folder, and (from the ⋮ menu) make flashcards, favourite, edit or delete it. */
@@ -37,21 +49,35 @@ export default function NoteScreen() {
   const exitFocus = useCallback(() => setFocus(false), []);
   const readAloud = useReadAloud(note ?? null);
   const stopReading = readAloud.stop;
+  // Cornell notes are shown in a handwritten font, unless it was turned off from the ⋮ menu.
+  const [handwriting, setHandwriting] = useState(true);
+  const [fontLoaded] = useFonts({ PatrickHand_400Regular });
 
   const load = useCallback(async () => {
     const n = await getNote(db, id);
-    const [p, a, t, s] = await Promise.all([
+    const [p, a, t, s, h] = await Promise.all([
       getFolderPath(db, n?.folderId ?? null),
       listNoteAttachments(db, id),
       listTagsForNotes(db, [id]),
       n ? listNotes(db, n.folderId) : Promise.resolve([]),
+      getNoteHandwriting(db),
     ]);
+    setHandwriting(h);
     setNote(n);
     setPath(p);
     setAttachments(a);
     setTags(t.get(id) ?? []);
     setSiblings(s);
   }, [db, id]);
+
+  // A sync can bring images an AI app added (or finish downloading them): show them.
+  const account = useOptionalAccount();
+  const lastSyncedAt = account?.lastSyncedAt ?? null;
+  useFocusEffect(
+    useCallback(() => {
+      if (lastSyncedAt) void load();
+    }, [lastSyncedAt, load]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -74,6 +100,19 @@ export default function NoteScreen() {
 
   const current = note;
   const cornell = current.style === 'cornell';
+  // Images show as figures; PDFs and audio stay chips. A file still downloading (uri '') can
+  // only be shown as loading, so only images are listed before they arrive.
+  const images = attachments.filter((a) => a.kind === 'image');
+  const files = attachments.filter((a) => a.kind !== 'image' && a.uri !== '');
+  // Images the text places (":::image" lines, e.g. inside a Cornell row) show there; the rest at the end.
+  const placed = placedImageIds(current, images);
+  const otherImages = images.filter((i) => !placed.has(i.id));
+  const imageSync: ImageSyncState = {
+    signedIn: account?.user != null,
+    syncing: account?.syncStatus === 'syncing',
+    error: account?.syncError ?? null,
+    onSyncNow: account?.user ? () => void account.syncNow() : undefined,
+  };
   const suggested = suggestCards(current).length;
   const isEmpty = cornell
     ? current.rows.length === 0 && !current.summary
@@ -81,6 +120,14 @@ export default function NoteScreen() {
   const position = siblings.findIndex((n) => n.id === current.id);
   const previous = position > 0 ? siblings[position - 1] : null;
   const next = position >= 0 && position < siblings.length - 1 ? siblings[position + 1] : null;
+  const look: NoteLook = cornell
+    ? { cornell: true, font: handwriting && fontLoaded ? 'PatrickHand_400Regular' : undefined }
+    : {};
+
+  async function toggleHandwriting() {
+    await setNoteHandwriting(db, !handwriting);
+    setHandwriting(!handwriting);
+  }
 
   function edit() {
     router.push({ pathname: '/note-editor', params: { noteId: current.id } });
@@ -108,7 +155,17 @@ export default function NoteScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar hidden />
-        <FocusReader note={current} onExit={exitFocus} readAloud={readAloud} footer={steps} />
+        <NoteLookProvider look={look}>
+          <NoteImagesProvider images={images} sync={imageSync}>
+            <FocusReader
+              note={current}
+              onExit={exitFocus}
+              readAloud={readAloud}
+              footer={steps}
+              after={otherImages.length > 0 ? <NoteImages images={otherImages} /> : null}
+            />
+          </NoteImagesProvider>
+        </NoteLookProvider>
       </>
     );
   }
@@ -128,10 +185,12 @@ export default function NoteScreen() {
         }}
       />
 
+      <NoteLookProvider look={look}>
+      <NoteImagesProvider images={images} sync={imageSync}>
       <ScrollView contentContainerClassName="w-full max-w-3xl self-center gap-4 px-5 pb-8 pt-2">
         <View className="gap-1">
           <FolderPath path={path} prefix="Notes" />
-          <Text className="text-3xl font-extrabold text-ink">{current.title}</Text>
+          <NoteTitle title={current.title} cornell={cornell} />
           {cornell || current.createdBy ? (
             <View className="mt-1 flex-row gap-2">
               {cornell ? (
@@ -172,13 +231,23 @@ export default function NoteScreen() {
           </View>
         )}
 
-        {attachments.length > 0 ? (
+        {otherImages.length > 0 ? (
+          <View className="gap-2">
+            <Text className="px-1 text-sm font-bold uppercase tracking-wider text-muted">
+              {otherImages.length === 1 ? 'Image' : 'Images'}
+            </Text>
+            <NoteImages images={otherImages} />
+          </View>
+        ) : null}
+        {files.length > 0 ? (
           <View className="gap-2">
             <Text className="px-1 text-sm font-bold uppercase tracking-wider text-muted">Attachments</Text>
-            <AttachmentList items={attachments.map((a) => ({ ...a, key: a.id }))} />
+            <AttachmentList items={files.map((a) => ({ ...a, key: a.id }))} />
           </View>
         ) : null}
       </ScrollView>
+      </NoteImagesProvider>
+      </NoteLookProvider>
 
       <View className="gap-3 border-t border-line bg-white px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
         <ReadAloudPlayer readAloud={readAloud} />
@@ -201,6 +270,15 @@ export default function NoteScreen() {
           current.favoritedAt
             ? { icon: 'star', label: 'Remove from favourites', onPress: toggleFavorite }
             : { icon: 'star-outline', label: 'Add to favourites', onPress: toggleFavorite },
+          ...(cornell
+            ? [
+                {
+                  icon: 'pencil-outline' as const,
+                  label: handwriting ? 'Use normal font' : 'Use handwritten font',
+                  onPress: toggleHandwriting,
+                },
+              ]
+            : []),
           { icon: 'create-outline', label: 'Edit note', onPress: edit },
           { icon: 'trash-outline', label: 'Delete note', tone: 'danger', onPress: handleDelete },
         ]}
@@ -269,36 +347,92 @@ function NoteSteps({
   );
 }
 
-/** Cornell layout: cues on the left, notes on the right, summary along the bottom. */
-function CornellView({ note }: { note: Note }) {
+/** The note's title; on a Cornell note it sits on a yellow highlight, in the note's font. */
+function NoteTitle({ title, cornell }: { title: string; cornell: boolean }) {
+  const font = useNoteFont();
+  if (!cornell) return <Text className="text-3xl font-extrabold text-ink">{title}</Text>;
   return (
-    <View className="overflow-hidden rounded-3xl border border-line bg-white">
-      <View className="flex-row border-b border-line bg-surface">
-        <Text className="w-1/3 px-3 py-2 text-xs font-bold uppercase tracking-wider text-primary">Cues</Text>
-        <Text className="flex-1 border-l border-line px-3 py-2 text-xs font-bold uppercase tracking-wider text-calm">
-          Notes
-        </Text>
+    <View className="flex-row">
+      <Text
+        accessibilityRole="header"
+        className="rounded-lg px-2 py-0.5 text-3xl font-extrabold text-ink"
+        style={[{ backgroundColor: CHIP_YELLOW }, font]}
+      >
+        {title}
+      </Text>
+    </View>
+  );
+}
+
+/** Lavender behind the cue column and the Summary label, and the yellow of the summary box. */
+const CUE_LAVENDER = '#f6f3ff';
+const SUMMARY_YELLOW = '#fff8d6';
+const SUMMARY_BORDER = '#efd77a';
+const SUMMARY_CHIP = '#e4dcfb';
+
+/**
+ * Cornell layout, like a hand-made Cornell page: cue questions (each with a purple ▸) on the
+ * left, notes on the right, and the summary in a yellow box along the bottom.
+ */
+function CornellView({ note }: { note: Note }) {
+  const font = useNoteFont();
+  return (
+    <View className="gap-3">
+      <View className="overflow-hidden rounded-3xl border-2 border-line bg-white">
+        <View className="flex-row border-b-2 border-line" style={{ backgroundColor: '#fffbe8' }}>
+          <View className="w-1/3 px-3 py-2">
+            <Text className="text-lg font-bold text-ink" style={font}>
+              Cues / Questions
+            </Text>
+          </View>
+          <View className="flex-1 flex-row items-center gap-1.5 border-l-2 border-line px-3 py-2">
+            <Icon name="create-outline" size={20} color={colors.ink} />
+            <Text className="text-lg font-bold text-ink" style={font}>
+              Notes
+            </Text>
+          </View>
+        </View>
+        {note.rows.map((row, i) => (
+          <View key={i} className={`flex-row ${i < note.rows.length - 1 ? 'border-b border-line' : ''}`}>
+            <View className="w-1/3 flex-row gap-1 p-3" style={{ backgroundColor: CUE_LAVENDER }}>
+              {row.cue.trim() ? (
+                <>
+                  <View className="pt-1">
+                    <Icon name="caret-forward" size={18} color={NOTE_PURPLE} />
+                  </View>
+                  <Text className="flex-1 text-base font-semibold text-ink" style={font}>
+                    {row.cue}
+                  </Text>
+                </>
+              ) : null}
+            </View>
+            <View className="flex-1 border-l-2 border-line p-3">
+              <RichText text={row.notes} />
+            </View>
+          </View>
+        ))}
       </View>
-      {note.rows.map((row, i) => (
-        <View key={i} className="flex-row border-b border-line">
-          <View className="w-1/3 bg-primary-soft/50 p-3">
-            <Text className="text-base font-semibold text-ink">{row.cue}</Text>
-          </View>
-          <View className="flex-1 border-l border-line p-3">
-            <RichText text={row.notes} />
-          </View>
+
+      <View
+        className="flex-row flex-wrap items-start gap-3 rounded-3xl border-2 p-4"
+        style={{ backgroundColor: SUMMARY_YELLOW, borderColor: SUMMARY_BORDER }}
+      >
+        <Text
+          accessibilityRole="header"
+          className="rounded-lg px-2.5 py-0.5 text-xl font-bold text-ink"
+          style={[{ backgroundColor: SUMMARY_CHIP, transform: [{ rotate: '-3deg' }] }, font]}
+        >
+          Summary
+        </Text>
+        <View className="min-w-48 flex-1">
+          {note.summary ? (
+            <RichText text={note.summary} />
+          ) : (
+            <Text className="text-sm text-muted" style={font}>
+              No summary yet. Sum up the page in a few lines.
+            </Text>
+          )}
         </View>
-      ))}
-      <View className="gap-1 bg-calm-soft/50 p-4">
-        <View className="flex-row items-center gap-1.5">
-          <Icon name="list-outline" size={18} color={colors.calm} />
-          <Text className="text-xs font-bold uppercase tracking-wider text-calm">Summary</Text>
-        </View>
-        {note.summary ? (
-          <RichText text={note.summary} />
-        ) : (
-          <Text className="text-sm text-muted">No summary yet. Sum up the page in a few lines.</Text>
-        )}
       </View>
     </View>
   );

@@ -127,10 +127,19 @@ export type NoteAttachment = {
   id: string;
   noteId: string;
   kind: AttachmentKind;
+  /** This device's copy; '' while it is still being downloaded from the account. */
   uri: string;
   name: string;
   mimeType: string | null;
   createdAt: string;
+  /** Shown under an image. */
+  caption: string | null;
+  /** What an image shows, for screen readers. */
+  altText: string | null;
+  /** Order on the note, smallest first. */
+  position: number;
+  /** Where the file is in the account; null = only on this device so far (not uploaded yet). */
+  remoteKey: string | null;
 };
 
 export type Attachment = {

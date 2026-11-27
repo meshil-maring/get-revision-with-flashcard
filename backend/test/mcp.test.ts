@@ -1,121 +1,32 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { SyncResponse } from '../src/sync/sync.ts';
 import { createTestServer } from './helpers.ts';
+import {
+  authorizeUrl,
+  BASE,
+  base64url,
+  callTool,
+  connect,
+  mcp,
+  MCP_URL,
+  oauthQueryOf,
+  redirectUrl,
+  registerClient,
+  useServer,
+} from './mcp-client.ts';
 
 // The whole path an AI app (ChatGPT, Claude) takes: discover → register → user signs in and
 // allows → token → MCP tool calls → the data reaches the user's devices through sync.
 
-const BASE = 'http://localhost:4000';
-const MCP_URL = `${BASE}/mcp`;
-const REDIRECT_URI = 'https://chatgpt.example/connector/oauth/callback';
-
 let server: Awaited<ReturnType<typeof createTestServer>>;
 beforeAll(async () => {
   server = await createTestServer();
+  useServer(server);
 });
 afterAll(() => server.close());
-
-const base64url = (buf: Buffer) => buf.toString('base64url');
-
-async function registerClient(name = 'ChatGPT') {
-  const res = await server.request('/api/auth/oauth2/register', {
-    method: 'POST',
-    body: JSON.stringify({
-      client_name: name,
-      redirect_uris: [REDIRECT_URI],
-      token_endpoint_auth_method: 'none',
-      grant_types: ['authorization_code', 'refresh_token'],
-      response_types: ['code'],
-    }),
-  });
-  expect(res.status, await res.clone().text()).toBeLessThan(300);
-  return ((await res.json()) as { client_id: string }).client_id;
-}
-
-function authorizeUrl(clientId: string, verifier: string, withResource = true) {
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    redirect_uri: REDIRECT_URI,
-    scope: 'openid profile email offline_access',
-    state: 'state-123',
-    code_challenge: base64url(createHash('sha256').update(verifier).digest()),
-    code_challenge_method: 'S256',
-  });
-  if (withResource) params.set('resource', MCP_URL);
-  return `/api/auth/oauth2/authorize?${params}`;
-}
-
-/** The signed query of a page Better Auth redirected to, as the page would send it back. */
-function oauthQueryOf(location: string): string {
-  return new URL(location, BASE).search.slice(1);
-}
-
-async function redirectUrl(res: Response): Promise<string> {
-  if (res.status >= 300 && res.status < 400) return res.headers.get('location') ?? '';
-  const body = (await res.json()) as { url?: string; redirect?: boolean };
-  return body.url ?? '';
-}
-
-/** Runs the browser part of the flow and returns the access token. */
-async function connect(cookie: string, clientId: string, withResource = true) {
-  const verifier = base64url(randomBytes(32));
-  const authorize = await server.request(authorizeUrl(clientId, verifier, withResource), { headers: { Cookie: cookie } });
-  const consentLocation = await redirectUrl(authorize);
-  expect(consentLocation).toContain('/oauth/consent');
-
-  const consent = await server.request('/api/auth/oauth2/consent', {
-    method: 'POST',
-    headers: { Cookie: cookie },
-    body: JSON.stringify({ accept: true, oauth_query: oauthQueryOf(consentLocation) }),
-  });
-  expect(consent.status, await consent.clone().text()).toBe(200);
-  const callback = new URL(await redirectUrl(consent));
-  expect(callback.origin + callback.pathname).toBe(REDIRECT_URI);
-  expect(callback.searchParams.get('state')).toBe('state-123');
-  const code = callback.searchParams.get('code')!;
-
-  const token = await server.app.request(`${BASE}/api/auth/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: REDIRECT_URI,
-      client_id: clientId,
-      code_verifier: verifier,
-      ...(withResource ? { resource: MCP_URL } : {}),
-    }),
-  });
-  expect(token.status, await token.clone().text()).toBe(200);
-  const body = (await token.json()) as { access_token: string; refresh_token?: string };
-  expect(body.access_token.split('.')).toHaveLength(3); // a JWT the MCP route can check
-  return body.access_token;
-}
-
-let rpcId = 0;
-async function mcp(token: string | null, method: string, params: Record<string, unknown> = {}) {
-  return server.app.request(MCP_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json, text/event-stream',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, params }),
-  });
-}
-
-async function callTool(token: string, name: string, args: Record<string, unknown> = {}) {
-  const res = await mcp(token, 'tools/call', { name, arguments: args });
-  expect(res.status, await res.clone().text()).toBe(200);
-  const body = (await res.json()) as { result: { isError?: boolean; content: { text: string }[] } };
-  const text = body.result.content[0]?.text ?? '';
-  return { isError: body.result.isError === true, text, data: body.result.isError ? null : JSON.parse(text) };
-}
 
 describe('MCP discovery', () => {
   it('turns away a call without a token, pointing to the resource metadata', async () => {
@@ -189,6 +100,11 @@ describe('connecting an AI app', () => {
         'list_decks',
         'list_folders',
         'list_notes',
+        'upload_image',
+        'attach_image_to_note',
+        'create_note_with_images',
+        'list_note_attachments',
+        'remove_note_attachment',
       ].sort(),
     );
 
@@ -271,6 +187,39 @@ describe('connecting an AI app', () => {
     const other = await server.signUp('someone-else@example.com');
     const otherToken = await connect(other.cookie, clientId);
     expect((await callTool(otherToken, 'list_decks')).data).toEqual([]);
+  });
+
+  it('keeps diagrams and boxes in Cornell notes, cleaning the SVG, and turns away a broken diagram', async () => {
+    const clientId = await registerClient('Claude');
+    const { cookie } = await server.signUp('diagrams@example.com');
+    const token = await connect(cookie, clientId);
+
+    const note = await callTool(token, 'create_note', {
+      title: 'Rotary Traffic Management',
+      style: 'cornell',
+      cornell_rows: [
+        {
+          cue: 'What are the main components?',
+          notes: ':::diagram Parts of a rotary\n<svg viewBox="0 0 400 300" onload="x()"><circle r="50"/></svg>\n:::',
+        },
+        { cue: 'Advantages?', notes: ':::good Advantages\n- Smooth flow\n:::' },
+      ],
+      summary: 'A large circular intersection.',
+      good_to_know: ['Traffic moves one way round a central island.'],
+    });
+    expect(note.isError).toBe(false);
+    const read = await callTool(token, 'get_note', { note_id: note.data.noteId });
+    expect(read.data.cornellRows[0].notes).toBe(
+      ':::diagram Parts of a rotary\n<svg viewBox="0 0 400 300"><circle r="50"/></svg>\n:::',
+    );
+    expect(read.data.cornellRows[1].notes).toBe(':::good Advantages\n- Smooth flow\n:::');
+
+    const broken = await callTool(token, 'create_note', {
+      title: 'Broken',
+      body: ':::diagram Half a drawing\n<svg><circle r="5"/>\n:::',
+    });
+    expect(broken.isError).toBe(true);
+    expect(broken.text).toMatch(/no complete <svg>/);
   });
 
   it('lets the AI app sort cards into groups inside a deck, reusing groups by name', async () => {

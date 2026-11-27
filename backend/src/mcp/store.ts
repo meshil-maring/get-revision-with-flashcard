@@ -47,19 +47,21 @@ function sameName(a: string, b: string): boolean {
 }
 
 /** A user's records in one table that haven't been deleted. */
-async function liveRows<T>(db: Db, userId: string, table: SyncedTable): Promise<T[]> {
+export async function liveRows<T>(db: Db, userId: string, table: SyncedTable): Promise<T[]> {
   const result = await db.execute(sql`
     SELECT data FROM synced_rows
      WHERE user_id = ${userId} AND table_name = ${table} AND (data->>'deleted_at') IS NULL`);
   return (result.rows as { data: T }[]).map((r) => r.data);
 }
 
-async function liveRow<T>(db: Db, userId: string, table: SyncedTable, id: string): Promise<T | null> {
+export async function liveRow<T>(db: Db, userId: string, table: SyncedTable, id: string): Promise<T | null> {
   const result = await db.execute(sql`
     SELECT data FROM synced_rows
      WHERE user_id = ${userId} AND table_name = ${table} AND row_id = ${id} AND (data->>'deleted_at') IS NULL`);
   return (result.rows as { data: T }[])[0]?.data ?? null;
 }
+
+export type NewRow = { table: SyncedTable; id: string; data: Record<string, unknown> };
 
 /** Saves new rows for the user in one transaction. */
 async function save(db: Db, userId: string, rows: { table: SyncedTable; id: string; data: Record<string, unknown> }[]) {
@@ -355,8 +357,23 @@ export async function createNote(
   input: NoteInput,
   createdBy: string,
 ): Promise<{ id: string; folder: string; tags: string[]; goodToKnow?: 'added' | 'created' }> {
+  const { rows, note } = await buildNote(db, userId, input, createdBy);
+  await save(db, userId, rows);
+  return note;
+}
+
+/**
+ * The rows that make a new note (and its new folders, tags and Good to know update),
+ * without saving them, so a caller can save them with more rows in one transaction.
+ */
+export async function buildNote(
+  db: Db,
+  userId: string,
+  input: NoteInput,
+  createdBy: string,
+): Promise<{ rows: NewRow[]; note: { id: string; folder: string; tags: string[]; goodToKnow?: 'added' | 'created' } }> {
   const now = new Date().toISOString();
-  const rows: { table: SyncedTable; id: string; data: Record<string, unknown> }[] = [];
+  const rows: NewRow[] = [];
 
   // Folders: walk the path, reusing folders that exist.
   const folders = await liveRows<FolderRow>(db, userId, 'folders');
@@ -432,8 +449,7 @@ export async function createNote(
     });
   }
 
-  await save(db, userId, rows);
-  return { id: noteId, folder: pathNames.join(' / '), tags: tagNames, goodToKnow };
+  return { rows, note: { id: noteId, folder: pathNames.join(' / '), tags: tagNames, goodToKnow } };
 }
 
 // --- good to know ----------------------------------------------------------------

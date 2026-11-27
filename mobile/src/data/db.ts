@@ -200,6 +200,17 @@ const MIGRATIONS: string[] = [
   ALTER TABLE cards ADD COLUMN group_id TEXT;
   ${syncTriggers('card_groups', 'NEW.id')}
   `,
+  // v14: images on notes get a caption, alt text (what the picture shows, for screen readers)
+  // and an order. AI apps can add images to notes (MCP upload_image / attach_image_to_note).
+  // The update trigger is made again so changes to the new columns sync too.
+  `
+  ALTER TABLE note_attachments ADD COLUMN caption TEXT;
+  ALTER TABLE note_attachments ADD COLUMN alt_text TEXT;
+  ALTER TABLE note_attachments ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+  DROP TRIGGER IF EXISTS sync_note_attachments_insert;
+  DROP TRIGGER IF EXISTS sync_note_attachments_update;
+  ${syncTriggers('note_attachments', 'NEW.id', ['note_id', 'kind', 'name', 'mime_type', 'deleted_at', 'remote_key', 'caption', 'alt_text', 'position'])}
+  `,
 ];
 
 // An upsert, not INSERT OR REPLACE: inside a trigger, OR REPLACE is overridden by the

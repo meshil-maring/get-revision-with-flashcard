@@ -217,6 +217,11 @@ All your tags show at the top of the Notes tab. Tap one to see every note with i
 
 ==Tip:== to revise, cover the notes side and answer each cue from memory.
 
+## Boxes and diagrams
+- The **✓ box** and **✗ box** buttons in the toolbar add an **Advantages** or **Limitations** box. A ✓ box and a ✗ box written one after the other sit side by side on a wide screen.
+- Ask your AI app for "Cornell notes with a diagram" and it can draw a labelled diagram into the note. **Tap a diagram** to see it full screen.
+- Cornell notes are shown in a **handwritten font**. To change it, tap **⋮** › **Use normal font**.
+
 You can switch a note between Plain and Cornell at any time. Nothing you wrote is lost.`,
   },
   {

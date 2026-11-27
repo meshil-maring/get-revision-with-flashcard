@@ -37,7 +37,27 @@ export function suggestCards(note: Pick<Note, 'style' | 'body' | 'rows'>): Sugge
     under = [];
   };
 
+  // Lines of a diagram's SVG are kept with the section they're in, but never read as terms.
+  let inDiagram: 'fence' | 'backticks' | 'svg' | null = null;
   for (const line of note.body.split('\n')) {
+    const trimmed = line.trim();
+    if (!inDiagram) {
+      if (/^:::\s*(diagram|svg)\b/i.test(trimmed)) inDiagram = 'fence';
+      else if (/^```\s*svg\b/i.test(trimmed)) inDiagram = 'backticks';
+      else if (/^<svg[\s>]/i.test(trimmed) && !/<\/svg>/i.test(trimmed)) inDiagram = 'svg';
+    } else if (
+      (inDiagram === 'fence' && trimmed === ':::') ||
+      (inDiagram === 'backticks' && trimmed.startsWith('```')) ||
+      (inDiagram === 'svg' && /<\/svg>/i.test(trimmed))
+    ) {
+      inDiagram = null;
+      if (heading) under.push(line);
+      continue;
+    }
+    if (inDiagram || /^<svg[\s>]/i.test(trimmed)) {
+      if (heading) under.push(line);
+      continue;
+    }
     if (/^#{1,2} /.test(line)) {
       closeSection();
       heading = plainLine(line.replace(/^#{1,2} /, ''));

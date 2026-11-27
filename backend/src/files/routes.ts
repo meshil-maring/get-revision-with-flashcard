@@ -9,6 +9,7 @@ import type { Db } from '../db/client.ts';
 import { files } from '../db/schema.ts';
 import type { FilesConfig } from '../env.ts';
 import { LOCAL_FILES_PATH, type DiskStorage, type FileStorage } from './storage.ts';
+import { removeFileIfUnused } from './uploads.ts';
 
 /** File types the app can attach: images, PDFs and audio. */
 export function isAllowedType(mimeType: string): boolean {
@@ -35,7 +36,7 @@ const downloadRequest = z.object({ keys: z.array(z.string().max(300)).min(1).max
 const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 
 /** Bytes the user stores, not counting the given key (which is being replaced). */
-async function usedBytes(db: Db, userId: string, exceptKey: string): Promise<number> {
+export async function usedBytes(db: Db, userId: string, exceptKey: string): Promise<number> {
   const [row] = await db
     .select({ total: sql<string | number>`coalesce(sum(${files.size}), 0)` })
     .from(files)
@@ -139,20 +140,18 @@ export function localFileRoutes(storage: DiskStorage, config: FilesConfig) {
 /**
  * After a sync: removes the stored files of attachments that are now deleted. Looks at the
  * saved rows (not the request), so a deletion that lost to a newer edit removes nothing.
+ * A file another live attachment still uses (an image attached to two notes) is kept.
  */
 export async function removeDeletedFiles(db: Db, storage: FileStorage, userId: string, rowIds: string[]): Promise<void> {
   if (rowIds.length === 0) return;
   const result = await db.execute(sql`
-    SELECT data->>'remote_key' AS key FROM synced_rows
+    SELECT DISTINCT data->>'remote_key' AS key FROM synced_rows
      WHERE user_id = ${userId}
        AND table_name IN ('attachments', 'note_attachments')
        AND row_id IN (${sql.join(rowIds.map((id) => sql`${id}`), sql`, `)})
        AND data->>'deleted_at' IS NOT NULL
        AND data->>'remote_key' IS NOT NULL`);
-  const ownPrefix = `u/${userId}/`;
   for (const { key } of result.rows as { key: string }[]) {
-    if (!key.startsWith(ownPrefix)) continue;
-    await storage.remove(key);
-    await db.delete(files).where(and(eq(files.key, key), eq(files.userId, userId)));
+    await removeFileIfUnused(db, storage, userId, key);
   }
 }

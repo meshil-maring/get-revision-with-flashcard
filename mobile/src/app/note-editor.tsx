@@ -40,11 +40,12 @@ import {
   type PickedFile,
 } from '@/lib/attachment-files';
 import { convertNote } from '@/lib/notes';
+import { removeImageRefs } from '@/lib/rich-text';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 
 /** An attachment in the editor. `savedId` is set for ones already in the database. */
-type Draft = AttachmentItem & { savedId?: string };
+type Draft = AttachmentItem & { savedId?: string; remoteKey?: string | null };
 /** A Cornell row being edited, with a key that stays the same while rows are added or removed. */
 type RowDraft = { key: string; cue: string; notes: string };
 
@@ -160,7 +161,16 @@ export default function NoteEditorScreen() {
     if (!canSave) return;
     setSaving(true);
     try {
-      const input = { title, style, body, rows: rows.map(({ cue, notes }) => ({ cue, notes })), summary };
+      // A removed image also leaves the text it was shown in (its ":::image" line, e.g. in a Cornell row).
+      const gone = removed.flatMap((d) => [d.savedId!, d.remoteKey?.split('/').pop() ?? '']).filter(Boolean);
+      const clean = (text: string) => removeImageRefs(text, gone);
+      const input = {
+        title,
+        style,
+        body: clean(body),
+        rows: rows.map(({ cue, notes }) => ({ cue, notes: clean(notes) })),
+        summary: clean(summary),
+      };
       let id = noteId;
       if (id) await updateNote(db, id, input);
       else id = await createNote(db, folderId ?? null, input);

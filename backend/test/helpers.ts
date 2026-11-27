@@ -2,13 +2,22 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createApp } from '../src/app.ts';
+import { createApp, createStorage } from '../src/app.ts';
 import { createAuth } from '../src/auth/auth.ts';
 import { openDatabase } from '../src/db/client.ts';
 import type { Email } from '../src/email.ts';
 import { readEnv } from '../src/env.ts';
+import type { ImageFetcher } from '../src/files/fetch-image.ts';
+import type { FileStorage } from '../src/files/storage.ts';
 
-export async function createTestServer(extraEnv: NodeJS.ProcessEnv = {}) {
+export type TestServerOptions = {
+  /** Stands in for downloading image links (upload_image's image_url / ChatGPT files). */
+  fetchImage?: ImageFetcher;
+  /** Wraps the file storage, e.g. to make it fail. */
+  wrapStorage?: (storage: FileStorage) => FileStorage;
+};
+
+export async function createTestServer(extraEnv: NodeJS.ProcessEnv = {}, options: TestServerOptions = {}) {
   const filesDir = await mkdtemp(join(tmpdir(), 'studyme-files-'));
   const env = readEnv({
     NODE_ENV: 'test',
@@ -21,7 +30,9 @@ export async function createTestServer(extraEnv: NodeJS.ProcessEnv = {}) {
   /** Emails the server sent (password reset links), newest last. */
   const emails: Email[] = [];
   const auth = createAuth(database.db, env, { send: async (email) => void emails.push(email) });
-  const app = createApp({ db: database.db, auth, env });
+  const created = createStorage(env);
+  const files = { ...created, storage: options.wrapStorage ? options.wrapStorage(created.storage) : created.storage };
+  const app = createApp({ db: database.db, auth, env, files, fetchImage: options.fetchImage });
 
   const request = (path: string, init: RequestInit = {}) =>
     app.request(`http://localhost:4000${path}`, {
@@ -44,5 +55,5 @@ export async function createTestServer(extraEnv: NodeJS.ProcessEnv = {}) {
     await database.close();
     await rm(filesDir, { recursive: true, force: true });
   };
-  return { app, auth, env, db: database.db, request, signUp, emails, close };
+  return { app, auth, env, db: database.db, storage: files.storage, disk: created.disk!, request, signUp, emails, close };
 }

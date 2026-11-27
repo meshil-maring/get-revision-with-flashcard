@@ -5,7 +5,7 @@ import { Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 're
 
 import { RichText } from '@/components/ui/rich-text';
 import { colors, scaled } from '@/components/ui';
-import { insertTable, toggleLinePrefix, wrapSelection, type Edit, type Selection } from '@/lib/rich-text';
+import { insertBox, insertTable, toggleLinePrefix, wrapSelection, type Edit, type Selection } from '@/lib/rich-text';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
 
@@ -24,6 +24,9 @@ const TOOLS: Tool[] = [
   { icon: 'format-list-bulleted', label: 'Bullet list', apply: (t, s) => toggleLinePrefix(t, s, '- ') },
   { icon: 'format-list-numbered', label: 'Numbered list', apply: (t, s) => toggleLinePrefix(t, s, '1. ') },
   { icon: 'table', label: 'Table', apply: insertTable },
+  { icon: 'check-circle-outline', label: 'Advantages box', apply: (t, s) => insertBox(t, s, 'good') },
+  { icon: 'close-circle-outline', label: 'Limitations box', apply: (t, s) => insertBox(t, s, 'bad') },
+  { icon: 'card-text-outline', label: 'Key points box', apply: (t, s) => insertBox(t, s, 'note') },
 ];
 
 type Props = {

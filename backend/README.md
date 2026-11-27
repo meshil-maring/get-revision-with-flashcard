@@ -30,9 +30,12 @@ src/
   env.ts          settings from environment variables
   auth/           Better Auth setup, requireSession middleware
   sync/           POST /api/sync: request checks (routes.ts) and the sync itself (sync.ts)
-  files/          attachment files: R2 and dev-folder storage (storage.ts), upload/download links (routes.ts)
+  files/          attachment files: R2 and dev-folder storage (storage.ts), upload/download links (routes.ts),
+                  images from AI apps: checks (images.ts), safe link downloads (fetch-image.ts), storing,
+                  upload links and clean-up (uploads.ts), the /upload/<token> page (upload-page.ts)
   mcp/            the MCP server: /mcp route (routes.ts), tools (tools.ts), reading/writing the user's
-                  rows (store.ts), and the sign-in / allow-access pages AI apps open (pages.ts)
+                  rows (store.ts), images on notes (note-images.ts), and the sign-in / allow-access
+                  pages AI apps open (pages.ts)
   db/             Drizzle: connection + migrations (client.ts), tables (schema.ts, auth-schema.ts)
 drizzle/          generated SQL migrations
 test/             API tests (Vitest, in-memory Postgres)
@@ -88,6 +91,7 @@ Until your own domain is verified in Resend, `onboarding@resend.dev` can only se
 | `/api/auth/oauth2/*` | OAuth: `register` (dynamic client registration), `authorize`, `consent`, `token`, … |
 | `GET /oauth/sign-in`, `/oauth/consent` | The pages a user sees while connecting an AI app |
 | `GET /account/reset-password` | Choose a new password (from a forgot-password email) |
+| `GET`, `POST /upload/<token>` | One-time page to upload an image an AI app asked for (see "Images in notes") |
 
 ## Connect an AI app (MCP)
 
@@ -99,8 +103,10 @@ How connecting works: the AI app calls `/mcp`, gets a 401 pointing to the metada
 `/mcp` and only for that user. The token's client name ("ChatGPT", "Claude") is saved on the notes it writes.
 
 Tools: `list_decks`, `get_deck`, `create_deck`, `add_cards`, `list_folders`, `list_notes`, `get_note`,
-`create_note`. They only read and add; nothing is changed or deleted. What they write goes into `synced_rows`
-like a device's changes, so the app picks it up on its next sync.
+`create_note`, `add_good_to_know`, and for images `upload_image`, `attach_image_to_note`,
+`create_note_with_images`, `list_note_attachments`, `remove_note_attachment` (below). Apart from
+`remove_note_attachment` they only read and add. What they write goes into `synced_rows` like a device's
+changes, so the app picks it up on its next sync. `GET /health` lists them, to check what a deploy serves.
 
 ### Try it with ChatGPT or Claude on your computer
 
@@ -123,6 +129,59 @@ cloudflared tunnel --url http://localhost:4000    # or: ngrok http 4000
 The quick tunnel's address changes each time it starts; then update `BETTER_AUTH_URL` and the connector.
 To try the tools without an AI app or a tunnel: `npx @modelcontextprotocol/inspector`, transport
 "Streamable HTTP", URL `http://localhost:4000/mcp`, then Connect (it runs the same sign-in and Allow pages).
+
+### Images in notes
+
+An AI app adds a picture to a note in two steps: **upload** it (`upload_image` → an `attachment_id`), then
+**attach** it (`attach_image_to_note` for an existing note, `create_note_with_images` for a new one). Only PNG,
+JPEG and WebP, up to `MAX_IMAGE_MB` (default 10 MB) and 12,000 px a side.
+
+| Tool | Input | Returns |
+| --- | --- | --- |
+| `upload_image` | one of `image` (ChatGPT file), `image_url` (https), `image_base64`; or none → upload link. Optional `filename`, `mime_type` | `attachment_id`, `status`, `filename`, `mime_type`, `file_size`, `width`, `height`, `expires_if_not_attached_at` (or `upload_url` + `link_expires_at`) |
+| `attach_image_to_note` | `note_id`, `attachment_id`, optional `caption`, `alt_text`, `cornell_row` | the attachment, `status` (`attached` / `already attached`), `display_order`, `shown` |
+| `create_note_with_images` | `create_note`'s fields + `images[]` of `{ attachment_id, caption?, alt_text?, cornell_row? }` (1 to 20, in order) | the note + `attachments[]` |
+| `list_note_attachments` | `note_id` | `attachments[]`: `attachment_id`, `filename`, `mime_type`, `file_size`, `caption`, `alt_text`, `display_url` (15-minute link), `created_at`, `display_order`, `uploaded`, `shown` |
+| `remove_note_attachment` | `note_id`, `attachment_id` | `removed`, `fileDeleted` (false while another note still uses the image) |
+
+**Where it shows.** A line `:::image <attachment_id>` in a note's text shows that image right there (see
+`mobile/src/lib/rich-text.ts`); images without one show after the note. `cornell_row` (1 = first row) adds the
+line to that Cornell row for the AI app, and attaching again with another row moves it. In a plain note the AI
+app writes the line in `body` itself. `create_note_with_images` refuses a line for an image it isn't attaching;
+`remove_note_attachment` takes the line out too; `shown` says where each image is (`cornell row 2`,
+`in the body`, `in the summary`, `after the note`). The app shows them the same way in focus mode.
+
+**How the image gets to the server.** MCP has no standard way for a chat attachment to reach a tool, so
+`upload_image` takes whichever the AI app can give:
+
+- **ChatGPT**: the tool declares `_meta["openai/fileParams"] = ["image"]`, so ChatGPT fills `image` with
+  `{ download_url, file_id, mime_type?, file_name? }` for a picture the user attached, and the server downloads
+  it. (From OpenAI's Apps SDK reference; not yet tried against live ChatGPT. The other ways work either way.)
+- **A public picture**: `image_url`, any https link. The server downloads it, refusing private or local
+  addresses (also after redirects and DNS lookups), anything over the size limit, and slow servers.
+- **Bytes the AI app really has** (e.g. made with code): `image_base64`. The `/mcp` request can be up to
+  about 2.7 x `MAX_IMAGE_MB` + 4 MB for this.
+- **Anything else (Claude.ai today)**: call `upload_image` with none of them. It returns an `upload_url`
+  (`/upload/<token>`) for the user to open; they pick the picture there. The link works once, for 30 minutes.
+  `attach_image_to_note` then works with the same `attachment_id`; before the upload it says so.
+
+Every image is checked from its bytes (signature and header, not its name or stated type), stored under the
+user's own key `u/<user id>/<attachment id>`, and recorded in `files` with an `expires_at` 24 hours ahead.
+Attaching clears `expires_at`; the server removes unattached uploads every hour. Each user's AI apps may upload
+`IMAGE_UPLOADS_PER_HOUR` images (default 60), within the user's `FILE_QUOTA_MB`.
+
+An attached image is a `note_attachments` row like the app's own, with `remote_key`, `caption`, `alt_text`
+and `position`, saved in the same transaction as the note for `create_note_with_images` (no note without its
+images). The app downloads the file on its next sync and shows it under the note, with its caption, full screen
+with zoom. One upload can be attached to several notes; its file is removed only when none use it.
+
+**Example (ChatGPT).** Attach a photo of a diagram and write: *"Upload this traffic engineering diagram to
+StudyMe, explain its parts, and add it to my Traffic Engineering > Intersections note."* ChatGPT calls
+`list_notes` to find the note, `upload_image` with the photo, then `attach_image_to_note` with a caption and alt
+text, and replies with what it saved. In Claude, the same request makes Claude show the upload link first.
+
+**Trying it**: with the MCP Inspector (above), call `upload_image` with `image_url` set to any public PNG, or with
+nothing and open the `upload_url`; then `attach_image_to_note` with a note id from `list_notes`, and sync the app.
 
 ### How sync works
 
@@ -150,9 +209,12 @@ download from) R2 directly.
 3. The app sets the attachment's `remote_key` and syncs. Other devices ask `POST /api/files/download-urls` and keep
    a copy, so attachments still open offline. An attachment shows up once its file has arrived.
 4. When a deleted attachment syncs (deleting its card, note, deck or folder deletes it too), the server removes the
-   file. A deletion that loses to a newer edit removes nothing.
+   file, unless another live attachment still uses it (an AI app attached one image to two notes). A deletion
+   that loses to a newer edit removes nothing.
 
-The `files` table records who owns each stored file and its size.
+The `files` table records who owns each stored file and its size; for images from AI apps also their `name` and,
+until attached, `expires_at`. Images from AI apps are the one case where the server writes to storage itself
+(`FileStorage.put`), since the bytes reach it through MCP.
 
 **Without R2** (development, tests) files go to `FILES_DIR` (default `./data/files`) and the server serves the
 signed links itself under `/api/local-files/`. In production the server refuses to start without R2, unless
@@ -181,10 +243,19 @@ Removing a user deletes their `files` rows but not their objects in R2 yet.
 
 ## Database changes
 
-Edit `src/db/schema.ts`, then `npm run db:generate` to write a migration into `drizzle/`.
+Edit `src/db/schema.ts`, then `npm run db:generate` to write a migration into `drizzle/`. Migrations run when the
+server starts. A new table also needs row-level security (see `0003`; `test/database.test.ts` checks).
+
+- `0004_image_uploads`: `files.name`, `files.expires_at` and an index on it, for images from AI apps. Only adds
+  nullable columns, so it is safe while the old version still runs; the file says how to undo it.
 Auth tables (including the OAuth ones) live in `src/db/auth-schema.ts`, generated by `npx auth@latest generate --config auth.config.ts --output src/db/auth-schema.ts` when Better Auth plugins change.
 
 ## Tests
 
 `npm test` runs the API against an in-memory Postgres, including the whole AI-app path (`test/mcp.test.ts`):
-register → sign in → allow → token → tool calls → sync. `npm run typecheck` checks types.
+register → sign in → allow → token → tool calls → sync. `test/mcp-images.test.ts` follows an image the same way,
+on to the app downloading it (only downloading image links is faked); `test/images.test.ts` covers the checks.
+`npm run typecheck` checks types.
+
+`R2_INTEGRATION=1 npx vitest run test/r2-live.test.ts` stores, reads back and deletes one tiny image in the real
+R2 bucket from `.env` (skipped otherwise).

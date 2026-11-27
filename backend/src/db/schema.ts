@@ -43,6 +43,13 @@ export const files = pgTable(
     mimeType: text('mime_type').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
     uploadedAt: timestamp('uploaded_at', { withTimezone: true, mode: 'string' }),
+    /** The file's name as the user or AI app gave it (cleaned); set for images uploaded through MCP. */
+    name: text('name'),
+    /**
+     * Set for an image an AI app uploaded that isn't attached to a note yet: after this the
+     * file is removed (see removeExpiredUploads). Attaching it clears it.
+     */
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }),
   },
-  (t) => [index('files_user_idx').on(t.userId)],
+  (t) => [index('files_user_idx').on(t.userId), index('files_expires_idx').on(t.expiresAt)],
 );

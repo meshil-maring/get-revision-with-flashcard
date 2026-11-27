@@ -211,6 +211,40 @@ describe('notes', () => {
     await deleteNoteAttachment(db, a);
     expect((await listNoteAttachments(db, id)).map((x) => x.name)).toEqual(['b.pdf']);
   });
+
+  it('keeps attachments in order, new ones after those an AI app added', async () => {
+    const id = await createNote(db, null, { title: 'Intersections', style: 'plain' });
+    // As a sync saves an image an AI app attached: second place, not downloaded yet.
+    await db.runAsync(
+      `INSERT INTO note_attachments (id, note_id, kind, uri, name, mime_type, created_at, remote_key, caption, alt_text, position)
+       VALUES ('ai-1', ?, 'image', '', 'crossroads.png', 'image/png', '2026-01-01T00:00:00.000Z', 'u/user-1/ai-1', 'Figure 1', 'Two roads crossing', 1)`,
+      id,
+    );
+    await db.runAsync(
+      `INSERT INTO note_attachments (id, note_id, kind, uri, name, created_at, position)
+       VALUES ('first', ?, 'image', 'file:///first.jpg', 'first.jpg', '2026-06-01T00:00:00.000Z', 0)`,
+      id,
+    );
+    await addNoteAttachment(db, id, { kind: 'image', uri: 'file:///mine.jpg', name: 'mine.jpg' });
+
+    const list = await listNoteAttachments(db, id);
+    expect(list.map((x) => [x.name, x.position])).toEqual([
+      ['first.jpg', 0],
+      ['crossroads.png', 1],
+      ['mine.jpg', 2],
+    ]);
+    expect(list[1]).toMatchObject({ uri: '', caption: 'Figure 1', altText: 'Two roads crossing', remoteKey: 'u/user-1/ai-1' });
+    expect(list[2]).toMatchObject({ caption: null, altText: null, remoteKey: null });
+  });
+
+  it('leaves out files that are neither on this device nor in the account', async () => {
+    const id = await createNote(db, null, { title: 'Broken', style: 'plain' });
+    await db.runAsync(
+      `INSERT INTO note_attachments (id, note_id, kind, uri, name, created_at) VALUES ('x', ?, 'image', '', 'lost.png', '2026-01-01T00:00:00.000Z')`,
+      id,
+    );
+    expect(await listNoteAttachments(db, id)).toEqual([]);
+  });
 });
 
 describe('searchNotes', () => {

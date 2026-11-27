@@ -5,6 +5,7 @@ export const SETTINGS = {
   welcomeSeen: 'welcome_seen',
   lastCustomAutoNext: 'last_custom_auto_next',
   noteFocusSize: 'note_focus_size',
+  noteHandwriting: 'note_handwriting',
 } as const;
 
 // Screen tips are saved one key each, e.g. 'tip:study' (see components/ui/screen-tip.tsx).
@@ -94,6 +95,15 @@ export async function getNoteFocusSize(db: SQLiteDatabase): Promise<NoteFocusSiz
 
 export async function setNoteFocusSize(db: SQLiteDatabase, size: NoteFocusSize): Promise<void> {
   await setSetting(db, SETTINGS.noteFocusSize, size);
+}
+
+/** Whether Cornell notes are shown in a handwritten font (on until turned off). */
+export async function getNoteHandwriting(db: SQLiteDatabase): Promise<boolean> {
+  return (await getSetting(db, SETTINGS.noteHandwriting)) !== '0';
+}
+
+export async function setNoteHandwriting(db: SQLiteDatabase, on: boolean): Promise<void> {
+  await setSetting(db, SETTINGS.noteHandwriting, on ? '1' : '0');
 }
 
 /** Shows every screen tip again. */
