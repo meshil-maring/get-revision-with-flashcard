@@ -8,6 +8,7 @@ export const SETTINGS = {
   noteHandwriting: 'note_handwriting',
   theme: 'theme',
   readingSize: 'reading_size',
+  lastReadNote: 'last_read_note',
 } as const;
 
 // Screen tips are saved one key each, e.g. 'tip:study' (see components/ui/screen-tip.tsx).

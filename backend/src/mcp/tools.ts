@@ -7,6 +7,7 @@ import { fetchImage as defaultFetchImage, type ImageFetcher } from '../files/fet
 import { ImageError, mb } from '../files/images.ts';
 import { createUploadLink, storeImage, UNATTACHED_HOURS, UPLOAD_LINK_MINUTES, type ImageDeps } from '../files/uploads.ts';
 import { cleanDiagrams } from './diagrams.ts';
+import * as edits from './edits.ts';
 import * as noteImages from './note-images.ts';
 import * as store from './store.ts';
 
@@ -87,11 +88,29 @@ export const MCP_TOOL_NAMES = [
   'create_note_with_images',
   'list_note_attachments',
   'remove_note_attachment',
+  'update_deck',
+  'delete_deck',
+  'update_cards',
+  'move_cards',
+  'delete_cards',
+  'update_note',
+  'move_notes',
+  'delete_notes',
+  'rename_folder',
+  'move_folder',
+  'delete_folder',
 ] as const;
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 const ADDS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 const REMOVES = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false } as const;
+/** Overwrites what is there (a rename, an edit, a move), so AI apps may ask the user first. */
+const CHANGES = REMOVES;
+
+/** Said on every delete tool, so the AI only deletes what the user asked for. */
+const ONLY_WHEN_ASKED =
+  'Only when the user clearly asks for it: it is removed from all their devices on the next sync and cannot be undone.';
+const ids = (what: string, max: number) => z.array(z.string().min(1)).min(1).max(max).describe(`Ids of the ${what}.`);
 
 /** An uploaded image's id: from upload_image or list_note_attachments. */
 const attachmentId = z
@@ -147,7 +166,7 @@ const noteFields = {
     .optional()
     .describe('For Cornell notes.'),
   summary: z.string().max(10_000).optional().describe('For Cornell notes.'),
-  tags: z.array(text(50)).max(10).optional().describe('Tag names; new ones are made.'),
+  tags: z.array(text(50)).max(store.MAX_TAGS_PER_NOTE).optional().describe(`Up to ${store.MAX_TAGS_PER_NOTE} tag names; new ones are made.`),
   good_to_know: z
     .array(text(300))
     .max(8)
@@ -204,7 +223,9 @@ export function createMcpServer(db: Db, caller: McpCaller, images: McpImageOptio
         'already has and to add new decks, cards and notes for them. Look before you add: check list_decks before ' +
         'making a deck, and list_folders before choosing where a note goes, so you reuse what exists. Keep cards short ' +
         'and focused on one fact each. To put a picture in a note, upload it with upload_image, then attach it with ' +
-        'attach_image_to_note or create_note_with_images. New items appear in the app on its next sync.',
+        'attach_image_to_note or create_note_with_images. You can also rename, edit, move and delete decks, cards, ' +
+        'notes and folders when the user asks: read first (get_deck, get_note, list_folders) so you change the right ' +
+        'thing, and only delete what the user asked to delete. Changes appear in the app on its next sync.',
     },
   );
 
@@ -548,6 +569,209 @@ export function createMcpServer(db: Db, caller: McpCaller, images: McpImageOptio
       annotations: REMOVES,
     },
     ({ note_id, attachment_id }) => run(() => noteImages.removeAttachment(db, images.storage, userId, note_id, attachment_id)),
+  );
+
+  // --- changing what is there --------------------------------------------------------
+
+  server.registerTool(
+    'update_deck',
+    {
+      title: 'Rename or edit a deck',
+      description:
+        "Changes a deck's name or description, renames card groups inside it, or deletes groups (their cards stay " +
+        'in the deck, without a group). Pass only what should change.',
+      inputSchema: {
+        deck_id: z.string().min(1).describe('From list_decks.'),
+        name: text(200).optional(),
+        description: z.string().trim().max(1000).optional().describe('"" clears it.'),
+        rename_groups: z
+          .array(z.object({ from: text(100).describe("The group's name now."), to: text(100).describe('Its new name.') }))
+          .max(50)
+          .optional(),
+        delete_groups: z.array(text(100)).max(50).optional().describe('Names of groups to delete; their cards are kept.'),
+      },
+      annotations: CHANGES,
+    },
+    ({ deck_id, name, description, rename_groups, delete_groups }) =>
+      run(() =>
+        edits.updateDeck(db, userId, deck_id, { name, description, renameGroups: rename_groups, deleteGroups: delete_groups }),
+      ),
+  );
+
+  server.registerTool(
+    'delete_deck',
+    {
+      title: 'Delete a deck',
+      description: `Deletes a deck with all its cards and groups. ${ONLY_WHEN_ASKED}`,
+      inputSchema: { deck_id: z.string().min(1).describe('From list_decks.') },
+      annotations: REMOVES,
+    },
+    ({ deck_id }) => run(() => edits.deleteDeck(db, userId, deck_id)),
+  );
+
+  server.registerTool(
+    'update_cards',
+    {
+      title: 'Edit flashcards',
+      description:
+        "Changes cards' front, back or group (up to 200 at once). Pass only what should change for each card. " +
+        `\`group\` puts the card in that group of its deck (made if missing); "" takes it out of its group. ${FORMATTING}`,
+      inputSchema: {
+        cards: z
+          .array(
+            z.object({
+              card_id: z.string().min(1).describe('From get_deck.'),
+              front: text(5000).optional(),
+              back: text(10000).optional(),
+              group: z.string().trim().max(100).optional(),
+            }),
+          )
+          .min(1)
+          .max(200),
+      },
+      annotations: CHANGES,
+    },
+    ({ cards: changes }) =>
+      run(() =>
+        edits.updateCards(
+          db,
+          userId,
+          changes.map((c) => ({ cardId: c.card_id, front: c.front, back: c.back, group: c.group })),
+        ),
+      ),
+  );
+
+  server.registerTool(
+    'move_cards',
+    {
+      title: 'Move flashcards to another deck',
+      description:
+        'Moves cards into a deck, optionally into one of its groups (made if missing). Moving within the same deck ' +
+        'with a `group` regroups them.',
+      inputSchema: {
+        card_ids: ids('cards, from get_deck', 200),
+        deck_id: z.string().min(1).describe('The deck to move them to, from list_decks.'),
+        group: z.string().trim().max(100).optional().describe('A group in that deck. Leave out for no group.'),
+      },
+      annotations: CHANGES,
+    },
+    ({ card_ids, deck_id, group }) => run(() => edits.moveCards(db, userId, card_ids, deck_id, group)),
+  );
+
+  server.registerTool(
+    'delete_cards',
+    {
+      title: 'Delete flashcards',
+      description: `Deletes cards (up to 200 at once). ${ONLY_WHEN_ASKED}`,
+      inputSchema: { card_ids: ids('cards, from get_deck', 200) },
+      annotations: REMOVES,
+    },
+    ({ card_ids }) => run(() => edits.deleteCards(db, userId, card_ids)),
+  );
+
+  server.registerTool(
+    'update_note',
+    {
+      title: 'Edit a note',
+      description:
+        'Changes a note: its title, style, text, tags or key points. Pass only what should change; the rest stays. ' +
+        'Read it with get_note first and send whole fields back: `body` replaces the whole body, `cornell_rows` ' +
+        `all the rows, \`tags\` all its tags (up to ${store.MAX_TAGS_PER_NOTE}; [] takes them off). \`good_to_know\` ` +
+        `replaces this note's key points in its folder's "${store.GOOD_TO_KNOW_TITLE}" note. To change the style, ` +
+        `also pass the text for the new style. ${FORMATTING} ${NOTE_EXTRAS}`,
+      inputSchema: {
+        note_id: z.string().min(1).describe('From list_notes.'),
+        title: text(200).optional(),
+        style: z.enum(['plain', 'cornell']).optional(),
+        body: noteFields.body,
+        cornell_rows: noteFields.cornell_rows,
+        summary: noteFields.summary,
+        tags: z.array(text(50)).max(store.MAX_TAGS_PER_NOTE).optional().describe(`Up to ${store.MAX_TAGS_PER_NOTE} tag names.`),
+        good_to_know: noteFields.good_to_know,
+      },
+      annotations: CHANGES,
+    },
+    ({ note_id, title, style, body, cornell_rows, summary, tags, good_to_know }) =>
+      run(() =>
+        edits.updateNote(
+          db,
+          userId,
+          note_id,
+          {
+            title,
+            style,
+            body: cleanDiagrams(body, 'body'),
+            cornellRows: cornell_rows?.map((row, i) => ({
+              cue: row.cue,
+              notes: cleanDiagrams(row.notes, `cornell_rows[${i}]`) ?? '',
+            })),
+            summary: cleanDiagrams(summary, 'summary'),
+            tags,
+            goodToKnow: good_to_know,
+          },
+          caller.appName,
+        ),
+      ),
+  );
+
+  server.registerTool(
+    'move_notes',
+    {
+      title: 'Move notes to another folder',
+      description: 'Moves notes into a folder (folders on the path that do not exist yet are made). Empty path = top level.',
+      inputSchema: { note_ids: ids('notes, from list_notes', 100), folder_path: folderPath },
+      annotations: CHANGES,
+    },
+    ({ note_ids, folder_path }) => run(() => edits.moveNotes(db, userId, note_ids, folder_path)),
+  );
+
+  server.registerTool(
+    'delete_notes',
+    {
+      title: 'Delete notes',
+      description: `Deletes notes (up to 100 at once). ${ONLY_WHEN_ASKED}`,
+      inputSchema: { note_ids: ids('notes, from list_notes', 100) },
+      annotations: REMOVES,
+    },
+    ({ note_ids }) => run(() => edits.deleteNotes(db, userId, note_ids)),
+  );
+
+  server.registerTool(
+    'rename_folder',
+    {
+      title: 'Rename a folder',
+      description: 'Renames a note folder. Folders in the same place must have different names.',
+      inputSchema: { folder_path: folderPath.min(1).describe('The folder now, e.g. ["Class 10", "Physics"].'), new_name: text(100) },
+      annotations: CHANGES,
+    },
+    ({ folder_path, new_name }) => run(() => edits.renameFolder(db, userId, folder_path, new_name)),
+  );
+
+  server.registerTool(
+    'move_folder',
+    {
+      title: 'Move a folder',
+      description:
+        'Moves a folder, with everything in it, into another folder that already exists (empty `to_folder_path` = ' +
+        'top level). A folder cannot go inside itself.',
+      inputSchema: {
+        folder_path: folderPath.min(1).describe('The folder to move.'),
+        to_folder_path: folderPath.describe('Where to put it. Empty = top level.'),
+      },
+      annotations: CHANGES,
+    },
+    ({ folder_path, to_folder_path }) => run(() => edits.moveFolder(db, userId, folder_path, to_folder_path)),
+  );
+
+  server.registerTool(
+    'delete_folder',
+    {
+      title: 'Delete a folder',
+      description: `Deletes a folder with every folder and note inside it. ${ONLY_WHEN_ASKED}`,
+      inputSchema: { folder_path: folderPath.min(1).describe('The folder to delete.') },
+      annotations: REMOVES,
+    },
+    ({ folder_path }) => run(() => edits.deleteFolder(db, userId, folder_path)),
   );
 
   return server;

@@ -1,7 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { isTagColor, nextTagColor } from '@/lib/tags';
+import { MAX_TAGS_PER_NOTE, isTagColor, nextTagColor } from '@/lib/tags';
 
 import { compareNames } from './folders';
 import type { Tag, TagColor, TagWithCount } from './types';
@@ -155,10 +155,10 @@ export async function listTagsForNotes(db: SQLiteDatabase, noteIds: string[]): P
   return byNote;
 }
 
-/** Makes these the note's tags: adds the new ones and takes off the rest. */
+/** Makes these the note's tags (the first three): adds the new ones and takes off the rest. */
 export async function setNoteTags(db: SQLiteDatabase, noteId: string, tagIds: string[]): Promise<void> {
   const now = new Date().toISOString();
-  const wanted = [...new Set(tagIds)];
+  const wanted = [...new Set(tagIds)].slice(0, MAX_TAGS_PER_NOTE);
   await db.withTransactionAsync(async () => {
     const placeholders = wanted.map(() => '?').join(', ');
     await db.runAsync(

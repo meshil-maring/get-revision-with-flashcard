@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import HomeScreen from '@/app/(tabs)/index';
 import * as activity from '@/data/activity';
 import * as decks from '@/data/decks';
+import * as notes from '@/data/notes';
 import { addDays, dayKey } from '@/lib/dates';
 import type { DeckWithCount } from '@/data/types';
 import { mockRouter } from '@/test-utils/mock-router';
@@ -22,9 +23,11 @@ jest.mock('@/data/decks', () => ({
 }));
 
 jest.mock('@/data/activity', () => ({ listActivity: jest.fn() }));
+jest.mock('@/data/notes', () => ({ getLastReadNote: jest.fn() }));
 
 const mockedDecks = jest.mocked(decks);
 const mockedActivity = jest.mocked(activity);
+const mockedNotes = jest.mocked(notes);
 
 function deck(overrides: Partial<DeckWithCount>): DeckWithCount {
   return {
@@ -44,6 +47,7 @@ function deck(overrides: Partial<DeckWithCount>): DeckWithCount {
 beforeEach(() => {
   jest.clearAllMocks();
   mockedActivity.listActivity.mockResolvedValue([]);
+  mockedNotes.getLastReadNote.mockResolvedValue(null);
 });
 
 describe('Home screen', () => {
@@ -61,6 +65,53 @@ describe('Home screen', () => {
       pathname: '/study/[id]',
       params: { id: 'chem' },
     });
+  });
+
+  it('continues the note read last when it was opened after the last deck studied', async () => {
+    mockedDecks.listDecks.mockResolvedValue([
+      deck({ id: 'chem', name: 'Chemistry', cardCount: 12, lastStudiedAt: '2026-02-01T00:00:00.000Z' }),
+    ]);
+    mockedNotes.getLastReadNote.mockResolvedValue({
+      note: {
+        id: 'n1',
+        folderId: 'f1',
+        title: 'Photosynthesis',
+        style: 'cornell',
+        body: '',
+        rows: [],
+        summary: '',
+        createdBy: null,
+        favoritedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        deletedAt: null,
+      },
+      readAt: '2026-02-02T00:00:00.000Z',
+      folder: 'Class 10 / Biology',
+    });
+
+    await render(<HomeScreen />);
+
+    expect(await screen.findByText('Cornell note · Class 10 / Biology')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Continue studying Chemistry')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Continue reading Photosynthesis'));
+    expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n1' } });
+  });
+
+  it('continues the deck when it was studied after the last note read', async () => {
+    mockedDecks.listDecks.mockResolvedValue([
+      deck({ id: 'chem', name: 'Chemistry', cardCount: 12, lastStudiedAt: '2026-02-03T00:00:00.000Z' }),
+    ]);
+    mockedNotes.getLastReadNote.mockResolvedValue({
+      note: { id: 'n1', title: 'Photosynthesis', style: 'plain' } as notes.LastReadNote['note'],
+      readAt: '2026-02-02T00:00:00.000Z',
+      folder: '',
+    });
+
+    await render(<HomeScreen />);
+
+    expect(await screen.findByLabelText('Continue studying Chemistry')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Continue reading Photosynthesis')).toBeNull();
   });
 
   it('shows decks as subjects and opens one', async () => {

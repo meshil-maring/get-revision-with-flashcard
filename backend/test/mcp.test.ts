@@ -105,6 +105,17 @@ describe('connecting an AI app', () => {
         'create_note_with_images',
         'list_note_attachments',
         'remove_note_attachment',
+        'update_deck',
+        'delete_deck',
+        'update_cards',
+        'move_cards',
+        'delete_cards',
+        'update_note',
+        'move_notes',
+        'delete_notes',
+        'rename_folder',
+        'move_folder',
+        'delete_folder',
       ].sort(),
     );
 
@@ -152,6 +163,9 @@ describe('connecting an AI app', () => {
       'Class 10',
       'Class 10 / Biology',
     ]);
+    // More than three tags is refused.
+    const tooMany = await callTool(token, 'create_note', { title: 'Too many', body: 'x', tags: ['a', 'b', 'c', 'd'] });
+    expect(tooMany.isError).toBe(true);
     const examNotes = (await callTool(token, 'list_notes', { tag: 'exam' })).data;
     expect(examNotes.map((n: { title: string }) => n.title)).toEqual(['Photosynthesis', 'Respiration']);
     expect(examNotes[0]).toMatchObject({ folder: 'Class 10 / Biology', createdBy: 'ChatGPT' });

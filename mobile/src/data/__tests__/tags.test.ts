@@ -69,6 +69,11 @@ describe('tags', () => {
 
     await setNoteTags(db, note, []);
     expect((await listTagsForNotes(db, [note])).get(note)).toBeUndefined();
+
+    // A note keeps at most three tags.
+    const extra = [await createTag(db, { name: 'A' }), await createTag(db, { name: 'B' })];
+    await setNoteTags(db, note, [exam, hard, ...extra]);
+    expect((await listTagsForNotes(db, [note])).get(note)?.map((t) => t.name)).toEqual(['A', 'Exam 1', 'Hard']);
   });
 
   it('counts and lists the notes with a tag, from every folder, leaving out deleted ones', async () => {

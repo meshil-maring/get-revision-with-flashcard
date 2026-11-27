@@ -10,6 +10,7 @@ import { DeckBadge, Icon, plural, scaled, SectionHeader, SubjectIcon, useColors 
 import { ActivityHeatmap } from '@/components/study/activity-heatmap';
 import { listActivity, type DayActivity } from '@/data/activity';
 import { listDecks, pickContinueDeck } from '@/data/decks';
+import { getLastReadNote, type LastReadNote as LastNote } from '@/data/notes';
 import type { DeckWithCount } from '@/data/types';
 import { comingSoonHref } from '@/lib/coming-soon';
 import { currentStreak, dayKey, longestStreak } from '@/lib/dates';
@@ -22,16 +23,21 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [decks, setDecks] = useState<DeckWithCount[]>([]);
   const [activity, setActivity] = useState<Map<string, DayActivity>>(new Map());
+  const [lastNote, setLastNote] = useState<LastNote | null>(null);
 
   // Reload when Home comes back into view (e.g. after a study session).
   useFocusEffect(
     useCallback(() => {
       listDecks(db).then(setDecks);
+      getLastReadNote(db).then(setLastNote);
       listActivity(db).then((rows) => setActivity(new Map(rows.map((r) => [r.day, r]))));
     }, [db]),
   );
 
-  const continueDeck = pickContinueDeck(decks);
+  // Continue with whichever was opened last: a deck studied or a note read.
+  const deck = pickContinueDeck(decks);
+  const continueNote = lastNote && (!deck?.lastStudiedAt || lastNote.readAt > deck.lastStudiedAt) ? lastNote : null;
+  const continueDeck = continueNote ? null : deck;
 
   return (
     <ScrollView
@@ -86,8 +92,10 @@ export default function HomeScreen() {
       </Pressable>
 
       {/* Continue studying */}
-      <SectionHeader title="Continue Studying" onMore={() => router.navigate('/flashcards')} />
-      {continueDeck ? (
+      <SectionHeader title="Continue Studying" onMore={() => router.navigate(continueNote ? '/notes' : '/flashcards')} />
+      {continueNote ? (
+        <ContinueNote last={continueNote} />
+      ) : continueDeck ? (
         <Pressable
           onPress={() => router.push({ pathname: '/study/[id]', params: { id: continueDeck.id } })}
           accessibilityRole="button"
@@ -116,7 +124,7 @@ export default function HomeScreen() {
           </View>
           <View className="flex-1">
             <Text className="text-lg font-bold text-ink">Nothing to study yet</Text>
-            <Text className="text-sm text-muted">Create a deck and add some flashcards.</Text>
+            <Text className="text-sm text-muted">Create a deck of flashcards, or read a note.</Text>
           </View>
         </Pressable>
       )}
@@ -148,6 +156,35 @@ export default function HomeScreen() {
         <Consistency activity={activity} />
       </View>
     </ScrollView>
+  );
+}
+
+function ContinueNote({ last }: { last: LastNote }) {
+  const colors = useColors();
+  const { note, folder } = last;
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
+      accessibilityRole="button"
+      accessibilityLabel={`Continue reading ${note.title}`}
+      className="mb-8 flex-row items-center gap-4 rounded-3xl bg-surface p-4 active:bg-line"
+    >
+      <View className="h-15 w-15 items-center justify-center rounded-2xl bg-calm-soft">
+        <Icon name={note.style === 'cornell' ? 'reader-outline' : 'document-text-outline'} size={30} color={colors.primary} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-xl font-bold text-ink" numberOfLines={1}>
+          {note.title}
+        </Text>
+        <Text className="text-base text-muted" numberOfLines={1}>
+          {note.style === 'cornell' ? 'Cornell note' : 'Note'}
+          {folder ? ` · ${folder}` : ''}
+        </Text>
+      </View>
+      <View className="h-12 w-12 items-center justify-center rounded-full bg-cta">
+        <Icon name="book-outline" size={22} color={colors.white} />
+      </View>
+    </Pressable>
   );
 }
 
