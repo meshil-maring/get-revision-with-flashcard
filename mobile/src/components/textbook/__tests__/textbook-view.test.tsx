@@ -295,3 +295,22 @@ describe('lists', () => {
     expect(TEXTBOOK_CSS).toContain('.tb-article ol{list-style:decimal outside}');
   });
 });
+
+describe('handwriting pages', () => {
+  const body = '## Learning objectives\nText\nQ1. Solve $x+1=2$.\n:::exercise\nTry this.\n:::';
+
+  it('puts a pen on each heading, question and exercise, filled when its page has writing', () => {
+    const html = page(body, { onOpenPage: () => {}, writtenPages: ['h:learning-objectives'] });
+    // The test chapter is "Chapter 2", so the first section is 2.1.
+    expect(html).toContain('aria-label="Open your handwritten notes for 2.1 Learning objectives"');
+    expect(html).toContain('aria-label="Write notes by hand for Q1. Solve x+1=2."');
+    expect(html).toContain('aria-label="Write notes by hand for Exercise 2.1"');
+    expect(html.match(/class="tb-pen"/g)).toHaveLength(3);
+    expect(html.match(/data-written="true"/g)).toHaveLength(1);
+    expect(html).toContain('tb-h-page');
+  });
+
+  it('shows no pens when the app has no handwriting pages to open', () => {
+    expect(page(body)).not.toContain('tb-pen');
+  });
+});

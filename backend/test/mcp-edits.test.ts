@@ -190,3 +190,63 @@ describe('changing notes and folders', () => {
     expect(deletedNotes.sort()).toEqual(['Speed', 'Top']);
   });
 });
+
+describe('handwritten notes', () => {
+  it('shows a handwritten note without its drawing, keeps it out of text search, and leaves its writing alone', async () => {
+    const { cookie, token } = await signIn();
+    const now = new Date().toISOString();
+    const drawing = JSON.stringify({ v: 1, paper: 'lined', height: 1414, strokes: [{ c: '#1f2933', w: 5, p: [10, 10, 50, 60] }] });
+    const id = 'hand-1';
+    // The app makes handwritten notes and syncs them up.
+    const pushed = await server.request('/api/sync', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cursor: 0,
+        changes: [
+          {
+            table: 'notes',
+            id,
+            modifiedAt: now,
+            data: {
+              id,
+              folder_id: null,
+              title: 'Photosynthesis sketch',
+              style: 'handwritten',
+              body: drawing,
+              cornell_rows: '[]',
+              summary: '',
+              created_by: null,
+              favorited_at: null,
+              created_at: now,
+              updated_at: now,
+              deleted_at: null,
+            },
+          },
+        ],
+      }),
+    });
+    expect(pushed.status).toBe(200);
+
+    const note = (await callTool(token, 'get_note', { note_id: id })).data;
+    expect(note).toMatchObject({ title: 'Photosynthesis sketch', style: 'handwritten' });
+    expect(note.body).toBeUndefined();
+    expect(note.handwritten).toMatch(/by hand/);
+
+    // The drawing's JSON doesn't match searches; the title does.
+    expect((await callTool(token, 'list_notes', { search: 'strokes' })).data).toEqual([]);
+    expect((await callTool(token, 'list_notes', { search: 'photosynthesis' })).data).toHaveLength(1);
+
+    expect((await callTool(token, 'update_note', { note_id: id, body: 'typed over' })).isError).toBe(true);
+    expect((await callTool(token, 'update_note', { note_id: id, style: 'plain' })).isError).toBe(true);
+    const renamed = await callTool(token, 'update_note', { note_id: id, title: 'Leaf sketch' });
+    expect(renamed.isError).toBeFalsy();
+    const sync = await server.request('/api/sync', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: JSON.stringify({ cursor: 0, changes: [] }),
+    });
+    const row = ((await sync.json()) as SyncResponse).changes.find((c) => c.table === 'notes' && c.id === id);
+    expect(row?.data).toMatchObject({ title: 'Leaf sketch', style: 'handwritten', body: drawing });
+  });
+});

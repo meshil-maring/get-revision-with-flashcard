@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AttachmentList } from '@/components/cards/attachments';
 import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
 import { FocusReader } from '@/components/notes/focus-reader';
+import { HandwrittenPage } from '@/components/notes/handwriting';
 import { ArticleHeader, ArticleNote, CornellPaper } from '@/components/notes/note-layouts';
 import { NoteImages, NoteImagesProvider, placedImageIds, type ImageSyncState } from '@/components/notes/note-images';
 import { TextbookNote } from '@/components/notes/textbook-note';
@@ -34,12 +35,14 @@ import {
   type NoteView,
   type NoteViewDefault,
 } from '@/data/settings';
+import { listWrittenPages } from '@/data/note-pages';
 import { listTagsForNotes } from '@/data/tags';
 import type { FolderCrumb, Note, NoteAttachment, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
 import { useOptionalAccount } from '@/providers/account-context';
 import { bodyWithoutTitle, isGoodToKnow, suggestCards } from '@/lib/notes';
 import { looksLikeTextbook } from '@/lib/textbook';
+import { parseSheets, sheetsHaveInk } from '@/lib/ink';
 
 /**
  * Reading a note. Read it aloud, step through the folder, and (from the ⋮ menu) make flashcards, favourite, edit or delete it.
@@ -55,6 +58,8 @@ export default function NoteScreen() {
   const [path, setPath] = useState<FolderCrumb[]>([]);
   const [attachments, setAttachments] = useState<NoteAttachment[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  // Headings with handwritten notes (each heading has its own page; see /note-page).
+  const [writtenPages, setWrittenPages] = useState<ReadonlySet<string>>(new Set());
   const [menuOpen, setMenuOpen] = useState(false);
   // The page scrolls to a section when one is picked from a plain note's contents.
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -76,7 +81,7 @@ export default function NoteScreen() {
     const n = await getNote(db, id);
     // Shown under "Continue Studying" on Home.
     if (n) void markNoteRead(db, n.id);
-    const [p, a, t, s, h, v, d] = await Promise.all([
+    const [p, a, t, s, h, v, d, w] = await Promise.all([
       getFolderPath(db, n?.folderId ?? null),
       listNoteAttachments(db, id),
       listTagsForNotes(db, [id]),
@@ -84,7 +89,9 @@ export default function NoteScreen() {
       getNoteHandwriting(db),
       getNoteView(db, id),
       getNoteViewDefault(db),
+      listWrittenPages(db, id),
     ]);
+    setWrittenPages(new Set(w));
     setHandwriting(h);
     setChosenView(v);
     setViewDefault(d);
@@ -125,6 +132,9 @@ export default function NoteScreen() {
 
   const current = note;
   const cornell = current.style === 'cornell';
+  // Handwritten notes are a drawing: no text to read aloud, typeset or turn into cards.
+  const handwritten = current.style === 'handwritten';
+  const sheets = handwritten ? parseSheets(current.body) : null;
   // Images show as figures; PDFs and audio stay chips. A file still downloading (uri '') can
   // only be shown as loading, so only images are listed before they arrive.
   const images = attachments.filter((a) => a.kind === 'image');
@@ -139,9 +149,11 @@ export default function NoteScreen() {
     onSyncNow: account?.user ? () => void account.syncNow() : undefined,
   };
   const suggested = suggestCards(current).length;
-  const isEmpty = cornell
-    ? current.rows.length === 0 && !current.summary
-    : !bodyWithoutTitle(current.body, current.title).trim();
+  const isEmpty = sheets
+    ? !sheetsHaveInk(sheets)
+    : cornell
+      ? current.rows.length === 0 && !current.summary
+      : !bodyWithoutTitle(current.body, current.title).trim();
   const position = siblings.findIndex((n) => n.id === current.id);
   const previous = position > 0 ? siblings[position - 1] : null;
   const next = position >= 0 && position < siblings.length - 1 ? siblings[position + 1] : null;
@@ -152,7 +164,7 @@ export default function NoteScreen() {
   const allText = cornell ? [...current.rows.map((r) => r.notes), current.summary].join('\n') : current.body;
   const view: NoteView =
     chosenView ?? (viewDefault !== 'auto' ? viewDefault : looksLikeTextbook(allText) ? 'textbook' : 'standard');
-  const textbook = view === 'textbook' && !isEmpty;
+  const textbook = view === 'textbook' && !isEmpty && !handwritten;
 
   async function chooseView(next: NoteView) {
     setChosenView(next);
@@ -198,11 +210,15 @@ export default function NoteScreen() {
       title={current.title}
       onClose={() => setMenuOpen(false)}
       actions={[
-        {
-          icon: 'copy-outline',
-          label: suggested > 0 ? `Make flashcards (${suggested} found)` : 'Make flashcards',
-          onPress: () => router.push({ pathname: '/note-cards', params: { noteId: current.id } }),
-        },
+        ...(handwritten
+          ? []
+          : [
+              {
+                icon: 'copy-outline' as const,
+                label: suggested > 0 ? `Make flashcards (${suggested} found)` : 'Make flashcards',
+                onPress: () => router.push({ pathname: '/note-cards', params: { noteId: current.id } }),
+              },
+            ]),
         current.favoritedAt
           ? { icon: 'star', label: 'Remove from favourites', onPress: toggleFavorite }
           : { icon: 'star-outline', label: 'Add to favourites', onPress: toggleFavorite },
@@ -228,10 +244,10 @@ export default function NoteScreen() {
         headerShown: true,
         headerRight: () => (
           <View className="flex-row">
-            {isEmpty ? null : (
+            {isEmpty || handwritten ? null : (
               <TextbookSwitch on={view === 'textbook'} onPress={() => void chooseView(view === 'textbook' ? 'standard' : 'textbook')} />
             )}
-            {isEmpty ? null : <ReadAloudButton speaking={readAloud.open} onPress={readAloud.toggle} />}
+            {isEmpty || handwritten ? null : <ReadAloudButton speaking={readAloud.open} onPress={readAloud.toggle} />}
             <FocusSoundButton />
             <IconButton icon="ellipsis-vertical" label="More options" onPress={() => setMenuOpen(true)} />
           </View>
@@ -281,7 +297,7 @@ export default function NoteScreen() {
     );
   }
 
-  if (focus && !isEmpty) {
+  if (focus && !isEmpty && !handwritten) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
@@ -310,16 +326,18 @@ export default function NoteScreen() {
       <ScrollView ref={scroll} contentContainerClassName="w-full max-w-3xl self-center gap-4 px-5 pb-8 pt-2">
         <View className="gap-1">
           <FolderPath path={path} prefix="Notes" />
-          {!cornell ? (
+          {handwritten ? (
+            <ArticleHeader title={current.title} body="" />
+          ) : !cornell ? (
             <ArticleHeader title={current.title} body={plainBody} />
           ) : isEmpty ? (
             <NoteTitle title={current.title} />
           ) : null}
-          {cornell || current.createdBy ? (
+          {cornell || handwritten || current.createdBy ? (
             <View className="mt-1 flex-row gap-2">
-              {cornell ? (
+              {cornell || handwritten ? (
                 <View className="rounded-full bg-calm-soft px-2.5 py-0.5">
-                  <Text className="text-xs font-bold text-calm">Cornell notes</Text>
+                  <Text className="text-xs font-bold text-calm">{cornell ? 'Cornell notes' : 'Handwritten'}</Text>
                 </View>
               ) : null}
               {current.createdBy ? <AiBadge by={current.createdBy} /> : null}
@@ -347,10 +365,19 @@ export default function NoteScreen() {
                 : 'This note is empty. Tap to start writing.'}
             </Text>
           </Pressable>
+        ) : sheets ? (
+          <HandwrittenPage sheets={sheets} title={current.title} />
         ) : cornell ? (
           <CornellPaper note={current} />
         ) : (
-          <ArticleNote body={plainBody} onJump={(y) => scroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: true })} />
+          <ArticleNote
+            body={plainBody}
+            onJump={(y) => scroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: true })}
+            writtenPages={writtenPages}
+            onOpenPage={(page, title) =>
+              router.push({ pathname: '/note-page', params: { noteId: current.id, page, title } })
+            }
+          />
         )}
 
         {otherImages.length > 0 ? (
@@ -374,7 +401,11 @@ export default function NoteScreen() {
       <View className="gap-3 border-t border-line bg-card px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
         <ReadAloudPlayer readAloud={readAloud} />
         <View className="w-full max-w-3xl flex-row items-center gap-2 self-center">
-          <Button label="Focus" icon="book-outline" variant="secondary" disabled={isEmpty} onPress={() => setFocus(true)} />
+          {handwritten ? (
+            <Button label="Edit" icon="brush-outline" variant="secondary" onPress={edit} />
+          ) : (
+            <Button label="Focus" icon="book-outline" variant="secondary" disabled={isEmpty} onPress={() => setFocus(true)} />
+          )}
           {steps ? <View className="flex-1">{steps}</View> : null}
         </View>
       </View>

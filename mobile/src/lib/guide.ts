@@ -225,6 +225,39 @@ All your tags show at the top of the Notes tab. Tap one to see every note with i
 You can switch a note between Plain and Cornell at any time. Nothing you wrote is lost.`,
   },
   {
+    id: 'handwriting',
+    section: 'Basics',
+    icon: 'brush-outline',
+    title: 'Handwritten notes',
+    summary: 'Write notes by hand with your finger or a digital pen.',
+    body: `A **handwritten note** is a sheet of paper you write on with your **finger**, a **digital pen** (stylus) or a mouse.
+
+## Write one
+1. In a new note, give it a title and choose **Handwritten** at the top.
+2. Write on the page. Choose the **pen** or **highlighter**, a colour, and how thick the line is.
+3. Tap **Save**.
+
+## Tools
+- **Eraser**: rub over a line to remove it.
+- **Undo** and **Redo** fix a mistake. **Clear** (the bin) empties the page.
+- **Lined**, **squared** or **plain** paper.
+- **More space** makes the page longer. **Trim empty space** cuts off the empty part at the bottom.
+- **Add page** starts a new page (up to 20). Turn pages with **‹ ›** under the page, or **Delete page**.
+
+==While you write, the page does not scroll.== Tap the **hand** to scroll, then tap the pen to write again.
+
+To read the note, open it and **tap the page** to see it full screen. Pinch to zoom in.
+
+## A page for each heading or question
+In any typed note, **tap a heading** (like "1 Learning objectives"), a **question** (a line starting "Q1.") or an **exercise**, or the **pen** next to it. It opens a page just for that heading or question, so you can work it out by hand. Every heading and question has its own page.
+- It saves by itself as you write.
+- Need more room? Tap **Add page** to give that heading or question more pages.
+- A **filled pen** means that page has your writing on it.
+- **Previous** and **Next** at the bottom go to the pages of the headings around it.
+
+==Tip:== your handwriting is a drawing, so it can't be searched, read aloud or turned into flashcards. Search finds the note by its title.`,
+  },
+  {
     id: 'notes-to-cards',
     section: 'Basics',
     icon: 'copy-outline',

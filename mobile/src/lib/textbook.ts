@@ -20,10 +20,14 @@ export type HeadingLevel = 1 | 2 | 3 | 4;
 /** What a paragraph is in a worked example: "Question:", "Step 2:", "Answer:"… */
 export type StepRole = 'question' | 'step' | 'solution' | 'answer';
 
+/**
+ * Headings, questions ("Q1. …") and exercises each have their own handwriting page. `page` is
+ * its key within the note (see pageKey); null for anything that doesn't have one.
+ */
 export type TextbookNode =
-  | { kind: 'heading'; level: HeadingLevel; number: string | null; id: string; spans: Span[]; text: string }
-  | { kind: 'paragraph'; spans: Span[] }
-  | { kind: 'list'; ordered: boolean; start: number; items: Span[][] }
+  | { kind: 'heading'; level: HeadingLevel; number: string | null; id: string; spans: Span[]; text: string; page: string | null }
+  | { kind: 'paragraph'; spans: Span[]; page?: string | null }
+  | { kind: 'list'; ordered: boolean; start: number; items: Span[][]; pages?: (string | null)[] }
   | { kind: 'math'; latex: string; number: string | null }
   | { kind: 'code'; code: string; lang: string | null }
   | { kind: 'table'; header: TableRow | null; rows: TableRow[] }
@@ -38,6 +42,8 @@ export type TextbookNode =
       children: TextbookNode[];
       /** Worked examples: the content in parts (question, steps, answer), when it is labelled so. */
       parts: ExamplePart[] | null;
+      /** Exercises: their handwriting page. */
+      page?: string | null;
     }
   | { kind: 'box'; box: BoxKind; title: Span[]; children: TextbookNode[] };
 
@@ -118,6 +124,7 @@ export function buildTextbook(body: string, options: { chapter?: number | null }
   let equations = 0;
   const toc: TocEntry[] = [];
   const usedIds = new Set<string>();
+  const pages = new PageKeys();
 
   const uniqueId = (base: string) => {
     let id = base;
@@ -160,7 +167,9 @@ export function buildTextbook(body: string, options: { chapter?: number | null }
           }
           const text = spansText(spans);
           const id = uniqueId(number ? `sec-${number.replace(/\./g, '-')}` : `sec-${slug(text)}`);
-          nodes.push({ kind: 'heading', level, number, id, spans, text });
+          // Only headings in the running text get a page (not ones inside an example or a box).
+          const page = inside === null ? pages.next('h', spansText(withoutHeadingNumber(block.spans))) : null;
+          nodes.push({ kind: 'heading', level, number, id, spans, text, page });
           if (inside === null && level <= 2) toc.push({ id, level: level as 1 | 2, number, title: text });
           break;
         }
@@ -168,18 +177,20 @@ export function buildTextbook(body: string, options: { chapter?: number | null }
         case 'number': {
           const ordered = block.type === 'number';
           const items: Span[][] = [];
+          const itemPages: (string | null)[] = [];
           const start = block.number ?? 1;
           let k = i;
           for (; k < list.length; k++) {
             const item = list[k];
             if (item.type === (ordered ? 'number' : 'bullet')) {
               items.push(item.spans);
+              itemPages.push(isQuestion(spansText(item.spans)) ? pages.next('q', spansText(item.spans)) : null);
               if (k > i) words += spansText(item.spans).split(/\s+/).filter(Boolean).length;
             } else if (!(item.type === 'blank' && list[k + 1]?.type === (ordered ? 'number' : 'bullet'))) {
               break;
             }
           }
-          nodes.push({ kind: 'list', ordered, start, items });
+          nodes.push({ kind: 'list', ordered, start, items, ...(itemPages.some(Boolean) ? { pages: itemPages } : {}) });
           i = k - 1;
           break;
         }
@@ -218,6 +229,11 @@ export function buildTextbook(body: string, options: { chapter?: number | null }
               : env === 'exercise'
                 ? next('exercise')
                 : null;
+          // An exercise's page is keyed by its title, or else its first words.
+          const page =
+            env === 'exercise'
+              ? pages.next('ex', spansText(block.spans) || spansText((block.children ?? []).find((c) => spansText(c.spans))?.spans ?? []))
+              : null;
           const children = convert(block.children ?? [], env);
           const id = uniqueId(`${env}-${number ? number.replace(/\./g, '-') : slug(spansText(block.spans)) || 'block'}`);
           nodes.push({
@@ -229,11 +245,14 @@ export function buildTextbook(body: string, options: { chapter?: number | null }
             difficulty: block.difficulty ?? null,
             children,
             parts: env === 'example' || env === 'solution' ? exampleParts(children) : null,
+            ...(page ? { page } : {}),
           });
           break;
         }
-        default:
-          nodes.push({ kind: 'paragraph', spans: block.spans });
+        default: {
+          const text = spansText(block.spans);
+          nodes.push({ kind: 'paragraph', spans: block.spans, ...(isQuestion(text) ? { page: pages.next('q', text) } : {}) });
+        }
       }
     }
     return nodes;
@@ -241,6 +260,65 @@ export function buildTextbook(body: string, options: { chapter?: number | null }
 
   const nodes = convert(blocks, null);
   return { nodes, toc, minutes: Math.max(1, Math.round(words / 200 + equations * 0.25)) };
+}
+
+// --- Handwriting pages ------------------------------------------------------------------
+
+// "Q1.", "Q 2)", "Q3a:", "Question 4 -" at the start of a paragraph or list item.
+const QUESTION = /^\s*(?:q\s?\d+[a-z]?|question\s+\d+[a-z]?)\s*(?:[.):\-–—]|$)/i;
+
+/** Whether a paragraph or list item is a numbered question, e.g. "Q1. Solve x² = 4". */
+export const isQuestion = (text: string) => QUESTION.test(text);
+
+/** Lowercase words joined by "-", in any alphabet (so Hindi or Bengali headings work too). */
+function pageSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .replace(/-+$/, '');
+}
+
+/**
+ * A handwriting page's key: what it is (h = heading, q = question, ex = exercise) and its
+ * words, e.g. "h:learning-objectives". Section numbers are left out, so adding a section before
+ * it keeps the page with its heading.
+ */
+export function pageKey(kind: 'h' | 'q' | 'ex', text: string): string {
+  // "1 Learning objectives", "4.1. Factorisation": the number isn't part of the key.
+  const plain = kind === 'h' ? text.replace(/^\s*\d+(?:\.\d+)*[.):]?\s+(?=\S)/, '') : text;
+  return `${kind}:${pageSlug(plain) || 'untitled'}`;
+}
+
+/** Hands out page keys in reading order; the second "Example" heading gets "h:example~2". */
+class PageKeys {
+  private seen = new Map<string, number>();
+  next(kind: 'h' | 'q' | 'ex', text: string): string {
+    const key = pageKey(kind, text);
+    const n = (this.seen.get(key) ?? 0) + 1;
+    this.seen.set(key, n);
+    return n === 1 ? key : `${key}~${n}`;
+  }
+}
+
+/** Every heading and question in the running text that has a page, in reading order, with its words. */
+export function notePages(textbook: Textbook): { page: string; title: string }[] {
+  const out: { page: string; title: string }[] = [];
+  const visit = (nodes: TextbookNode[]) => {
+    for (const node of nodes) {
+      if (node.kind === 'heading' && node.page) out.push({ page: node.page, title: node.text });
+      else if (node.kind === 'paragraph' && node.page) out.push({ page: node.page, title: spansText(node.spans) });
+      else if (node.kind === 'list' && node.pages)
+        node.pages.forEach((p, i) => p && out.push({ page: p, title: spansText(node.items[i]) }));
+      else if (node.kind === 'env') {
+        if (node.page) out.push({ page: node.page, title: `${ENV_LABELS[node.env]}${node.number ? ` ${node.number}` : ''}` });
+        visit(node.children);
+      } else if (node.kind === 'box') visit(node.children);
+    }
+  };
+  visit(textbook.nodes);
+  return out;
 }
 
 // "1. ", "2) ", "4.1 ", "4.1. " at the start of a heading; not "3 laws of motion" or "1990s".

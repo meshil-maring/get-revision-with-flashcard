@@ -45,6 +45,10 @@ export type TextbookReaderProps = {
   onOpenTag?: (id: string) => void | Promise<void>;
   /** Back to the standard note view. */
   onUseStandard?: () => void | Promise<void>;
+  /** Handwriting pages (by key, see lib/textbook.ts pageKey) that have writing on them. */
+  writtenPages?: string[];
+  /** A heading or question was tapped: open its handwriting page. */
+  onOpenPage?: (page: string, title: string) => void | Promise<void>;
   /** Focus mode: one centred column, no side columns (the app hides its own header). */
   focus?: boolean;
   onFocusChange?: (on: boolean) => void | Promise<void>;

@@ -7,7 +7,18 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 // - When the same row changed in two places, the newest change wins.
 
 /** Tables kept in step with the account, parents before children. */
-export const SYNCED_TABLES = ['decks', 'card_groups', 'folders', 'tags', 'cards', 'notes', 'note_tags', 'attachments', 'note_attachments'] as const;
+export const SYNCED_TABLES = [
+  'decks',
+  'card_groups',
+  'folders',
+  'tags',
+  'cards',
+  'notes',
+  'note_tags',
+  'attachments',
+  'note_attachments',
+  'note_pages',
+] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
 /** Attachment tables: their files travel separately, through the account's file storage. */

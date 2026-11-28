@@ -80,7 +80,17 @@ export function FolderBadge({ name, size = 48 }: { name: string; size?: number }
 }
 
 /** The icon for a note in a list. */
-export function NoteBadge({ cornell, goodToKnow = false, size = 48 }: { cornell: boolean; goodToKnow?: boolean; size?: number }) {
+export function NoteBadge({
+  cornell,
+  handwritten = false,
+  goodToKnow = false,
+  size = 48,
+}: {
+  cornell: boolean;
+  handwritten?: boolean;
+  goodToKnow?: boolean;
+  size?: number;
+}) {
   const colors = useColors();
   if (goodToKnow) {
     // A bulb, so the folder's key-points page is easy to spot at the end of the list.
@@ -99,7 +109,7 @@ export function NoteBadge({ cornell, goodToKnow = false, size = 48 }: { cornell:
       style={{ width: scaled(size), height: scaled(size) }}
     >
       <MaterialCommunityIcons
-        name={cornell ? 'page-layout-sidebar-left' : 'note-text-outline'}
+        name={cornell ? 'page-layout-sidebar-left' : handwritten ? 'draw' : 'note-text-outline'}
         size={scaled(size * 0.52)}
         color={colors.calm}
       />
@@ -612,7 +622,7 @@ export function NoteRow({
         picked ? 'border-primary bg-primary-soft' : 'border-line bg-card active:bg-surface'
       }`}
     >
-      <NoteBadge cornell={cornell} goodToKnow={isGoodToKnow(note)} />
+      <NoteBadge cornell={cornell} handwritten={note.style === 'handwritten'} goodToKnow={isGoodToKnow(note)} />
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
           <Text className="flex-shrink text-base font-bold text-ink" numberOfLines={1}>

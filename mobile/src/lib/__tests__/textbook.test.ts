@@ -1,4 +1,15 @@
-import { buildTextbook, exampleParts, withoutHeadingNumber, looksLikeTextbook, parseChapterTitle, splitStepLabel, type TextbookNode } from '@/lib/textbook';
+import {
+  buildTextbook,
+  exampleParts,
+  isQuestion,
+  looksLikeTextbook,
+  notePages,
+  pageKey,
+  parseChapterTitle,
+  splitStepLabel,
+  withoutHeadingNumber,
+  type TextbookNode,
+} from '@/lib/textbook';
 
 const kinds = (nodes: TextbookNode[]) => nodes.map((n) => (n.kind === 'env' ? `env:${n.env}` : n.kind));
 
@@ -152,5 +163,54 @@ describe('numbers written in headings', () => {
     const book = buildTextbook(':::example\n#### 1. First\n:::');
     const example = book.nodes[0] as Extract<TextbookNode, { kind: 'env' }>;
     expect(example.children[0]).toMatchObject({ kind: 'heading', number: null, text: '1. First' });
+  });
+});
+
+describe('handwriting pages', () => {
+  const pagesOf = (body: string) => notePages(buildTextbook(body));
+
+  it('gives every heading, question and exercise its own page, in reading order', () => {
+    const body = [
+      '## 1 Learning objectives',
+      'By the end of this chapter, you should be able to:',
+      '- Recognise a quadratic equation.',
+      '## 2 Introduction',
+      'Q1. Solve $x^2 = 4$.',
+      '1. Q2) Factorise $x^2 - 9$.',
+      '2. Not a question',
+      ':::exercise Roots',
+      'Find the roots.',
+      ':::',
+      ':::example',
+      '### Inside an example',
+      ':::',
+    ].join('\n');
+    expect(pagesOf(body)).toEqual([
+      { page: 'h:learning-objectives', title: '1 Learning objectives' },
+      { page: 'h:introduction', title: '2 Introduction' },
+      { page: 'q:q1-solve-x²-4', title: 'Q1. Solve x² = 4.' },
+      { page: 'q:q2-factorise-x²-9', title: 'Q2) Factorise x² - 9.' },
+      { page: 'ex:roots', title: 'Exercise 2.1' },
+    ]);
+  });
+
+  it('keeps a page with its heading when sections are added or renumbered', () => {
+    const before = pagesOf('## 1 Learning objectives\ntext');
+    const after = pagesOf('## Warm up\n## 2 Learning objectives\ntext');
+    expect(after[1].page).toBe(before[0].page);
+  });
+
+  it('tells apart headings with the same words, and works in any alphabet', () => {
+    expect(pagesOf('## Example\n## Example\n## উদাহরণ').map((p) => p.page)).toEqual(['h:example', 'h:example~2', 'h:উদাহরণ']);
+  });
+
+  it('knows a question line', () => {
+    for (const q of ['Q1. Solve', 'q 2) x', 'Q3a: why', 'Question 4 - prove']) expect(isQuestion(q)).toBe(true);
+    for (const q of ['Quadratics are fun', 'Q. what', 'Questions about 4 things']) expect(isQuestion(q)).toBe(false);
+  });
+
+  it('makes keys from the words alone', () => {
+    expect(pageKey('h', '4.1 Factorisation')).toBe('h:factorisation');
+    expect(pageKey('q', '!!!')).toBe('q:untitled');
   });
 });
