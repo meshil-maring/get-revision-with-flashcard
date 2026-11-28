@@ -6,6 +6,7 @@ import { AppState, Pressable, ScrollView, Text, View } from 'react-native';
 import type { AttachmentItem } from '@/components/cards/attachments';
 import { ScreenTip } from '@/components/ui/screen-tip';
 import { FlipCard } from '@/components/cards/flip-card';
+import { FocusSoundButton } from '@/components/study/focus-sound';
 import { Button, EmptyState, Icon, type IconName, plural, ratingColors, ratingIcons, SubjectIcon, useColors } from '@/components/ui';
 import { recordReview, recordStudyTime } from '@/data/activity';
 import { listAttachmentsForCards } from '@/data/attachments';
@@ -231,7 +232,17 @@ export function StudySession({
 
   return (
     <View className="flex-1 bg-page px-5 pb-6 pt-2">
-      <Stack.Screen options={{ title, headerRight: () => <TimerPill seconds={timer.seconds} /> }} />
+      <Stack.Screen
+        options={{
+          title,
+          headerRight: () => (
+            <View className="flex-row items-center gap-1">
+              <FocusSoundButton />
+              <TimerPill seconds={timer.seconds} />
+            </View>
+          ),
+        }}
+      />
 
       <View className="mx-auto w-full max-w-xl flex-1">
         {/* Progress, time left on this card, favourite and shuffle */}

@@ -120,6 +120,8 @@ jest.mock('expo-speech', () => ({
 jest.mock('@/lib/confirm', () => ({ confirm: jest.fn(() => Promise.resolve(true)) }));
 // The recorder needs the microphone; it isn't opened in these tests.
 jest.mock('@/components/cards/audio-recorder', () => ({ AudioRecorderModal: () => null }));
+// Study sounds have their own tests (components/study/__tests__/focus-sound.test.tsx).
+jest.mock('@/components/study/focus-sound', () => ({ FocusSoundButton: () => null }));
 
 const NOW = '2026-01-01T00:00:00.000Z';
 

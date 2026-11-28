@@ -12,6 +12,7 @@ import { ArticleHeader, ArticleNote, CornellPaper } from '@/components/notes/not
 import { NoteImages, NoteImagesProvider, placedImageIds, type ImageSyncState } from '@/components/notes/note-images';
 import { TextbookNote } from '@/components/notes/textbook-note';
 import { ReadAloudButton, ReadAloudPlayer, useReadAloud } from '@/components/notes/read-aloud';
+import { FocusSoundButton } from '@/components/study/focus-sound';
 import { PatrickHand_400Regular, useFonts } from '@expo-google-fonts/patrick-hand';
 
 import { ActionSheet } from '@/components/ui/action-sheet';
@@ -231,6 +232,7 @@ export default function NoteScreen() {
               <TextbookSwitch on={view === 'textbook'} onPress={() => void chooseView(view === 'textbook' ? 'standard' : 'textbook')} />
             )}
             {isEmpty ? null : <ReadAloudButton speaking={readAloud.open} onPress={readAloud.toggle} />}
+            <FocusSoundButton />
             <IconButton icon="ellipsis-vertical" label="More options" onPress={() => setMenuOpen(true)} />
           </View>
         ),

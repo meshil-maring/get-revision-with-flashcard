@@ -11,6 +11,8 @@ export const SETTINGS = {
   lastReadNote: 'last_read_note',
   textbookPrefs: 'textbook_prefs',
   noteViewDefault: 'note_view_default',
+  /** Study sounds: the last one picked and its volume, as JSON (lib/focus-sounds.ts). */
+  focusSound: 'focus_sound',
 } as const;
 
 // Screen tips are saved one key each, e.g. 'tip:study' (see components/ui/screen-tip.tsx).
