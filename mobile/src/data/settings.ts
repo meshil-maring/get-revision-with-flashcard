@@ -13,6 +13,8 @@ export const SETTINGS = {
   noteViewDefault: 'note_view_default',
   /** Study sounds: the last one picked and its volume, as JSON (lib/focus-sounds.ts). */
   focusSound: 'focus_sound',
+  /** Pomodoro timer: the lengths picked, as JSON (lib/pomodoro.ts). */
+  pomodoro: 'pomodoro',
   /** Custom pen and highlighter colours picked before, newest first, as JSON. */
   inkColors: 'ink_colors',
 } as const;

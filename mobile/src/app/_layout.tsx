@@ -8,6 +8,7 @@ import { DatabaseGate } from '@/components/database-gate';
 import { HeaderHomeButton } from '@/components/ui/header-home-button';
 import { useColors } from '@/components/ui';
 import { FocusSoundProvider } from '@/providers/focus-sound';
+import { PomodoroProvider } from '@/providers/pomodoro';
 import { ReadingSizeProvider } from '@/providers/reading-size';
 import { ThemeProvider } from '@/providers/theme';
 import { AccountProvider } from '@/providers/account';
@@ -39,6 +40,8 @@ export default function RootLayout() {
             <ReadingSizeProvider>
               {/* Music / rain to study to; keeps playing across screens (providers/focus-sound.tsx). */}
               <FocusSoundProvider>
+              {/* Pomodoro timer; keeps counting across screens (providers/pomodoro.tsx). */}
+              <PomodoroProvider>
               <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
               <Stack
                 screenOptions={{
@@ -69,6 +72,7 @@ export default function RootLayout() {
                 <Stack.Screen name="note-editor" options={{ title: '', presentation: 'modal' }} />
                 <Stack.Screen name="note-cards" options={{ title: 'Make flashcards', presentation: 'modal' }} />
               </Stack>
+              </PomodoroProvider>
               </FocusSoundProvider>
             </ReadingSizeProvider>
           </ThemeProvider>
