@@ -13,6 +13,8 @@ export const SETTINGS = {
   noteViewDefault: 'note_view_default',
   /** Study sounds: the last one picked and its volume, as JSON (lib/focus-sounds.ts). */
   focusSound: 'focus_sound',
+  /** Custom pen and highlighter colours picked before, newest first, as JSON. */
+  inkColors: 'ink_colors',
 } as const;
 
 // Screen tips are saved one key each, e.g. 'tip:study' (see components/ui/screen-tip.tsx).

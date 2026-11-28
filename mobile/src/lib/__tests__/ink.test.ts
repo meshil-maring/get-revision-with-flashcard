@@ -1,5 +1,14 @@
 import {
+  clampMove,
   emptyInk,
+  moveStrokes,
+  pointInPolygon,
+  strokeAt,
+  strokesBounds,
+  strokesInLasso,
+  hexToHsl,
+  hslToHex,
+  parseHexColor,
   inkToSvg,
   isBlankInk,
   lowestPoint,
@@ -114,5 +123,77 @@ describe('more than one page', () => {
   it('counts writing on any page', () => {
     expect(isBlankInk(serializeSheets([emptyInk(), two]))).toBe(false);
     expect(isBlankInk(serializeSheets([emptyInk(), emptyInk()]))).toBe(true);
+  });
+});
+
+describe('dotted paper', () => {
+  it('is kept when saved and read back, and drawn as dots', () => {
+    const ink = emptyInk('dotted');
+    expect(parseInk(serializeInk(ink)).paper).toBe('dotted');
+    const svg = inkToSvg(ink);
+    expect(svg).toContain('M40 40h0');
+    expect(svg).toContain('stroke-linecap="round"');
+  });
+});
+
+describe('custom colours', () => {
+  it('reads typed colour codes', () => {
+    expect(parseHexColor('#1F3F8F')).toBe('#1f3f8f');
+    expect(parseHexColor('abc')).toBe('#aabbcc');
+    expect(parseHexColor(' #fff ')).toBe('#ffffff');
+    expect(parseHexColor('#12345')).toBeNull();
+    expect(parseHexColor('red')).toBeNull();
+  });
+
+  it('turns hue, saturation and lightness into a colour code and back', () => {
+    expect(hslToHex(0, 100, 50)).toBe('#ff0000');
+    expect(hslToHex(120, 100, 25)).toBe('#008000');
+    expect(hslToHex(0, 0, 100)).toBe('#ffffff');
+    expect(hexToHsl('#ff0000')).toEqual({ h: 0, s: 100, l: 50 });
+    expect(hexToHsl('#808080')).toEqual({ h: 0, s: 0, l: 50 });
+    for (const hex of ['#1f3f8f', '#d64545', '#2e9d4f', '#f5d90a']) {
+      const { h, s, l } = hexToHsl(hex);
+      const back = parseInt(hslToHex(h, s, l).slice(1), 16);
+      const want = parseInt(hex.slice(1), 16);
+      for (const shift of [16, 8, 0]) {
+        expect(Math.abs(((back >> shift) & 255) - ((want >> shift) & 255))).toBeLessThanOrEqual(3);
+      }
+    }
+  });
+});
+
+describe('selecting', () => {
+  const ink = page([
+    { c: '#1f2933', w: 5, p: [20, 20, 60, 60] },
+    { c: '#f5d90a', w: 28, h: 1, p: [400, 400, 440, 400] },
+    { c: '#d64545', w: 5, p: [50, 50, 300, 300, 500, 500] },
+  ]);
+
+  it('finds the lines mostly inside a loop', () => {
+    const square = [0, 0, 100, 0, 100, 100, 0, 100];
+    expect(pointInPolygon(50, 50, square)).toBe(true);
+    expect(pointInPolygon(150, 50, square)).toBe(false);
+    // The third line starts inside but is mostly outside, so it isn't picked.
+    expect(strokesInLasso(ink, square)).toEqual([0]);
+    expect(strokesInLasso(ink, [0, 0, 10, 10])).toEqual([]);
+  });
+
+  it('finds the line under a tap, ink before highlighter', () => {
+    expect(strokeAt(ink, 430, 400, 10)).toBe(1);
+    expect(strokeAt(ink, 900, 900, 10)).toBe(-1);
+    const crossing = page([
+      { c: '#f5d90a', w: 28, h: 1, p: [0, 10, 100, 10] },
+      { c: '#1f2933', w: 5, p: [50, 0, 50, 20] },
+    ]);
+    expect(strokeAt(crossing, 50, 10, 5)).toBe(1);
+  });
+
+  it('moves lines, keeping them on the page', () => {
+    const bounds = strokesBounds([ink.strokes[0]])!;
+    expect(bounds).toEqual({ left: 20, top: 20, right: 60, bottom: 60 });
+    expect(clampMove(bounds, -50, 2000, PAGE_HEIGHT)).toEqual([-20, PAGE_HEIGHT - 60]);
+    const moved = moveStrokes(ink, [0], 10, -5);
+    expect(moved.strokes[0].p).toEqual([30, 15, 70, 55]);
+    expect(moved.strokes[1]).toBe(ink.strokes[1]);
   });
 });
