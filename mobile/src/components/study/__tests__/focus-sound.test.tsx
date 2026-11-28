@@ -5,6 +5,7 @@ import { FocusSoundButton } from '@/components/study/focus-sound';
 import { getSetting, setSetting } from '@/data/settings';
 import { parseFocusPrefs } from '@/lib/focus-sounds';
 import { FocusSoundProvider } from '@/providers/focus-sound';
+import { PomodoroProvider } from '@/providers/pomodoro';
 
 const mockDb = {};
 jest.mock('expo-sqlite', () => ({ useSQLiteContext: () => mockDb }));
@@ -12,7 +13,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('@/data/settings', () => ({
-  SETTINGS: { focusSound: 'focus_sound' },
+  SETTINGS: { focusSound: 'focus_sound', pomodoro: 'pomodoro' },
   getSetting: jest.fn(async () => null),
   setSetting: jest.fn(async () => {}),
 }));
@@ -32,13 +33,18 @@ function lastPlayer() {
 async function openSheet() {
   await render(
     <FocusSoundProvider>
-      <FocusSoundButton />
+      <PomodoroProvider>
+        <FocusSoundButton />
+      </PomodoroProvider>
     </FocusSoundProvider>,
   );
-  await fireEvent.press(screen.getByRole('button', { name: 'Study sounds' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Study sounds and timer' }));
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(getSetting).mockImplementation(async () => null);
+});
 
 describe('parseFocusPrefs', () => {
   it('reads the saved sound and volume', () => {
@@ -91,7 +97,9 @@ describe('Study sounds', () => {
   });
 
   it('starts with the sound and volume used last time', async () => {
-    jest.mocked(getSetting).mockResolvedValueOnce('{"soundId":"soft-keys","volume":0.5}');
+    jest.mocked(getSetting).mockImplementation(async (_db, key) =>
+      key === 'focus_sound' ? '{"soundId":"soft-keys","volume":0.5}' : null,
+    );
     await openSheet();
     await fireEvent.press(await screen.findByText('Play Soft keys'));
     expect(lastPlayer().volume).toBe(0.5);
