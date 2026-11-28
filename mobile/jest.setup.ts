@@ -7,6 +7,15 @@ jest.mock('expo-crypto', () => ({
 jest.mock('expo-audio', () => ({
   useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn(), seekTo: jest.fn() }),
   useAudioPlayerStatus: () => ({ playing: false, currentTime: 0, duration: 0, didJustFinish: false }),
+  // A fresh player object each call, so tests can check what was played, its loop and volume.
+  createAudioPlayer: jest.fn(() => ({
+    play: jest.fn(),
+    pause: jest.fn(),
+    replace: jest.fn(),
+    remove: jest.fn(),
+    loop: false,
+    volume: 1,
+  })),
   useAudioRecorder: () => ({ prepareToRecordAsync: jest.fn(), record: jest.fn(), stop: jest.fn(), uri: null }),
   useAudioRecorderState: () => ({ isRecording: false, durationMillis: 0 }),
   requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true })),
