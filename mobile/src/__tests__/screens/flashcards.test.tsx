@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import FlashcardsScreen from '@/app/(tabs)/flashcards';
+import * as cards from '@/data/cards';
 import * as decks from '@/data/decks';
 import type { DeckWithCount } from '@/data/types';
 import { mockRouter } from '@/test-utils/mock-router';
@@ -16,6 +17,7 @@ jest.mock('expo-sqlite', () => {
   return { useSQLiteContext: () => db };
 });
 jest.mock('@/data/decks');
+jest.mock('@/data/cards');
 
 const mockedDecks = jest.mocked(decks);
 
@@ -103,5 +105,54 @@ describe('Flashcards screen', () => {
     await fireEvent.press(screen.getByText('Save'));
 
     expect(mockedDecks.createDeck).not.toHaveBeenCalled();
+  });
+
+  it('searches decks and cards', async () => {
+    mockedDecks.listDecks.mockResolvedValue([
+      deck({ id: 'a', name: 'Biology', cardCount: 2 }),
+      deck({ id: 'b', name: 'History', cardCount: 1 }),
+    ]);
+    jest.mocked(cards.searchCards).mockResolvedValue([
+      {
+        id: 'card-1',
+        deckId: 'b',
+        deckName: 'History',
+        groupId: null,
+        front: 'When did the Biology society start?',
+        back: 'In 1850',
+        createdAt: '',
+        updatedAt: '',
+        deletedAt: null,
+        favoritedAt: null,
+        rating: null,
+        ratedAt: null,
+      },
+    ]);
+
+    await render(<FlashcardsScreen />);
+    await screen.findByText('History');
+
+    await fireEvent.changeText(screen.getByLabelText('Search decks and cards'), 'biology');
+
+    expect(await screen.findByText('When did the Biology society start?')).toBeOnTheScreen();
+    expect(cards.searchCards).toHaveBeenCalledWith(expect.anything(), 'biology');
+    expect(screen.getByText('Decks · 1')).toBeOnTheScreen();
+    expect(screen.queryByText('Create revision')).toBeNull();
+
+    // A card opens its deck with the search already filled in.
+    await fireEvent.press(screen.getByText('When did the Biology society start?'));
+    expect(mockRouter.router.push).toHaveBeenCalledWith({ pathname: '/deck/[id]', params: { id: 'b', q: 'biology' } });
+  });
+
+  it('says when nothing matches', async () => {
+    mockedDecks.listDecks.mockResolvedValue([deck({ id: 'a', name: 'Biology', cardCount: 2 })]);
+    jest.mocked(cards.searchCards).mockResolvedValue([]);
+
+    await render(<FlashcardsScreen />);
+    await screen.findByText('Biology');
+
+    await fireEvent.changeText(screen.getByLabelText('Search decks and cards'), 'zzz');
+
+    expect(await screen.findByText('Nothing found')).toBeOnTheScreen();
   });
 });

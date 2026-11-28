@@ -1,5 +1,5 @@
 import type { Card, Rating } from '@/data/types';
-import { filterCards, groupByRating, parseRatingFilters, rankByTime } from '@/lib/revision';
+import { cardMatches, filterCards, groupByRating, parseRatingFilters, rankByTime } from '@/lib/revision';
 
 function card(id: string, rating: Rating | null, favorite = false): Card {
   return {
@@ -70,5 +70,24 @@ describe('rankByTime', () => {
       ['c', 500],
       ['d', 0],
     ]);
+  });
+});
+
+describe('cardMatches', () => {
+  const c = { front: 'What is Osmosis?', back: 'Water moving through a **membrane**' };
+
+  it('matches the question or answer, in any case', () => {
+    expect(cardMatches(c, 'osmosis')).toBe(true);
+    expect(cardMatches(c, 'WATER')).toBe(true);
+    expect(cardMatches(c, 'mitosis')).toBe(false);
+  });
+
+  it('ignores formatting marks in the answer', () => {
+    expect(cardMatches(c, 'a membrane')).toBe(true);
+    expect(cardMatches(c, '**')).toBe(false);
+  });
+
+  it('matches everything for an empty query', () => {
+    expect(cardMatches(c, '  ')).toBe(true);
   });
 });

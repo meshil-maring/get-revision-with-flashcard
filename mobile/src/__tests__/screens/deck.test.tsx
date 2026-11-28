@@ -7,6 +7,7 @@ import * as cards from '@/data/cards';
 import * as decks from '@/data/decks';
 import * as settings from '@/data/settings';
 import type { Card, Rating } from '@/data/types';
+import { confirm } from '@/lib/confirm';
 import { mockRouter } from '@/test-utils/mock-router';
 
 jest.mock('expo-router', () => jest.requireActual('@/test-utils/mock-router').mockRouter);
@@ -21,6 +22,7 @@ jest.mock('@/data/decks');
 jest.mock('@/data/cards');
 jest.mock('@/data/attachments');
 jest.mock('@/data/card-groups');
+jest.mock('@/lib/confirm', () => ({ confirm: jest.fn(() => Promise.resolve(true)) }));
 jest.mock('@/data/settings', () => ({
   ...jest.requireActual('@/data/settings'),
   getAutoNext: jest.fn(),
@@ -133,5 +135,153 @@ describe('Deck screen', () => {
     await fireEvent.press(screen.getByText('Save'));
 
     await waitFor(() => expect(cardGroups.createGroup).toHaveBeenCalledWith(expect.anything(), 'deck-1', 'Chapter 1'));
+  });
+
+  it('searches the cards by question or answer', async () => {
+    await render(<DeckScreen />);
+    await screen.findByText('Question 1');
+
+    await fireEvent.changeText(screen.getByLabelText('Search cards'), 'answer 2');
+
+    expect(screen.getByText('Question 2')).toBeOnTheScreen();
+    expect(screen.queryByText('Question 1')).toBeNull();
+    expect(screen.getByText('Showing 1 of 3 cards')).toBeOnTheScreen();
+
+    await fireEvent.changeText(screen.getByLabelText('Search cards'), 'nothing like this');
+    expect(screen.getByText('No matching cards')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByText('Clear filters'));
+    expect(screen.getByText('Question 1')).toBeOnTheScreen();
+    expect(screen.getByText('Question 3')).toBeOnTheScreen();
+  });
+
+  it('filters the cards by rating and favourites', async () => {
+    jest.mocked(cards.listCards).mockResolvedValue([
+      card(1, 'easy'),
+      { ...card(2, 'ok'), favoritedAt: '2026-01-02T00:00:00.000Z' },
+      card(3, null),
+    ]);
+    await render(<DeckScreen />);
+    await screen.findByText('Question 1');
+
+    // Search and the filter button share one row; the chips are in a sheet.
+    await fireEvent.press(screen.getByLabelText('Filter cards'));
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'New' }));
+    expect(screen.getByLabelText('Filter cards, 1 on')).toBeOnTheScreen();
+    expect(screen.getByText('Question 3')).toBeOnTheScreen();
+    expect(screen.queryByText('Question 1')).toBeNull();
+
+    // Ratings add up: New or Easy.
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Easy' }));
+    expect(screen.getByText('Question 1')).toBeOnTheScreen();
+    expect(screen.queryByText('Question 2')).toBeNull();
+
+    await fireEvent.press(screen.getByText('Clear'));
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Favourites' }));
+    await fireEvent.press(screen.getByText('Done'));
+    expect(screen.getByText('Question 2')).toBeOnTheScreen();
+    expect(screen.queryByText('Question 1')).toBeNull();
+    expect(screen.queryByText('Question 3')).toBeNull();
+  });
+
+  it('starts with the search from the Flashcards tab filled in', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'deck-1', q: 'Question 3' });
+
+    await render(<DeckScreen />);
+
+    expect(await screen.findByText('Question 3')).toBeOnTheScreen();
+    expect(screen.queryByText('Question 1')).toBeNull();
+  });
+
+  describe('select mode', () => {
+    async function selectFirstTwo() {
+      await render(<DeckScreen />);
+      await screen.findByText('Question 1');
+      await fireEvent(screen.getByText('Question 1'), 'longPress');
+      expect(screen.getByText('1 selected')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('checkbox', { name: 'Question 2' }));
+      expect(screen.getByText('2 selected')).toBeOnTheScreen();
+    }
+
+    it('starts with a long press, ticks cards, and selects all or none', async () => {
+      await selectFirstTwo();
+
+      // Ticking a card again unticks it.
+      await fireEvent.press(screen.getByRole('checkbox', { name: 'Question 2' }));
+      expect(screen.getByText('1 selected')).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByText('Select all'));
+      expect(screen.getByText('3 selected')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByText('Select none'));
+      expect(screen.getByText('Tap cards to select')).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByLabelText('Stop selecting'));
+      expect(screen.getByText('Cards')).toBeOnTheScreen();
+      expect(screen.queryByText('Tap cards to select')).toBeNull();
+    });
+
+    it('studies just the selected cards', async () => {
+      await selectFirstTwo();
+
+      await fireEvent.press(screen.getByLabelText('Study selected cards'));
+
+      expect(mockRouter.router.push).toHaveBeenCalledWith({
+        pathname: '/study/[id]',
+        params: { id: 'deck-1', cards: 'card-1,card-2' },
+      });
+    });
+
+    it('puts the selected cards in a new group', async () => {
+      jest.mocked(cardGroups.createGroup).mockResolvedValue('g-new');
+      await selectFirstTwo();
+
+      await fireEvent.press(screen.getByLabelText('Put selected cards in a group'));
+      await fireEvent.press(screen.getByText('New group…'));
+      await fireEvent.changeText(screen.getByPlaceholderText('e.g. Chapter 1, Formulas'), 'Cells');
+      await fireEvent.press(screen.getByText('Save'));
+
+      await waitFor(() =>
+        expect(cards.setCardsGroup).toHaveBeenCalledWith(expect.anything(), ['card-1', 'card-2'], 'g-new'),
+      );
+      expect(cardGroups.createGroup).toHaveBeenCalledWith(expect.anything(), 'deck-1', 'Cells');
+    });
+
+    it('moves the selected cards to another deck', async () => {
+      const other = {
+        id: 'deck-2',
+        name: 'Chapter 2',
+        description: '',
+        createdAt: '',
+        updatedAt: '',
+        deletedAt: null,
+        lastStudiedAt: null,
+        studySeconds: 0,
+        cardCount: 0,
+      };
+      jest.mocked(decks.listDecks).mockResolvedValue([{ ...other, id: 'deck-1', name: 'This deck' }, other]);
+      await selectFirstTwo();
+
+      await fireEvent.press(screen.getByLabelText('Move selected cards to another deck'));
+      expect(await screen.findByText('Move 2 cards to')).toBeOnTheScreen();
+      expect(screen.queryByText('This deck')).toBeNull(); // not offered: the cards are already here
+      await fireEvent.press(screen.getByText('Chapter 2'));
+
+      await waitFor(() =>
+        expect(cards.moveCardsToDeck).toHaveBeenCalledWith(expect.anything(), ['card-1', 'card-2'], 'deck-2'),
+      );
+    });
+
+    it('stars and deletes the selected cards', async () => {
+      await selectFirstTwo();
+      await fireEvent.press(screen.getByText('Star'));
+      await waitFor(() =>
+        expect(cards.setFavorites).toHaveBeenCalledWith(expect.anything(), ['card-1', 'card-2'], true),
+      );
+
+      await fireEvent(screen.getByText('Question 1'), 'longPress');
+      await fireEvent.press(screen.getByLabelText('Delete selected cards'));
+      await waitFor(() => expect(cards.deleteCards).toHaveBeenCalledWith(expect.anything(), ['card-1']));
+      expect(confirm).toHaveBeenCalledWith('Delete 1 card?', 'The selected cards will be deleted.');
+    });
   });
 });

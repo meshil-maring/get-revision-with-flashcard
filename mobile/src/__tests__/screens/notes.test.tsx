@@ -376,6 +376,25 @@ describe('Notes tab', () => {
       expect(folders.moveFolders).toHaveBeenCalledWith(expect.anything(), ['f-2'], 'f-1');
     });
 
+    it('groups the ticked items together in a new folder', async () => {
+      jest.mocked(folders.createFolder).mockResolvedValue('f-new');
+
+      await render(<NotesScreen />);
+      await fireEvent.press(await screen.findByLabelText('Select'));
+      await fireEvent.press(screen.getByLabelText('Class 10, Empty'));
+      await fireEvent.press(screen.getByText('Speed'));
+      await fireEvent.press(screen.getByLabelText('Put selected items in a new folder'));
+
+      expect(screen.getByText('New folder for 1 folder and 1 note')).toBeOnTheScreen();
+      await fireEvent.changeText(screen.getByPlaceholderText(/e\.g\. Class 10/), 'Term 1');
+      await fireEvent.press(screen.getByText('Save'));
+
+      await waitFor(() => expect(notes.moveNotes).toHaveBeenCalledWith(expect.anything(), ['n-1'], 'f-new'));
+      expect(folders.createFolder).toHaveBeenCalledWith(expect.anything(), { parentId: null, name: 'Term 1' });
+      expect(folders.moveFolders).toHaveBeenCalledWith(expect.anything(), ['f-1'], 'f-new');
+      expect(screen.queryByText('2 selected')).toBeNull(); // select mode is over
+    });
+
     it('says why a move failed and keeps the selection', async () => {
       const { FolderNameTakenError } = jest.requireActual('@/data/folders');
       jest.mocked(folders.listAllFolders).mockResolvedValue([folder({}), folder({ id: 'f-2', name: 'Class 9' })]);

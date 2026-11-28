@@ -118,7 +118,23 @@ In the deck, each card has buttons along the bottom:
 In the card list the answers are covered, so you can test yourself just by reading the questions. Tap **Tap to show answer** to see one, and tap again to hide it.
 
 ## Coloured edges
-The coloured strip down the left of each card shows how it felt last time: teal for **Easy**, amber for **OK**, red for **Hard** and grey for **New**. Scan the list for red to see what needs more practice.`,
+The coloured strip down the left of each card shows how it felt last time: teal for **Easy**, amber for **OK**, red for **Hard** and grey for **New**. Scan the list for red to see what needs more practice.
+
+## Search and filter
+- In a deck, type in **Search cards** to find a card by its question or answer.
+- Tap the **filter** button next to it to show only **Favourites**, or only **Hard**, **OK**, **Easy** or **New** cards. You can pick more than one rating; the button shows how many filters are on. Tap **Clear filters** to see every card again.
+## Select several cards
+Press and hold a card to start selecting. Tap more cards to tick them, or tap **Select all**. Then use the bar at the bottom:
+- **Study**: study just the selected cards
+- **Group**: put them in a group, or tap **New group…** to make one for them
+- **Move**: move them to another deck (they leave their group)
+- **Star**: add them to your favourites
+- **Delete**: delete them (you will be asked first)
+
+Tap **✕** at the top (or the back button) to stop selecting.
+
+## Search everywhere
+- On the Flashcards tab, the search box finds decks and cards from every deck. Tap a card to open its deck with the search already filled in.`,
   },
   {
     id: 'attachments',
@@ -175,7 +191,7 @@ You can use any names and any number of levels, like Semester › Course › Uni
 
 ## Rename, delete and search
 - Tap **⋮** on a folder to rename or delete it. ==Deleting a folder also deletes everything in it.==
-- To work on many at once, tap **Select** (or press and hold a note or folder). Tick the ones you want, then **Move** them to another folder, **Favourite** them or **Delete** them.
+- To work on many at once, tap **Select** (or press and hold a note or folder). Tick the ones you want, then **Group** them together in a new folder, **Move** them to another folder, **Favourite** them or **Delete** them.
 - Use the search box at the top of the Notes tab to find any note, folder or tag.`,
   },
   {

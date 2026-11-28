@@ -1,4 +1,5 @@
 import type { Card, Rating } from '@/data/types';
+import { toPlainText } from '@/lib/rich-text';
 
 /** A rating, or 'new' for cards that haven't been rated yet. */
 export type RatingFilter = Rating | 'new';
@@ -30,6 +31,13 @@ export function filterCards<T extends Card>(cards: T[], filter: CardFilter): T[]
       (!filter.favoritesOnly || card.favoritedAt !== null) &&
       (ratings === null || ratings.has(ratingOf(card))),
   );
+}
+
+/** Whether the card's question or answer contains the query (any case, ignoring formatting marks). */
+export function cardMatches(card: Pick<Card, 'front' | 'back'>, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return card.front.toLowerCase().includes(q) || toPlainText(card.back).toLowerCase().includes(q);
 }
 
 /** Reads a comma-separated list like "hard,new" from a URL, ignoring anything unknown. */

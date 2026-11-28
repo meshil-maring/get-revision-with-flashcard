@@ -1,6 +1,8 @@
 import { randomUUID } from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { cardMatches } from '@/lib/revision';
+
 import type { Card, FavoriteCard, Rating } from './types';
 
 type CardRow = {
@@ -140,4 +142,83 @@ export async function listFavoriteCards(db: SQLiteDatabase): Promise<FavoriteCar
       ORDER BY c.favorited_at DESC`,
   );
   return rows.map((row) => ({ ...toCard(row), deckName: row.deck_name }));
+}
+
+/** Escapes % and _ so they are matched as themselves in a LIKE pattern. */
+function likePattern(query: string): string {
+  return `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
+/** Cards from every deck whose question or answer contains the query (any case), with their deck's name. */
+export async function searchCards(db: SQLiteDatabase, query: string, limit = 50): Promise<FavoriteCard[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const pattern = likePattern(q);
+  const rows = await db.getAllAsync<CardRow & { deck_name: string }>(
+    `SELECT c.*, d.name AS deck_name
+       FROM cards c
+       JOIN decks d ON d.id = c.deck_id
+      WHERE c.deleted_at IS NULL AND d.deleted_at IS NULL
+        AND (c.front LIKE ? ESCAPE '\\' OR c.back LIKE ? ESCAPE '\\')
+      ORDER BY d.updated_at DESC, c.created_at ASC
+      LIMIT ?`,
+    pattern,
+    pattern,
+    limit * 2,
+  );
+  return (
+    rows
+      .map((row) => ({ ...toCard(row), deckName: row.deck_name }))
+      // The answer is stored with formatting marks; only keep cards whose readable text matches.
+      .filter((card) => cardMatches(card, q))
+      .slice(0, limit)
+  );
+}
+
+// --- Several cards at once (select mode in a deck) -----------------------------------
+
+/** Puts the cards into a group, or out of their groups (null). */
+export async function setCardsGroup(db: SQLiteDatabase, ids: string[], groupId: string | null): Promise<void> {
+  const now = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      await db.runAsync('UPDATE cards SET group_id = ?, updated_at = ? WHERE id = ?', groupId, now, id);
+    }
+  });
+}
+
+/** Moves the cards to another deck. They leave their group, since groups belong to one deck. */
+export async function moveCardsToDeck(db: SQLiteDatabase, ids: string[], deckId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      await db.runAsync('UPDATE cards SET deck_id = ?, group_id = NULL, updated_at = ? WHERE id = ?', deckId, now, id);
+    }
+  });
+}
+
+export async function deleteCards(db: SQLiteDatabase, ids: string[]): Promise<void> {
+  const now = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      await db.runAsync('UPDATE cards SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);
+    }
+  });
+}
+
+/** Stars (or un-stars) the cards; like setFavorite, this leaves updated_at alone. */
+export async function setFavorites(db: SQLiteDatabase, ids: string[], favorite: boolean): Promise<void> {
+  const at = favorite ? new Date().toISOString() : null;
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      // Keep the date a card was first starred.
+      await db.runAsync(
+        favorite
+          ? 'UPDATE cards SET favorited_at = COALESCE(favorited_at, ?) WHERE id = ?'
+          : 'UPDATE cards SET favorited_at = ? WHERE id = ?',
+        at,
+        id,
+      );
+    }
+  });
 }

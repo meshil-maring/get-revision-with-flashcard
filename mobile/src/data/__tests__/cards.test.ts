@@ -1,6 +1,19 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { createCard, deleteCard, listCards, listCardsForDecks, updateCard } from '@/data/cards';
+import { createGroup } from '@/data/card-groups';
+import {
+  createCard,
+  deleteCard,
+  deleteCards,
+  listCards,
+  listCardsForDecks,
+  moveCardsToDeck,
+  searchCards,
+  setCardsGroup,
+  setFavorite,
+  setFavorites,
+  updateCard,
+} from '@/data/cards';
 import { createDeck } from '@/data/decks';
 import { createTestDb } from '@/test-utils/test-db';
 
@@ -73,5 +86,79 @@ describe('cards', () => {
 
   it('rejects a card for a deck that does not exist', async () => {
     await expect(createCard(db, 'missing-deck', { front: 'Q', back: 'A' })).rejects.toThrow();
+  });
+});
+
+describe('several cards at once', () => {
+  it('puts cards into a group and out again', async () => {
+    const a = await createCard(db, deckId, { front: 'A', back: '' });
+    const b = await createCard(db, deckId, { front: 'B', back: '' });
+    const group = await createGroup(db, deckId, 'Chapter 1');
+
+    await setCardsGroup(db, [a, b], group);
+    expect((await listCards(db, deckId)).map((c) => c.groupId)).toEqual([group, group]);
+
+    await setCardsGroup(db, [a], null);
+    expect((await listCards(db, deckId)).map((c) => c.groupId)).toEqual([null, group]);
+  });
+
+  it('moves cards to another deck, out of their group', async () => {
+    const other = await createDeck(db, { name: 'Other' });
+    const group = await createGroup(db, deckId, 'Chapter 1');
+    const a = await createCard(db, deckId, { front: 'A', back: '', groupId: group });
+    await createCard(db, deckId, { front: 'Stays', back: '' });
+
+    await moveCardsToDeck(db, [a], other);
+
+    expect((await listCards(db, deckId)).map((c) => c.front)).toEqual(['Stays']);
+    const [moved] = await listCards(db, other);
+    expect(moved.front).toBe('A');
+    expect(moved.groupId).toBeNull();
+  });
+
+  it('deletes cards', async () => {
+    const a = await createCard(db, deckId, { front: 'A', back: '' });
+    const b = await createCard(db, deckId, { front: 'B', back: '' });
+    await createCard(db, deckId, { front: 'C', back: '' });
+
+    await deleteCards(db, [a, b]);
+
+    expect((await listCards(db, deckId)).map((c) => c.front)).toEqual(['C']);
+  });
+
+  it('stars and un-stars cards, keeping when a card was first starred', async () => {
+    const a = await createCard(db, deckId, { front: 'A', back: '' });
+    const b = await createCard(db, deckId, { front: 'B', back: '' });
+    await setFavorite(db, a, true);
+    const firstStarred = (await listCards(db, deckId))[0].favoritedAt;
+
+    await new Promise((r) => setTimeout(r, 5));
+    await setFavorites(db, [a, b], true);
+    const starred = await listCards(db, deckId);
+    expect(starred[0].favoritedAt).toBe(firstStarred);
+    expect(starred[1].favoritedAt).not.toBeNull();
+
+    await setFavorites(db, [a, b], false);
+    expect((await listCards(db, deckId)).every((c) => c.favoritedAt === null)).toBe(true);
+  });
+});
+
+describe('searchCards', () => {
+  it('finds cards in every deck by question or answer, ignoring formatting and deleted cards', async () => {
+    const other = await createDeck(db, { name: 'Other' });
+    await createCard(db, deckId, { front: 'What is osmosis?', back: 'Water moving' });
+    await createCard(db, other, { front: 'Cell parts', back: 'The **Osmosis** pump' });
+    const gone = await createCard(db, deckId, { front: 'Osmosis again', back: '' });
+    await deleteCard(db, gone);
+    await createCard(db, deckId, { front: '50% off', back: '' });
+
+    const found = await searchCards(db, 'OSMOSIS');
+    expect(found.map((c) => [c.front, c.deckName]).sort()).toEqual([
+      ['Cell parts', 'Other'],
+      ['What is osmosis?', 'Deck'],
+    ]);
+    expect(await searchCards(db, '**')).toEqual([]);
+    expect((await searchCards(db, '%')).map((c) => c.front)).toEqual(['50% off']);
+    expect(await searchCards(db, '  ')).toEqual([]);
   });
 });

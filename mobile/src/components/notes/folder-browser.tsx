@@ -6,9 +6,10 @@ import { Alert, BackHandler, Platform, Pressable, ScrollView, Text, View } from 
 
 import { FolderPicker } from '@/components/notes/folder-picker';
 import { ActionSheet } from '@/components/ui/action-sheet';
+import { SelectBarButton, Tick } from '@/components/ui/select-mode';
 import { TagRow } from '@/components/tags/tag-chip';
 import { FormModal, type FormField } from '@/components/ui/form-modal';
-import { EmptyState, Icon, plural, scaled, subjectIcon, type IconName, useColors } from '@/components/ui';
+import { EmptyState, Icon, plural, scaled, subjectIcon, useColors } from '@/components/ui';
 import {
   countFolderContents,
   createFolder,
@@ -51,7 +52,11 @@ function toggled(set: Set<string>, id: string): Set<string> {
   return next;
 }
 
-type FormState = { mode: 'closed' } | { mode: 'create' } | { mode: 'rename'; folder: FolderWithCounts };
+type FormState =
+  | { mode: 'closed' }
+  | { mode: 'create' }
+  | { mode: 'group' } // a new folder for the selected items
+  | { mode: 'rename'; folder: FolderWithCounts };
 
 /** "2 folders · 5 notes", or "Empty". */
 export function folderSummary(folder: { folderCount: number; noteCount: number }): string {
@@ -239,7 +244,13 @@ export function FolderBrowser({
   async function handleSave(values: Record<string, string>) {
     try {
       if (form.mode === 'create') await createFolder(db, { parentId: folderId, name: values.name });
-      else if (form.mode === 'rename') await renameFolder(db, form.folder.id, values.name);
+      else if (form.mode === 'group') {
+        // Group together: a new folder here, with the selected folders and notes moved into it.
+        const newId = await createFolder(db, { parentId: folderId, name: values.name });
+        await moveFolders(db, [...pickedFolders], newId);
+        await moveNotes(db, [...pickedNotes], newId);
+        stopSelecting();
+      } else if (form.mode === 'rename') await renameFolder(db, form.folder.id, values.name);
     } catch (error) {
       // Keep the form open so the name can be changed.
       if (!(error instanceof FolderNameTakenError)) throw error;
@@ -437,14 +448,27 @@ export function FolderBrowser({
 
       {selecting ? (
         <View className="w-full max-w-3xl flex-row gap-2 self-center border-t border-line bg-page px-5 py-3">
-          <BarButton icon="folder-open-outline" label="Move" disabled={pickedCount === 0} onPress={() => setMoving(true)} />
-          <BarButton
+          <SelectBarButton
+            icon="folder-open-outline"
+            label="Group"
+            accessibilityLabel="Put selected items in a new folder"
+            disabled={pickedCount === 0}
+            onPress={() => setForm({ mode: 'group' })}
+          />
+          <SelectBarButton
+            icon="arrow-redo-outline"
+            label="Move"
+            accessibilityLabel="Move selected items to another folder"
+            disabled={pickedCount === 0}
+            onPress={() => setMoving(true)}
+          />
+          <SelectBarButton
             icon={pickedAreFavorites ? 'star' : 'star-outline'}
             label={pickedAreFavorites ? 'Unfavourite' : 'Favourite'}
             disabled={pickedCount === 0}
             onPress={() => favoritePicked(!pickedAreFavorites)}
           />
-          <BarButton icon="trash-outline" label="Delete" danger disabled={pickedCount === 0} onPress={deletePicked} />
+          <SelectBarButton icon="trash-outline" label="Delete" danger disabled={pickedCount === 0} onPress={deletePicked} />
         </View>
       ) : null}
 
@@ -459,7 +483,13 @@ export function FolderBrowser({
 
       <FormModal
         visible={form.mode !== 'closed'}
-        title={form.mode === 'rename' ? 'Rename folder' : 'New folder'}
+        title={
+          form.mode === 'rename'
+            ? 'Rename folder'
+            : form.mode === 'group'
+              ? `New folder for ${listWhat(pickedFolders.size, pickedNotes.size)}`
+              : 'New folder'
+        }
         fields={FOLDER_FIELDS}
         initialValues={form.mode === 'rename' ? { name: form.folder.name } : {}}
         onCancel={() => setForm({ mode: 'closed' })}
@@ -483,48 +513,6 @@ export function FolderBrowser({
         }
       />
     </View>
-  );
-}
-
-/** The tick circle on a row in select mode. */
-function Tick({ picked }: { picked: boolean }) {
-  const colors = useColors();
-  return (
-    <View className="h-11 w-11 items-center justify-center">
-      <Icon name={picked ? 'checkmark-circle' : 'ellipse-outline'} size={30} color={picked ? colors.primary : colors.faint} />
-    </View>
-  );
-}
-
-/** A button in the bar at the bottom of select mode. */
-function BarButton({
-  icon,
-  label,
-  onPress,
-  disabled,
-  danger = false,
-}: {
-  icon: IconName;
-  label: string;
-  onPress: () => void;
-  disabled: boolean;
-  danger?: boolean;
-}) {
-  const colors = useColors();
-  const color = disabled ? colors.faint : danger ? colors.alert : colors.ink;
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      className="flex-1 items-center gap-1 rounded-2xl bg-surface py-2.5 active:bg-line"
-    >
-      <Icon name={icon} size={24} color={color} />
-      <Text className="text-sm font-semibold" style={{ color }}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 

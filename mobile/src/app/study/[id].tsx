@@ -19,9 +19,9 @@ type Loaded = {
   pauseOnAnswer: boolean;
 };
 
-/** Study one deck, or one group of its cards (?groupId=…). */
+/** Study one deck, one group of its cards (?groupId=…), or cards picked in the deck (?cards=id,id,…). */
 export default function StudyScreen() {
-  const { id, groupId } = useLocalSearchParams<{ id: string; groupId?: string }>();
+  const { id, groupId, cards: picked } = useLocalSearchParams<{ id: string; groupId?: string; cards?: string }>();
   const db = useSQLiteContext();
   const [loaded, setLoaded] = useState<Loaded | null>(null); // null = loading
 
@@ -37,7 +37,11 @@ export default function StudyScreen() {
       if (cancelled) return;
       const group = groupId ? (groups.find((g) => g.id === groupId) ?? null) : null;
       // A group that no longer exists has no cards, rather than falling back to the whole deck.
-      const cards = groupId ? (group ? cardsInGroup(groups, allCards, group.id) : []) : allCards;
+      let cards = groupId ? (group ? cardsInGroup(groups, allCards, group.id) : []) : allCards;
+      if (picked) {
+        const ids = new Set(picked.split(','));
+        cards = cards.filter((card) => ids.has(card.id));
+      }
       setLoaded({ deck, group, cards, autoNext, pauseOnAnswer });
       // Shown under "Continue Studying" on Home.
       if (deck && cards.length > 0) markDeckStudied(db, deck.id);
@@ -45,7 +49,7 @@ export default function StudyScreen() {
     return () => {
       cancelled = true;
     };
-  }, [db, id, groupId]);
+  }, [db, id, groupId, picked]);
 
   if (loaded === null) {
     return <Stack.Screen options={{ title: 'Study' }} />;
@@ -61,9 +65,15 @@ export default function StudyScreen() {
 
   return (
     <StudySession
-      title={`Study: ${loaded.deck.name}${loaded.group ? ` › ${loaded.group.name}` : ''}`}
+      title={`Study: ${loaded.deck.name}${loaded.group ? ` › ${loaded.group.name}` : picked ? ' › Selected cards' : ''}`}
       cards={loaded.cards}
-      emptyText={groupId ? 'Add some cards to this group first.' : 'Add some cards to this deck first.'}
+      emptyText={
+        picked
+          ? 'These cards are no longer in this deck.'
+          : groupId
+            ? 'Add some cards to this group first.'
+            : 'Add some cards to this deck first.'
+      }
       backLabel="Back to deck"
       autoNextSeconds={loaded.autoNext}
       pauseOnAnswer={loaded.pauseOnAnswer}

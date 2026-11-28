@@ -1,11 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FavoriteStar, FolderBadge, FolderBrowser, folderSummary, NoteRow } from '@/components/notes/folder-browser';
 import { ScreenTip } from '@/components/ui/screen-tip';
+import { SearchBox } from '@/components/ui/search-box';
 import { TagChip } from '@/components/tags/tag-chip';
 import { EmptyState, Icon, useColors } from '@/components/ui';
 import { listFavorites, noteText, searchNotes } from '@/data/notes';
@@ -21,8 +22,6 @@ import type {
 } from '@/data/types';
 import { snippet } from '@/lib/notes';
 
-const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
-
 type Results = {
   folders: FolderSearchResult[];
   notes: NoteSearchResult[];
@@ -37,7 +36,6 @@ function placeText(path: FolderCrumb[]) {
 
 /** The Notes tab: top-level folders and notes, and search across every note. */
 export default function NotesScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const searching = query.trim().length > 0;
@@ -45,26 +43,7 @@ export default function NotesScreen() {
   const [version, setVersion] = useState(0);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
-  const searchBox = (
-    <View className="flex-row items-center gap-2 rounded-2xl bg-surface px-4">
-      <Icon name="search" size={22} color={colors.muted} />
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search notes"
-        placeholderTextColor={colors.faint}
-        accessibilityLabel="Search notes"
-        returnKeyType="search"
-        style={NO_WEB_FOCUS_RING}
-        className="flex-1 py-3.5 text-base text-ink"
-      />
-      {searching ? (
-        <Pressable onPress={() => setQuery('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-          <Icon name="close-circle" size={22} color={colors.muted} />
-        </Pressable>
-      ) : null}
-    </View>
-  );
+  const searchBox = <SearchBox value={query} onChangeText={setQuery} placeholder="Search notes" />;
 
   // The title and search box stay put; only the list under them changes while searching
   // (so the search box keeps the keyboard).

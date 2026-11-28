@@ -211,6 +211,19 @@ describe('Study screen', () => {
     expect(mockedCards.setFavorite).toHaveBeenCalledWith(expect.anything(), 'card-1', true);
   });
 
+  it('studies only the cards picked in the deck', async () => {
+    mockedCards.listCards.mockResolvedValue([card(1), card(2), card(3)]);
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'deck-1', cards: 'card-3,card-1' });
+
+    await render(<StudyScreen />);
+
+    // In the deck's order, not the order picked.
+    expect(await screen.findByText('Question 1')).toBeOnTheScreen();
+    expect(screen.getByText('1 / 2')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Question 3')).toBeOnTheScreen();
+  });
+
   it('shows a message when the deck has no cards', async () => {
     mockedCards.listCards.mockResolvedValue([]);
 
