@@ -21,6 +21,11 @@ npx jest --watch    # re-run tests when files change
 | Flashcards screen | `src/__tests__/screens/flashcards.test.tsx` | empty state, deck list, create deck, name required, open form from + menu |
 | Study screen | `src/__tests__/screens/study.test.tsx` | flip, next/previous, finish, study again, shuffle |
 | Create Revision screen | `src/__tests__/screens/new-revision.test.tsx` | select decks, unselect, select all skips empty decks, start |
+| Maths in text | `src/lib/__tests__/math-text.test.ts` | finding `$…$` / `\(…\)` (prices stay text), LaTeX as readable plain text |
+| Note format: maths and textbook blocks | `src/lib/__tests__/rich-text-math.test.ts` | inline and displayed equations, align, code fences, `:::definition`/`:::exercise [hard]`…, `$|x|$` in tables, old syntax unchanged |
+| Textbook model | `src/lib/__tests__/textbook.test.ts` | chapter titles, section / definition / example / equation / figure numbering, worked-example steps, when a note opens as a textbook |
+| Textbook reader | `src/components/textbook/__tests__/textbook-view.test.tsx` | KaTeX output (fractions, matrices, integrals, cases, align, \ce…), broken LaTeX fallback, nothing from a note runs, light / dark tokens, layouts, tables, code, diagrams, images, a whole sample chapter |
+| Note screen views | `src/__tests__/screens/notes.test.tsx` | maths notes open as a textbook, ordinary notes stay standard, the choice is remembered, Cornell notes as chapters, next chapter |
 
 Data tests run the app's real SQL on Node's built-in SQLite (`src/test-utils/test-db.ts`).
 Screen tests replace the data layer and router with mocks.
@@ -85,6 +90,16 @@ Before every commit: `npx tsc --noEmit && npx expo lint && npm test`
 - [ ] Back from the revision keeps the deck selection
 - [ ] Which cards? Turning ratings off (e.g. only Hard) and Favourites only change the card count and the cards in the revision
 - [ ] Flashcards → Favourites (and More → Favourite cards) lists starred cards grouped by deck; unstar removes one; Revise favourites starts them
+
+**Textbook notes** (on a phone and in a browser; `src/test-utils/sample-chapter.ts` is a good note to paste)
+- [ ] A note with `$…$` or `$$…$$` opens as a textbook; an ordinary note looks as before
+- [ ] ⋮ → Read as a standard note / Read as a textbook switches, and stays after reopening the note
+- [ ] Equations are typeset and centred; a very long one scrolls sideways inside its box, the page doesn't
+- [ ] Contents (☰) jumps to a section; the bookmark button marks it; bookmarks list in Contents
+- [ ] Aa: text size, theme (App / Light / Dark); on a wide screen also page width, with contents and tools at the sides
+- [ ] Hints and solutions in exercises open and close; diagrams enlarge; attached images open full screen
+- [ ] Previous / Next at the end of a chapter opens the next note in the folder
+- [ ] Android: the first textbook note opens within a second or two (it runs in a web view)
 
 **Data and device**
 - [ ] Close the app completely and reopen it: decks and cards are still there

@@ -16,7 +16,14 @@ import * as tags from '@/data/tags';
 import type { FolderWithCounts, Note, Tag } from '@/data/types';
 import { mockRouter } from '@/test-utils/mock-router';
 
-jest.mock('expo-router', () => jest.requireActual('@/test-utils/mock-router').mockRouter);
+// The header's right-hand buttons are drawn, so the note screen's Textbook switch can be pressed.
+jest.mock('expo-router', () => {
+  const { mockRouter } = jest.requireActual('@/test-utils/mock-router');
+  return {
+    ...mockRouter,
+    Stack: { Screen: ({ options }: { options?: { headerRight?: () => unknown } }) => options?.headerRight?.() ?? null },
+  };
+});
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -66,7 +73,45 @@ jest.mock('@/data/settings', () => ({
   setNoteFocusSize: jest.fn(),
   getNoteHandwriting: jest.fn(() => Promise.resolve(true)),
   setNoteHandwriting: jest.fn(() => Promise.resolve()),
+  getNoteView: jest.fn(() => Promise.resolve(null)),
+  getNoteViewDefault: jest.fn(() => Promise.resolve('auto')),
+  setNoteView: jest.fn(() => Promise.resolve()),
+  getTextbookPrefs: jest.fn(() => Promise.resolve(null)),
+  setTextbookPrefs: jest.fn(() => Promise.resolve()),
+  getNoteBookmarks: jest.fn(() => Promise.resolve([])),
+  setNoteBookmarks: jest.fn(() => Promise.resolve()),
 }));
+// The textbook reader runs in a web view on phones; here it is a stand-in that shows what it was given.
+jest.mock('@/components/textbook/textbook-reader', () => {
+  const { Pressable, Text, View } = jest.requireActual('react-native');
+  return {
+    __esModule: true,
+    default: (props: {
+      chapter: { title: string; body: string };
+      next: { title: string } | null;
+      onUseStandard: () => void;
+      onNavigate: (to: 'previous' | 'next') => void;
+      focus: boolean;
+      onFocusChange: (on: boolean) => void;
+    }) => (
+      <View testID="textbook-reader">
+        <Pressable onPress={() => props.onFocusChange(!props.focus)} accessibilityRole="button">
+          <Text>{props.focus ? 'Exit focus' : 'Focus'}</Text>
+        </Pressable>
+        <Text>Textbook: {props.chapter.title}</Text>
+        <Text testID="textbook-body">{props.chapter.body}</Text>
+        <Pressable onPress={props.onUseStandard} accessibilityRole="button">
+          <Text>Standard view</Text>
+        </Pressable>
+        {props.next ? (
+          <Pressable onPress={() => props.onNavigate('next')} accessibilityRole="button">
+            <Text>Next chapter</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    ),
+  };
+});
 jest.mock('expo-speech', () => ({
   speak: jest.fn(),
   stop: jest.fn(() => Promise.resolve()),
@@ -844,5 +889,165 @@ describe('Note header: read aloud and the ⋮ menu', () => {
 
     expect(await screen.findByText('This note is empty. Tap to start writing.')).toBeOnTheScreen();
     expect(screen.queryByLabelText('Read note aloud')).toBeNull();
+  });
+});
+
+describe('Note screen: standard and textbook views', () => {
+  beforeEach(() => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(settings.getNoteView).mockResolvedValue(null);
+    jest.mocked(settings.getNoteViewDefault).mockResolvedValue('auto');
+  });
+
+  it('has a Textbook switch at the top that turns the view on and off, and remembers it', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Plain words.' }));
+
+    await render(<NoteScreen />);
+    const toggle = await screen.findByRole('switch', { name: 'Textbook view' });
+    expect(toggle).not.toBeChecked();
+
+    await fireEvent.press(toggle);
+    expect(await screen.findByTestId('textbook-reader')).toBeOnTheScreen();
+    expect(screen.getByRole('switch', { name: 'Textbook view' })).toBeChecked();
+    expect(settings.setNoteView).toHaveBeenLastCalledWith(expect.anything(), 'n-1', 'textbook');
+
+    await fireEvent.press(screen.getByRole('switch', { name: 'Textbook view' }));
+    expect(await screen.findByText('Plain words.')).toBeOnTheScreen();
+    expect(screen.queryByTestId('textbook-reader')).toBeNull();
+    expect(settings.setNoteView).toHaveBeenLastCalledWith(expect.anything(), 'n-1', 'standard');
+  });
+
+  it('has a focus mode: the app header goes, and the next chapter opens in focus mode too', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(note({ id: 'n-1', body: '$x$' }));
+    jest.mocked(notes.listNotes).mockResolvedValue([note({ id: 'n-1' }), note({ id: 'n-2', title: 'Chapter 2' })]);
+
+    await render(<NoteScreen />);
+    expect(await screen.findByRole('switch', { name: 'Textbook view' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Focus'));
+
+    expect(await screen.findByText('Exit focus')).toBeOnTheScreen();
+    expect(screen.queryByRole('switch', { name: 'Textbook view' })).toBeNull();
+    expect(screen.getByTestId('textbook-reader')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByText('Next chapter'));
+    expect(mockRouter.router.replace).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n-2', focus: '1' } });
+
+    await fireEvent.press(screen.getByText('Exit focus'));
+    expect(await screen.findByRole('switch', { name: 'Textbook view' })).toBeOnTheScreen();
+  });
+
+  it('opens a textbook note in focus mode when Previous / Next came from focus mode', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1', focus: '1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: '$x$' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('Exit focus')).toBeOnTheScreen();
+  });
+
+  it('has no Textbook switch on an empty note', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: '' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('This note is empty. Tap to start writing.')).toBeOnTheScreen();
+    expect(screen.queryByRole('switch', { name: 'Textbook view' })).toBeNull();
+  });
+
+  it('opens notes the way Settings says, unless a note was switched itself', async () => {
+    jest.mocked(settings.getNoteViewDefault).mockResolvedValue('textbook');
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Plain words.' }));
+    const first = await render(<NoteScreen />);
+    expect(await screen.findByTestId('textbook-reader')).toBeOnTheScreen();
+    await first.unmount();
+
+    jest.mocked(settings.getNoteViewDefault).mockResolvedValue('standard');
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: '$$E=mc^2$$' }));
+    const second = await render(<NoteScreen />);
+    expect(await screen.findByTestId('math-fallback')).toBeOnTheScreen();
+    await second.unmount();
+
+    jest.mocked(settings.getNoteView).mockResolvedValue('textbook');
+    await render(<NoteScreen />);
+    expect(await screen.findByTestId('textbook-reader')).toBeOnTheScreen();
+  });
+
+  it('opens a note with maths in the textbook reader, without a heading that repeats the title', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(
+      note({ title: 'Quadratics', body: '# Quadratics\n## Formula\n$$x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}$$' }),
+    );
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('Textbook: Quadratics')).toBeOnTheScreen();
+    expect(screen.getByTestId('textbook-body')).toHaveTextContent('## Formula $$x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}$$');
+  });
+
+  it('opens a note with textbook blocks (a definition) in the textbook reader', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: ':::definition Derivative\nThe rate of change.\n:::' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByTestId('textbook-reader')).toBeOnTheScreen();
+  });
+
+  it('keeps an ordinary note in the standard view (existing notes look as before)', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: '# Waves\nEnergy moves. It costs $5 and $10.' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByText('Energy moves. It costs $5 and $10.')).toBeOnTheScreen();
+    expect(screen.queryByTestId('textbook-reader')).toBeNull();
+  });
+
+  it('switches to the standard view from the reader, remembers it, and shows maths as readable text', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Pythagoras: $a^2+b^2=c^2$\n\n$$E=mc^2$$' }));
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByText('Standard view'));
+
+    expect(settings.setNoteView).toHaveBeenCalledWith(expect.anything(), 'n-1', 'standard');
+    expect(await screen.findByText('E=mc²')).toBeOnTheScreen();
+    expect(screen.getByText('a²+b²=c²')).toBeOnTheScreen();
+    expect(screen.queryByTestId('textbook-reader')).toBeNull();
+  });
+
+  it('respects a note set to the standard view, even with maths', async () => {
+    jest.mocked(settings.getNoteView).mockResolvedValue('standard');
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: '$$\int_0^1 x\,dx$$' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByTestId('math-fallback')).toBeOnTheScreen();
+    expect(screen.queryByTestId('textbook-reader')).toBeNull();
+  });
+
+  it('opens a note set to the textbook view, even without maths', async () => {
+    jest.mocked(settings.getNoteView).mockResolvedValue('textbook');
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Just words.' }));
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByTestId('textbook-reader')).toBeOnTheScreen();
+  });
+
+  it('goes to the next note in the folder from the end of a chapter', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(note({ id: 'n-1', body: '$x$' }));
+    jest.mocked(notes.listNotes).mockResolvedValue([note({ id: 'n-1' }), note({ id: 'n-2', title: 'Chapter 2' })]);
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByText('Next chapter'));
+
+    expect(mockRouter.router.replace).toHaveBeenCalledWith({ pathname: '/note/[id]', params: { id: 'n-2' } });
+  });
+
+  it('reads a Cornell note with maths as a chapter: cues become sections, the summary a summary block', async () => {
+    jest.mocked(notes.getNote).mockResolvedValue(
+      note({ style: 'cornell', body: '', rows: [{ cue: 'Area', notes: '$A=\pi r^2$' }], summary: 'Circles.' }),
+    );
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByTestId('textbook-body')).toHaveTextContent('## Area $A=\pi r^2$ :::summary Circles. :::');
   });
 });

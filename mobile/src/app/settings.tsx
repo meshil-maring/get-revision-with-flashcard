@@ -1,8 +1,16 @@
+import { useSQLiteContext } from 'expo-sqlite';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Icon, type IconName, useColors } from '@/components/ui';
 import { RichText } from '@/components/ui/rich-text';
-import type { ReadingSize, ThemePreference } from '@/data/settings';
+import {
+  getNoteViewDefault,
+  setNoteViewDefault,
+  type NoteViewDefault,
+  type ReadingSize,
+  type ThemePreference,
+} from '@/data/settings';
 import { useReadingSizeSetting } from '@/providers/reading-size';
 import { useThemePreference } from '@/providers/theme';
 
@@ -10,6 +18,12 @@ const THEMES: { value: ThemePreference; icon: IconName; title: string; subtitle:
   { value: 'system', icon: 'phone-portrait-outline', title: 'Same as phone', subtitle: "Follows your phone's light or dark mode" },
   { value: 'light', icon: 'sunny-outline', title: 'Light', subtitle: 'Dark text on a light background' },
   { value: 'dark', icon: 'moon-outline', title: 'Dark', subtitle: 'Light text on a dark background, easier at night' },
+];
+
+const NOTE_VIEWS: { value: NoteViewDefault; icon: IconName; title: string; subtitle: string }[] = [
+  { value: 'auto', icon: 'sparkles-outline', title: 'Automatic', subtitle: 'As a textbook when the note has maths, definitions or exercises' },
+  { value: 'standard', icon: 'document-text-outline', title: 'Standard', subtitle: 'The usual note view' },
+  { value: 'textbook', icon: 'school-outline', title: 'Textbook', subtitle: 'Numbered sections, typeset maths, contents' },
 ];
 
 /** The text size choices; the "A" on each grows with the size. */
@@ -28,6 +42,7 @@ export default function SettingsScreen() {
     <ScrollView className="flex-1 bg-page" contentContainerClassName="w-full max-w-xl self-center p-5 gap-6">
       <ThemeSection />
       <TextSizeSection />
+      <NoteViewSection />
     </ScrollView>
   );
 }
@@ -37,41 +52,80 @@ function SectionTitle({ children }: { children: string }) {
 }
 
 function ThemeSection() {
-  const colors = useColors();
   const { preference, setPreference } = useThemePreference();
   return (
     <View className="gap-2">
       <SectionTitle>Appearance</SectionTitle>
-      <View className="overflow-hidden rounded-3xl bg-surface" accessibilityRole="radiogroup" accessibilityLabel="Theme">
-        {THEMES.map((theme, i) => {
-          const selected = preference === theme.value;
-          return (
-            <Pressable
-              key={theme.value}
-              onPress={() => void setPreference(theme.value)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              accessibilityLabel={theme.title}
-              className={`flex-row items-center gap-4 p-4 active:bg-line ${i > 0 ? 'border-t border-line' : ''}`}
+      <Choices label="Theme" options={THEMES} value={preference} onChange={(v) => void setPreference(v)} />
+    </View>
+  );
+}
+
+/** How notes open; each note can still be switched with the Textbook button at its top. */
+function NoteViewSection() {
+  const db = useSQLiteContext();
+  const [value, setValue] = useState<NoteViewDefault>('auto');
+  useEffect(() => {
+    getNoteViewDefault(db)
+      .then(setValue)
+      .catch(() => {});
+  }, [db]);
+  const change = (next: NoteViewDefault) => {
+    setValue(next);
+    void setNoteViewDefault(db, next);
+  };
+  return (
+    <View className="gap-2">
+      <SectionTitle>Notes open as</SectionTitle>
+      <Choices label="Notes open as" options={NOTE_VIEWS} value={value} onChange={change} />
+      <Text className="px-1 text-sm text-muted">Switch any note with the Textbook button at its top; it remembers.</Text>
+    </View>
+  );
+}
+
+/** One choice from a list, as rows with an icon, a title and a radio button. */
+function Choices<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: T; icon: IconName; title: string; subtitle: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  const colors = useColors();
+  return (
+    <View className="overflow-hidden rounded-3xl bg-surface" accessibilityRole="radiogroup" accessibilityLabel={label}>
+      {options.map((option, i) => {
+        const selected = value === option.value;
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            accessibilityLabel={option.title}
+            className={`flex-row items-center gap-4 p-4 active:bg-line ${i > 0 ? 'border-t border-line' : ''}`}
+          >
+            <View
+              className={`h-11 w-11 items-center justify-center rounded-xl ${selected ? 'bg-primary' : 'bg-card'}`}
             >
-              <View
-                className={`h-11 w-11 items-center justify-center rounded-xl ${selected ? 'bg-primary' : 'bg-card'}`}
-              >
-                <Icon name={theme.icon} size={22} color={selected ? colors.white : colors.muted} />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-bold text-ink">{theme.title}</Text>
-                <Text className="text-sm text-muted">{theme.subtitle}</Text>
-              </View>
-              <Icon
-                name={selected ? 'radio-button-on' : 'radio-button-off'}
-                size={24}
-                color={selected ? colors.primary : colors.faint}
-              />
-            </Pressable>
-          );
-        })}
-      </View>
+              <Icon name={option.icon} size={22} color={selected ? colors.white : colors.muted} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-bold text-ink">{option.title}</Text>
+              <Text className="text-sm text-muted">{option.subtitle}</Text>
+            </View>
+            <Icon
+              name={selected ? 'radio-button-on' : 'radio-button-off'}
+              size={24}
+              color={selected ? colors.primary : colors.faint}
+            />
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

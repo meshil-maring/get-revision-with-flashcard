@@ -1,10 +1,11 @@
 import '../global.css';
 
-import { Stack } from 'expo-router';
+import { Stack, useCanGoBack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useUniwind } from 'uniwind';
 
 import { DatabaseGate } from '@/components/database-gate';
+import { HeaderHomeButton } from '@/components/ui/header-home-button';
 import { useColors } from '@/components/ui';
 import { ReadingSizeProvider } from '@/providers/reading-size';
 import { ThemeProvider } from '@/providers/theme';
@@ -22,6 +23,8 @@ moveToLocalhostIfNeeded();
 export default function RootLayout() {
   const colors = useColors();
   const { theme } = useUniwind();
+  // False when the screen showing was opened straight from a link (nothing behind it).
+  const canGoBack = useCanGoBack();
   return (
     // The local database (data/db.ts); copes with it being open in another browser tab.
     <DatabaseGate>
@@ -34,7 +37,15 @@ export default function RootLayout() {
             {/* Text size for notes and flashcards, from Settings (providers/reading-size.tsx). */}
             <ReadingSizeProvider>
               <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-              <Stack screenOptions={{ ...headerOptions(colors), contentStyle: { backgroundColor: colors.page } }}>
+              <Stack
+                screenOptions={{
+                  ...headerOptions(colors),
+                  contentStyle: { backgroundColor: colors.page },
+                  // A screen opened straight from a link (or after Google sign-in on the web) has
+                  // nothing to go back to, so its back button goes Home instead of disappearing.
+                  ...(canGoBack ? {} : { headerLeft: () => <HeaderHomeButton /> }),
+                }}
+              >
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="new-revision" options={{ title: 'Create Revision' }} />
                 <Stack.Screen

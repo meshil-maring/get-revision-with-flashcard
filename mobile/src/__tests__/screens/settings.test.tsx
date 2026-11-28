@@ -17,6 +17,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(settings.getThemePreference).mockResolvedValue('system');
   jest.mocked(settings.getReadingSize).mockResolvedValue('base');
+  jest.mocked(settings.getNoteViewDefault).mockResolvedValue('auto');
 });
 
 async function renderSettings() {
@@ -60,5 +61,17 @@ describe('Settings', () => {
     expect(screen.getByRole('radio', { name: 'Extra large' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Large' })).not.toBeChecked();
     expect(settings.setReadingSize).toHaveBeenCalledWith(expect.anything(), 'xl');
+  });
+
+  it('shows how notes open and saves a new choice', async () => {
+    jest.mocked(settings.getNoteViewDefault).mockResolvedValue('standard');
+    await renderSettings();
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Standard' })).toBeChecked());
+
+    await fireEvent.press(screen.getByRole('radio', { name: 'Textbook' }));
+
+    expect(screen.getByRole('radio', { name: 'Textbook' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Automatic' })).not.toBeChecked();
+    expect(settings.setNoteViewDefault).toHaveBeenCalledWith(expect.anything(), 'textbook');
   });
 });

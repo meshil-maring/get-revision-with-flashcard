@@ -134,8 +134,8 @@ export function ImageViewer({
               {image?.name}
               {count > 1 && index !== null ? `  ·  ${index + 1} of ${count}` : ''}
             </Text>
-            <ViewerButton icon="remove" label="Zoom out" onPress={() => zoomTo(savedScale.value / 1.5)} />
-            <ViewerButton icon="add" label="Zoom in" onPress={() => zoomTo(savedScale.value * 1.5)} />
+            <ViewerButton icon="remove" label="Zoom out" onPress={() => zoomTo(savedScale.get() / 1.5)} />
+            <ViewerButton icon="add" label="Zoom in" onPress={() => zoomTo(savedScale.get() * 1.5)} />
             <ViewerButton icon="close" label="Close image" onPress={close} />
           </View>
 

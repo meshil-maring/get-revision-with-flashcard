@@ -9,15 +9,21 @@ export const SETTINGS = {
   theme: 'theme',
   readingSize: 'reading_size',
   lastReadNote: 'last_read_note',
+  textbookPrefs: 'textbook_prefs',
+  noteViewDefault: 'note_view_default',
 } as const;
 
 // Screen tips are saved one key each, e.g. 'tip:study' (see components/ui/screen-tip.tsx).
 // Auto-next time per deck is saved as 'autoNext:<deckId>'.
+// How a note is read (standard or textbook) and its bookmarked sections: 'noteView:<noteId>',
+// 'bookmarks:<noteId>'. These stay on the device.
 type SettingKey =
   | (typeof SETTINGS)[keyof typeof SETTINGS]
   | `tip:${string}`
   | `autoNext:${string}`
-  | `autoNextPause:${string}`;
+  | `autoNextPause:${string}`
+  | `noteView:${string}`
+  | `bookmarks:${string}`;
 
 export async function getSetting(db: SQLiteDatabase, key: SettingKey): Promise<string | null> {
   const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', key);
@@ -135,6 +141,63 @@ export async function getReadingSize(db: SQLiteDatabase): Promise<ReadingSize> {
 
 export async function setReadingSize(db: SQLiteDatabase, size: ReadingSize): Promise<void> {
   await setSetting(db, SETTINGS.readingSize, size);
+}
+
+/** standard = the app's note view; textbook = typeset like a textbook (maths, numbered sections…). */
+export type NoteView = 'standard' | 'textbook';
+
+/** How this note was last chosen to be read, or null if never chosen (the app then decides). */
+export async function getNoteView(db: SQLiteDatabase, noteId: string): Promise<NoteView | null> {
+  const value = await getSetting(db, `noteView:${noteId}`);
+  return value === 'standard' || value === 'textbook' ? value : null;
+}
+
+export async function setNoteView(db: SQLiteDatabase, noteId: string, view: NoteView): Promise<void> {
+  await setSetting(db, `noteView:${noteId}`, view);
+}
+
+/** How notes open unless one was switched itself: auto = as a textbook when it has maths or textbook blocks. */
+export const NOTE_VIEW_DEFAULTS = ['auto', 'standard', 'textbook'] as const;
+export type NoteViewDefault = (typeof NOTE_VIEW_DEFAULTS)[number];
+
+export async function getNoteViewDefault(db: SQLiteDatabase): Promise<NoteViewDefault> {
+  const value = await getSetting(db, SETTINGS.noteViewDefault);
+  return NOTE_VIEW_DEFAULTS.find((v) => v === value) ?? 'auto';
+}
+
+export async function setNoteViewDefault(db: SQLiteDatabase, value: NoteViewDefault): Promise<void> {
+  await setSetting(db, SETTINGS.noteViewDefault, value);
+}
+
+/** The textbook reader's own settings (text size 0–3, column width, theme), as it saves them; null if never set. */
+export async function getTextbookPrefs(db: SQLiteDatabase): Promise<unknown> {
+  const value = await getSetting(db, SETTINGS.textbookPrefs);
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+export async function setTextbookPrefs(db: SQLiteDatabase, prefs: object): Promise<void> {
+  await setSetting(db, SETTINGS.textbookPrefs, JSON.stringify(prefs));
+}
+
+/** The sections of a note bookmarked in the textbook reader (their ids, e.g. "sec-2-1"). */
+export async function getNoteBookmarks(db: SQLiteDatabase, noteId: string): Promise<string[]> {
+  const value = await getSetting(db, `bookmarks:${noteId}`);
+  if (!value) return [];
+  try {
+    const ids: unknown = JSON.parse(value);
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string').slice(0, 200) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setNoteBookmarks(db: SQLiteDatabase, noteId: string, ids: string[]): Promise<void> {
+  await setSetting(db, `bookmarks:${noteId}`, JSON.stringify(ids.slice(0, 200)));
 }
 
 /** Shows every screen tip again. */
