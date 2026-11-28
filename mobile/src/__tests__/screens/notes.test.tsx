@@ -1097,6 +1097,49 @@ describe('Handwritten notes', () => {
     });
   });
 
+  it('selects writing with a loop or a tap, then moves, recolours, copies and deletes it', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ folderId: 'f-2' });
+    jest.mocked(notes.createNote).mockResolvedValue('n-hand');
+    jest.mocked(tags.listTags).mockResolvedValue([]);
+
+    await render(<NoteEditorScreen />);
+    await fireEvent.changeText(await screen.findByLabelText('Title'), 'Selecting');
+    await fireEvent.press(screen.getByLabelText('Handwritten notes: Write with your finger or a pen'));
+    const paper = screen.getByLabelText(/^Handwriting page/);
+    await fireEvent(paper, 'layout', { nativeEvent: { layout: { width: 500, height: 707 } } });
+    const touch = (x: number, y: number) => ({ nativeEvent: { locationX: x, locationY: y, touches: [{}] } });
+    const line = async (points: [number, number][]) => {
+      await fireEvent(paper, 'responderGrant', touch(...points[0]));
+      for (const p of points.slice(1)) await fireEvent(paper, 'responderMove', touch(...p));
+      await fireEvent(paper, 'responderRelease', touch(...points[points.length - 1]));
+    };
+    await line([[10, 10], [30, 30]]); // page [20, 20, 60, 60]
+    await line([[200, 200], [220, 200]]); // page [400, 400, 440, 400]
+
+    await fireEvent.press(screen.getByLabelText('Select'));
+    expect(screen.getByText(/Draw a loop round your writing/)).toBeOnTheScreen();
+    // A loop round the first line.
+    await line([[0, 0], [50, 0], [50, 50], [0, 50], [0, 1]]);
+    expect(screen.getByText('1 selected')).toBeOnTheScreen();
+    // Drag it 100 page units right.
+    await line([[20, 20], [70, 20]]);
+    await fireEvent.press(screen.getByLabelText('Red'));
+    await fireEvent.press(screen.getByLabelText('Duplicate the selection'));
+    // Tap the second line, then delete it.
+    await line([[210, 200]]);
+    expect(screen.getByText('1 selected')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Delete the selection'));
+    expect(screen.getByLabelText('Handwriting page. 2 lines written.')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Save'));
+    await waitFor(() => expect(notes.createNote).toHaveBeenCalled());
+    const [, , input] = jest.mocked(notes.createNote).mock.calls[0];
+    expect(JSON.parse(input.body!).strokes).toEqual([
+      { c: '#d64545', w: 5, p: [120, 20, 160, 60] },
+      { c: '#d64545', w: 5, p: [170, 70, 210, 110] },
+    ]);
+  });
+
   it('shows the handwritten page, without text-only tools', async () => {
     mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
     const drawing = JSON.stringify({ v: 1, paper: 'lined', height: 1414, strokes: [{ c: '#1f2933', w: 5, p: [1, 2, 3, 4] }] });

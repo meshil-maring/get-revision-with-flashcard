@@ -239,8 +239,10 @@ You can switch a note between Plain and Cornell at any time. Nothing you wrote i
 
 ## Tools
 - **Eraser**: rub over a line to remove it.
+- **Select** (the lasso): draw a loop round some writing, or tap a line, to select it. Drag inside the dashed box to **move** it, tap a colour to **recolour** it, or **Duplicate** or **Delete** it.
 - **Undo** and **Redo** fix a mistake. **Clear** (the bin) empties the page.
-- **Lined**, **squared** or **plain** paper.
+- **Lined**, **squared**, **dotted** or **plain** paper.
+- Tap the **palette** next to the colours to pick **any colour**. Colours you pick are kept under **Recent**.
 - **More space** makes the page longer. **Trim empty space** cuts off the empty part at the bottom.
 - **Add page** starts a new page (up to 20). Turn pages with **‹ ›** under the page, or **Delete page**.
 
