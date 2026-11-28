@@ -2,7 +2,7 @@
 // saved reading settings and bookmarks, the theme) and handles what it asks for (open an
 // image or tag, go to the previous or next note, go back to the standard view).
 import { File } from 'expo-file-system';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
@@ -14,6 +14,7 @@ import { DEFAULT_PREFS, type TextbookImage, type TextbookPrefs } from '@/compone
 import { useColors } from '@/components/ui';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { useReadingSize } from '@/components/ui/rich-text';
+import { listWrittenPages } from '@/data/note-pages';
 import { getNoteBookmarks, getTextbookPrefs, setNoteBookmarks, setTextbookPrefs } from '@/data/settings';
 import type { FolderCrumb, Note, NoteAttachment, Tag } from '@/data/types';
 import { bodyWithoutTitle, convertNote } from '@/lib/notes';
@@ -117,6 +118,23 @@ export function TextbookNote({
   const [saved, setSaved] = useState<{ prefs: TextbookPrefs; bookmarks: string[] } | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
   const viewable = useMemo(() => images.filter((i) => i.uri !== ''), [images]);
+  // Headings and questions with handwritten notes, read again on coming back from writing.
+  const [writtenPages, setWrittenPages] = useState<string[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      listWrittenPages(db, note.id)
+        .then((pages) => !cancelled && setWrittenPages(pages))
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }, [db, note.id]),
+  );
+  const onOpenPage = useCallback(
+    (page: string, title: string) => router.push({ pathname: '/note-page', params: { noteId: note.id, page, title } }),
+    [note.id],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -184,6 +202,8 @@ export function TextbookNote({
         onOpenImage={onOpenImage}
         onOpenTag={onOpenTag}
         onUseStandard={onUseStandard}
+        writtenPages={writtenPages}
+        onOpenPage={onOpenPage}
         focus={focus}
         onFocusChange={onFocusChange}
         dom={{

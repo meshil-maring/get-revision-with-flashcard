@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 
 import { ChapterHeading, ICONS, ReadingControls, TableOfContents } from '@/components/textbook/chrome';
 import { ContentContext, FigureBlock, Nodes, type ContentContextValue } from '@/components/textbook/content';
+import { PagesContext, type PagesContextValue } from '@/components/textbook/pages';
 import { TEXT_SCALES, TEXTBOOK_THEMES, type TextbookTheme } from '@/components/textbook/textbook-theme';
 import type { TextbookPrefs, TextbookReaderProps } from '@/components/textbook/types';
 import { buildTextbook, parseChapterTitle } from '@/lib/textbook';
@@ -122,10 +123,21 @@ export function TextbookView(props: TextbookReaderProps) {
     [images, bookmarks, props.onOpenImage],
   );
 
+  // Handwriting pages: which have writing, and opening one (in the app, outside the reader).
+  const writtenKey = (props.writtenPages ?? []).join('\n');
+  const pages: PagesContextValue = useMemo(
+    () => ({
+      written: new Set(writtenKey ? writtenKey.split('\n') : []),
+      open: props.onOpenPage ? (page: string, title: string) => call(props.onOpenPage, page, title) : null,
+    }),
+    [writtenKey, props.onOpenPage],
+  );
+
   const sections = book.toc.filter((entry) => entry.level === 1).length;
   const article = useMemo(
     () => (
       <ContentContext.Provider value={content}>
+        <PagesContext.Provider value={pages}>
         <article className="tb-article" lang="en">
           <ChapterHeading
             chapter={chapter}
@@ -140,9 +152,10 @@ export function TextbookView(props: TextbookReaderProps) {
             <FigureBlock key={ref} node={{ kind: 'figure', number: null, svg: null, imageRef: ref, caption: [] }} />
           ))}
         </article>
+        </PagesContext.Provider>
       </ContentContext.Provider>
     ),
-    [content, chapter, heading, book, sections, extraImages, props.onOpenTag],
+    [content, pages, chapter, heading, book, sections, extraImages, props.onOpenTag],
   );
 
   const contents = (

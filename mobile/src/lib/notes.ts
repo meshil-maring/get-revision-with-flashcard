@@ -20,6 +20,7 @@ function plainLine(text: string): string {
  *   with the text under it.
  */
 export function suggestCards(note: Pick<Note, 'style' | 'body' | 'rows'>): SuggestedCard[] {
+  if (note.style === 'handwritten') return [];
   if (note.style === 'cornell') {
     return note.rows
       .filter((r) => r.cue.trim() && r.notes.trim())
@@ -135,6 +136,7 @@ export function snippet(text: string, query: string, length = 90): string {
 
 /** The first bit of a note's content, for showing under its title in a list. */
 export function notePreview(note: Pick<Note, 'style' | 'body' | 'rows' | 'summary'>): string {
+  if (note.style === 'handwritten') return 'Handwritten';
   const text =
     note.style === 'cornell'
       ? [...note.rows.map((r) => [r.cue, r.notes].filter(Boolean).join(': ')), note.summary].filter(Boolean).join(' · ')

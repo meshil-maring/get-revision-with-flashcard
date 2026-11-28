@@ -67,8 +67,11 @@ export type FolderWithCounts = Folder & { folderCount: number; noteCount: number
 /** A folder on the way to another one, for showing "Class 10 › Physics". */
 export type FolderCrumb = { id: string; name: string };
 
-/** plain = one page of text; cornell = cue / notes rows with a summary at the bottom. */
-export type NoteStyle = 'plain' | 'cornell';
+/**
+ * plain = one page of text; cornell = cue / notes rows with a summary at the bottom;
+ * handwritten = written by hand with a finger or digital pen (the drawing is in `body`, see src/lib/ink.ts).
+ */
+export type NoteStyle = 'plain' | 'cornell' | 'handwritten';
 
 /** One row of a Cornell note: a cue (keyword or question) and the notes next to it. */
 export type CornellRow = { cue: string; notes: string };
@@ -78,7 +81,7 @@ export type Note = {
   folderId: string | null; // null = top level
   title: string;
   style: NoteStyle;
-  body: string; // plain notes, light formatting (see src/lib/rich-text.ts)
+  body: string; // plain notes, light formatting (see src/lib/rich-text.ts); handwritten notes: the drawing as JSON
   rows: CornellRow[]; // Cornell notes
   summary: string; // Cornell notes
   createdBy: string | null; // null = the user; else the AI app that wrote it, e.g. 'Claude'

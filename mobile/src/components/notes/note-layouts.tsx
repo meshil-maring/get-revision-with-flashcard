@@ -1,10 +1,12 @@
-import { useRef } from 'react';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useMemo, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useColors } from '@/components/ui';
 import { RichText, scaledText, useNoteFont, useReadingSize } from '@/components/ui/rich-text';
 import type { Note } from '@/data/types';
 import { noteSections, readingMinutes } from '@/lib/notes';
+import { buildTextbook, pageKey } from '@/lib/textbook';
 
 // How the two kinds of note look when reading them:
 // - plain notes read like a clean article: big title, a short accent line, reading time,
@@ -38,9 +40,22 @@ export function ArticleHeader({ title, body }: { title: string; body: string }) 
  * contents entry calls `onJump` with that section's place in the parent ScrollView's content
  * (this view must be a direct child of it).
  */
-export function ArticleNote({ body, onJump }: { body: string; onJump?: (y: number) => void }) {
+export function ArticleNote({
+  body,
+  onJump,
+  writtenPages,
+  onOpenPage,
+}: {
+  body: string;
+  onJump?: (y: number) => void;
+  /** Handwriting pages with writing on them (by key). */
+  writtenPages?: ReadonlySet<string>;
+  /** Tapping a heading (or its pen) opens its handwriting page. */
+  onOpenPage?: (page: string, title: string) => void;
+}) {
   const colors = useColors();
   const sections = noteSections(body);
+  const pages = useSectionPages(body, onOpenPage !== undefined);
   const headed = sections.map((s, i) => ({ ...s, index: i })).filter((s) => s.heading !== null);
   // Where each part sits, to scroll to a section: this view in the ScrollView, the sections
   // inside this view, and each section inside those.
@@ -81,11 +96,71 @@ export function ArticleNote({ body, onJump }: { body: string; onJump?: (y: numbe
               sectionY.current[i] = e.nativeEvent.layout.y;
             }}
           >
-            <RichText text={s.text} />
+            {pages?.[i] && onOpenPage ? (
+              <HeadingWithPage
+                text={s.text}
+                title={s.heading ?? ''}
+                written={writtenPages?.has(pages[i]!) ?? false}
+                onOpen={() => onOpenPage(pages[i]!, s.heading ?? '')}
+              />
+            ) : (
+              <RichText text={s.text} />
+            )}
           </View>
         ))}
       </View>
     </View>
+  );
+}
+
+/**
+ * Each section heading's handwriting page key, the same as the textbook view gives it (so a page
+ * written in one view opens from the other). Null for sections without a heading.
+ */
+function useSectionPages(body: string, enabled: boolean): (string | null)[] | null {
+  return useMemo(() => {
+    if (!enabled) return null;
+    const sections = noteSections(body);
+    const headingPages = buildTextbook(body).nodes.flatMap((n) => (n.kind === 'heading' && n.page ? [n.page] : []));
+    let from = 0;
+    return sections.map((s) => {
+      if (s.heading === null) return null;
+      const key = pageKey('h', s.heading);
+      // The next heading with the same words; "h:example~2" is the second "Example".
+      const at = headingPages.findIndex((p, i) => i >= from && (p === key || p.startsWith(`${key}~`)));
+      if (at === -1) return key;
+      from = at + 1;
+      return headingPages[at];
+    });
+  }, [body, enabled]);
+}
+
+/** A section whose heading opens its handwriting page: tap the heading, or the pen beside it. */
+function HeadingWithPage({ text, title, written, onOpen }: { text: string; title: string; written: boolean; onOpen: () => void }) {
+  const colors = useColors();
+  const newline = text.indexOf('\n');
+  const headingLine = newline === -1 ? text : text.slice(0, newline);
+  const rest = newline === -1 ? '' : text.slice(newline + 1);
+  const label = written ? `Open your handwritten notes for ${title}` : `Write notes by hand for ${title}`;
+  return (
+    <>
+      <View className="flex-row items-start gap-1">
+        <Pressable onPress={onOpen} accessibilityHint="Opens a page to write notes by hand" className="flex-1 active:opacity-70">
+          <RichText text={headingLine} />
+        </Pressable>
+        <Pressable
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          hitSlop={6}
+          className="mt-1 h-9 w-9 items-center justify-center rounded-full"
+          style={{ backgroundColor: written ? colors.primary : 'transparent' }}
+        >
+          <MaterialCommunityIcons name="pencil-outline" size={20} color={written ? colors.white : colors.faint} />
+        </Pressable>
+      </View>
+      {rest.trim() ? <RichText text={rest} /> : null}
+    </>
   );
 }
 

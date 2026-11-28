@@ -1,5 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -17,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AttachmentList, type AttachmentItem } from '@/components/cards/attachments';
 import { AudioRecorderModal } from '@/components/cards/audio-recorder';
 import { FolderPath } from '@/components/notes/folder-browser';
+import { InkCanvas, InkToolbar, useFullScreen, useInkEditor, useInkSheets } from '@/components/notes/handwriting';
 import { RichTextInput } from '@/components/ui/rich-text-input';
 import { TagPicker, type TagChoice } from '@/components/tags/tag-picker';
 import { Icon, IconButton, type IconName, useColors } from '@/components/ui';
@@ -39,7 +41,8 @@ import {
   removeFile,
   type PickedFile,
 } from '@/lib/attachment-files';
-import { convertNote } from '@/lib/notes';
+import { parseSheets, serializeSheets } from '@/lib/ink';
+import { convertNote, GOOD_TO_KNOW_TITLE } from '@/lib/notes';
 import { removeImageRefs } from '@/lib/rich-text';
 
 const NO_WEB_FOCUS_RING = { outlineStyle: 'none' } as unknown as TextStyle;
@@ -61,6 +64,7 @@ function showError(title: string, message: string) {
 const STYLES: { style: NoteStyle; label: string; icon: IconName; hint: string }[] = [
   { style: 'plain', label: 'Plain', icon: 'document-text-outline', hint: 'One page of notes' },
   { style: 'cornell', label: 'Cornell', icon: 'grid-outline', hint: 'Cues, notes and a summary' },
+  { style: 'handwritten', label: 'Handwritten', icon: 'brush-outline', hint: 'Write with your finger or a pen' },
 ];
 
 /**
@@ -88,6 +92,11 @@ export default function NoteEditorScreen() {
   const [tags, setTags] = useState<TagChoice[]>([]);
   const [titleFocused, setTitleFocused] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The handwritten page. It is kept apart from the typed text, so switching style and back loses neither.
+  const inkEditor = useInkEditor();
+  const inkSheets = useInkSheets(inkEditor);
+  const loadSheets = inkSheets.load;
+  const fullScreen = useFullScreen();
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +118,8 @@ export default function NoteEditorScreen() {
       if (note) {
         setTitle(note.title);
         setStyle(note.style);
-        setBody(note.body);
+        if (note.style === 'handwritten') loadSheets(parseSheets(note.body));
+        else setBody(note.body);
         setRows(note.rows.length > 0 ? note.rows.map((r) => ({ ...r, key: newKey() })) : [emptyRow()]);
         setSummary(note.summary);
       }
@@ -121,10 +131,15 @@ export default function NoteEditorScreen() {
     return () => {
       cancelled = true;
     };
-  }, [db, noteId, folderId]);
+  }, [db, noteId, folderId, loadSheets]);
 
   function switchStyle(to: NoteStyle) {
     if (to === style) return;
+    // Typed text and handwriting are kept side by side; only plain ↔ Cornell rearranges the text.
+    if (to === 'handwritten' || style === 'handwritten') {
+      setStyle(to);
+      return;
+    }
     const converted = convertNote({ body, rows, summary }, to);
     setBody(converted.body);
     setRows(converted.rows.length > 0 ? converted.rows.map((r) => ({ ...r, key: newKey() })) : [emptyRow()]);
@@ -156,7 +171,12 @@ export default function NoteEditorScreen() {
     if (draft.savedId) setRemoved((prev) => [...prev, draft]);
   }
 
+  const handwritten = style === 'handwritten';
   const canSave = title.trim().length > 0 && !saving;
+  // A "Good to know" note collects typed key points, so it can't be handwritten.
+  const styleChoices = STYLES.filter(
+    (s) => s.style !== 'handwritten' || style === 'handwritten' || title.trim().toLowerCase() !== GOOD_TO_KNOW_TITLE.toLowerCase(),
+  );
 
   async function save() {
     if (!canSave) return;
@@ -165,13 +185,15 @@ export default function NoteEditorScreen() {
       // A removed image also leaves the text it was shown in (its ":::image" line, e.g. in a Cornell row).
       const gone = removed.flatMap((d) => [d.savedId!, d.remoteKey?.split('/').pop() ?? '']).filter(Boolean);
       const clean = (text: string) => removeImageRefs(text, gone);
-      const input = {
-        title,
-        style,
-        body: clean(body),
-        rows: rows.map(({ cue, notes }) => ({ cue, notes: clean(notes) })),
-        summary: clean(summary),
-      };
+      const input = handwritten
+        ? { title, style, body: serializeSheets(inkSheets.all) }
+        : {
+            title,
+            style,
+            body: clean(body),
+            rows: rows.map(({ cue, notes }) => ({ cue, notes: clean(notes) })),
+            summary: clean(summary),
+          };
       let id = noteId;
       if (id) await updateNote(db, id, input);
       else id = await createNote(db, folderId ?? null, input);
@@ -200,9 +222,30 @@ export default function NoteEditorScreen() {
     }
   }
 
+  // Full screen: only the handwriting tools and the page. Leaving it brings back the rest.
+  if (fullScreen.on && handwritten && !loading) {
+    return (
+      <View className="flex-1 bg-page" style={{ paddingTop: insets.top }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar hidden />
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="w-full gap-2 px-2 pb-6"
+          scrollEnabled={inkEditor.tool === 'hand'}
+          stickyHeaderIndices={[0]}
+        >
+          <View className="bg-page py-1">
+            <InkToolbar editor={inkEditor} sheets={inkSheets} fullScreen={fullScreen} />
+          </View>
+          <InkCanvas editor={inkEditor} />
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 bg-page">
-      <Stack.Screen options={{ title: editing ? 'Edit note' : 'New note' }} />
+      <Stack.Screen options={{ title: editing ? 'Edit note' : 'New note', headerShown: true }} />
 
       {loading ? null : (
         <>
@@ -210,6 +253,10 @@ export default function NoteEditorScreen() {
             className="flex-1"
             contentContainerClassName="w-full max-w-2xl self-center gap-4 px-4 pb-8 pt-1"
             keyboardShouldPersistTaps="handled"
+            // While writing, touches on the page draw instead of scrolling; the hand tool scrolls.
+            scrollEnabled={!handwritten || inkEditor.tool === 'hand'}
+            // The handwriting tools stay at the top while scrolling down a long page.
+            stickyHeaderIndices={handwritten ? [3] : undefined}
           >
             <View className="px-1">
               <FolderPath path={path} prefix={editing ? 'In Notes' : 'Adding to Notes'} />
@@ -228,9 +275,9 @@ export default function NoteEditorScreen() {
               className="rounded-xl bg-card px-4 py-3 text-xl font-bold text-ink"
             />
 
-            {/* Plain or Cornell */}
-            <View className="flex-row gap-2" accessibilityRole="radiogroup">
-              {STYLES.map((option) => {
+            {/* Plain, Cornell or Handwritten */}
+            <View className="flex-row flex-wrap gap-2" accessibilityRole="radiogroup">
+              {styleChoices.map((option) => {
                 const selected = style === option.style;
                 return (
                   <Pressable
@@ -239,6 +286,7 @@ export default function NoteEditorScreen() {
                     accessibilityRole="radio"
                     accessibilityState={{ checked: selected }}
                     accessibilityLabel={`${option.label} notes: ${option.hint}`}
+                    style={{ minWidth: 150 }}
                     className={`flex-1 flex-row items-center gap-2.5 rounded-2xl border p-3 ${
                       selected ? 'border-primary bg-primary-soft' : 'border-line bg-card active:bg-surface'
                     }`}
@@ -253,7 +301,16 @@ export default function NoteEditorScreen() {
               })}
             </View>
 
-            {style === 'plain' ? (
+            {/* Index 3 (sticky while handwriting): the tools. */}
+            {handwritten ? (
+              <View className="bg-page py-1">
+                <InkToolbar editor={inkEditor} sheets={inkSheets} fullScreen={fullScreen} />
+              </View>
+            ) : null}
+
+            {handwritten ? (
+              <InkCanvas editor={inkEditor} />
+            ) : style === 'plain' ? (
               <RichTextInput
                 value={body}
                 onChangeText={setBody}

@@ -3,6 +3,7 @@
 // Each kind has its own look, so they are easy to tell apart while skimming a chapter.
 import type { ReactNode } from 'react';
 
+import { PageButton } from '@/components/textbook/pages';
 import { Spans } from '@/components/textbook/spans';
 import type { EnvKind, Span } from '@/lib/rich-text';
 import { ENV_LABELS, type ExamplePart, type TextbookNode } from '@/lib/textbook';
@@ -173,7 +174,12 @@ function Exercise({ node, render }: { node: EnvNode; render: RenderNodes }) {
     <section className="tb-env tb-exercise" id={node.id} aria-label={`Exercise ${node.number ?? ''}`.trim()}>
       <Label
         node={node}
-        extra={node.difficulty ? <span className={`tb-level tb-level-${node.difficulty}`}>{node.difficulty}</span> : null}
+        extra={
+          <>
+            {node.difficulty ? <span className={`tb-level tb-level-${node.difficulty}`}>{node.difficulty}</span> : null}
+            <PageButton page={node.page} title={`Exercise${node.number ? ` ${node.number}` : ''}`} />
+          </>
+        }
       />
       <div className="tb-env-body">
         {render(node.children)}

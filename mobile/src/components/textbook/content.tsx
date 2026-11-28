@@ -4,6 +4,7 @@ import { createContext, memo, useContext } from 'react';
 
 import { EnvBlock } from '@/components/textbook/academic';
 import { MathBlock } from '@/components/textbook/math';
+import { PageButton, usePageOpener } from '@/components/textbook/pages';
 import { Spans } from '@/components/textbook/spans';
 import type { TextbookImage } from '@/components/textbook/types';
 import type { Span, TableRow } from '@/lib/rich-text';
@@ -47,17 +48,23 @@ export const Node = memo(function Node({ node, lead = false }: { node: TextbookN
     case 'heading':
       return <SectionHeading node={node} />;
     case 'paragraph':
-      return (
+      return node.page ? (
+        <Question page={node.page} spans={node.spans} Tag="p" />
+      ) : (
         <p className={lead ? 'tb-lead' : undefined}>
           <Spans spans={node.spans} />
         </p>
       );
     case 'list': {
-      const items = node.items.map((item, i) => (
-        <li key={i}>
-          <Spans spans={item} />
-        </li>
-      ));
+      const items = node.items.map((item, i) =>
+        node.pages?.[i] ? (
+          <Question key={i} page={node.pages[i]} spans={item} Tag="li" />
+        ) : (
+          <li key={i}>
+            <Spans spans={item} />
+          </li>
+        ),
+      );
       return node.ordered ? <ol start={node.start}>{items}</ol> : <ul>{items}</ul>;
     }
     case 'math':
@@ -92,9 +99,23 @@ const BOOKMARK_ICON = (
   </svg>
 );
 
-/** "2.1  Important properties", numbered as in a book. */
+/** A question ("Q1. …") with its own handwriting page: tap it, or its pen, to write the answer. */
+function Question({ page, spans, Tag }: { page: string; spans: Span[]; Tag: 'p' | 'li' }) {
+  const title = plain(spans);
+  const onClick = usePageOpener(page, title);
+  return (
+    <Tag className="tb-question-line" data-page={page} onClick={onClick}>
+      <Spans spans={spans} />
+      <PageButton page={page} title={title} />
+    </Tag>
+  );
+}
+
+/** "2.1  Important properties", numbered as in a book. Tap it to write about it on its own page. */
 function SectionHeading({ node }: { node: Extract<TextbookNode, { kind: 'heading' }> }) {
   const { bookmarks } = useContext(ContentContext);
+  const title = `${node.number ? `${node.number} ` : ''}${node.text}`;
+  const onClick = usePageOpener(node.page, title);
   const Tag = node.level === 1 ? 'h2' : node.level === 2 ? 'h3' : node.level === 3 ? 'h4' : 'h5';
   return (
     <div className="tb-h-wrap">
@@ -103,9 +124,15 @@ function SectionHeading({ node }: { node: Extract<TextbookNode, { kind: 'heading
           {BOOKMARK_ICON}
         </span>
       ) : null}
-      <Tag id={node.id} className={`tb-h tb-h${node.level}`} data-section={node.level <= 2 ? node.id : undefined}>
+      <Tag
+        id={node.id}
+        className={`tb-h tb-h${node.level}${onClick ? ' tb-h-page' : ''}`}
+        data-section={node.level <= 2 ? node.id : undefined}
+        onClick={onClick}
+      >
         {node.number ? <span className="tb-num">{node.number}</span> : null}
         <Spans spans={node.spans} />
+        <PageButton page={node.page} title={title} />
       </Tag>
     </div>
   );

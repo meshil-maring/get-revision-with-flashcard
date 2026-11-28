@@ -7,6 +7,8 @@ import NoteScreen from '@/app/note/[id]';
 import NotesScreen from '@/app/(tabs)/notes';
 import NoteCardsScreen from '@/app/note-cards';
 import NoteEditorScreen from '@/app/note-editor';
+import NotePageScreen from '@/app/note-page';
+import * as notePages from '@/data/note-pages';
 import * as cards from '@/data/cards';
 import * as decks from '@/data/decks';
 import * as folders from '@/data/folders';
@@ -1051,5 +1053,174 @@ describe('Note screen: standard and textbook views', () => {
     await render(<NoteScreen />);
 
     expect(await screen.findByTestId('textbook-body')).toHaveTextContent('## Area $A=\pi r^2$ :::summary Circles. :::');
+  });
+});
+
+describe('Handwritten notes', () => {
+  it('writes on the page with a finger or pen, undoes, and saves the drawing', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ folderId: 'f-2' });
+    jest.mocked(notes.createNote).mockResolvedValue('n-hand');
+    jest.mocked(tags.listTags).mockResolvedValue([]);
+
+    await render(<NoteEditorScreen />);
+    await fireEvent.changeText(await screen.findByLabelText('Title'), 'Leaf sketch');
+    await fireEvent.press(screen.getByLabelText('Handwritten notes: Write with your finger or a pen'));
+    expect(screen.getByLabelText('Pen')).toBeSelected();
+
+    const paper = screen.getByLabelText(/^Handwriting page/);
+    await fireEvent(paper, 'layout', { nativeEvent: { layout: { width: 500, height: 707 } } });
+    // Page units are twice screen units on a 500-wide page.
+    const touch = (x: number, y: number) => ({ nativeEvent: { locationX: x, locationY: y, touches: [{}] } });
+    const line = async (points: [number, number][]) => {
+      await fireEvent(paper, 'responderGrant', touch(...points[0]));
+      for (const p of points.slice(1)) await fireEvent(paper, 'responderMove', touch(...p));
+      await fireEvent(paper, 'responderRelease', touch(...points[points.length - 1]));
+    };
+    await line([[10, 10], [20, 15], [30, 30]]);
+    await fireEvent.press(screen.getByLabelText('Red'));
+    await line([[100, 100], [120, 100]]);
+    expect(screen.getByLabelText('Handwriting page. 2 lines written.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Undo'));
+    expect(screen.getByLabelText('Handwriting page. 1 lines written.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Squared paper'));
+    await fireEvent.press(screen.getByLabelText('Save'));
+
+    await waitFor(() => expect(notes.createNote).toHaveBeenCalled());
+    const [, folderId, input] = jest.mocked(notes.createNote).mock.calls[0];
+    expect(folderId).toBe('f-2');
+    expect(input.style).toBe('handwritten');
+    expect(JSON.parse(input.body!)).toEqual({
+      v: 1,
+      paper: 'grid',
+      height: 1414,
+      strokes: [{ c: '#1f2933', w: 5, p: [20, 20, 40, 30, 60, 60] }],
+    });
+  });
+
+  it('shows the handwritten page, without text-only tools', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    const drawing = JSON.stringify({ v: 1, paper: 'lined', height: 1414, strokes: [{ c: '#1f2933', w: 5, p: [1, 2, 3, 4] }] });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ title: 'Leaf sketch', style: 'handwritten', body: drawing }));
+    jest.mocked(notes.listNoteAttachments).mockResolvedValue([]);
+
+    await render(<NoteScreen />);
+
+    expect(await screen.findByLabelText('Handwritten page: Leaf sketch. Tap to zoom.')).toBeOnTheScreen();
+    expect(screen.getByText('Handwritten')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Textbook view')).toBeNull();
+    expect(screen.queryByText(/\{"v":1/)).toBeNull();
+  });
+});
+
+jest.mock('@/data/note-pages', () => ({
+  getNotePage: jest.fn(() => Promise.resolve(null)),
+  listWrittenPages: jest.fn(() => Promise.resolve([])),
+  saveNotePage: jest.fn(() => Promise.resolve()),
+}));
+
+describe('Handwriting pages for headings and questions', () => {
+  it('writes on a heading’s own page, saves it, and steps to the next heading', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ noteId: 'n-1', page: 'h:learning-objectives', title: '1 Learning objectives' });
+    jest.mocked(notes.getNote).mockResolvedValue(
+      note({ title: 'Quadratic equations', body: '## Learning objectives\nRecognise one.\n## Introduction\nQ1. Solve x² = 4.' }),
+    );
+
+    await render(<NotePageScreen />);
+    expect(await screen.findByText('Quadratic equations')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Learning objectives' })).toBeOnTheScreen();
+
+    const paper = screen.getByLabelText(/^Handwriting page/);
+    await fireEvent(paper, 'layout', { nativeEvent: { layout: { width: 500, height: 707 } } });
+    const touch = (x: number, y: number) => ({ nativeEvent: { locationX: x, locationY: y, touches: [{}] } });
+    await fireEvent(paper, 'responderGrant', touch(10, 10));
+    await fireEvent(paper, 'responderMove', touch(40, 40));
+    await fireEvent(paper, 'responderRelease', touch(40, 40));
+
+    await waitFor(() =>
+      expect(notePages.saveNotePage).toHaveBeenCalledWith(
+        expect.anything(),
+        'n-1',
+        'h:learning-objectives',
+        'Learning objectives',
+        [expect.objectContaining({ strokes: [{ c: '#1f2933', w: 5, p: [20, 20, 80, 80] }] })],
+      ),
+    );
+    expect(await screen.findByText('Saved')).toBeOnTheScreen();
+
+    // Another page for the same heading.
+    expect(screen.getByText('Page 1 of 1')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Add page'));
+    expect(screen.getByText('Page 2 of 2')).toBeOnTheScreen();
+    const second = screen.getByLabelText(/^Handwriting page/);
+    expect(second).toHaveProp('accessibilityLabel', 'Handwriting page. Nothing written yet.');
+    await fireEvent(second, 'layout', { nativeEvent: { layout: { width: 500, height: 707 } } });
+    await fireEvent(second, 'responderGrant', touch(100, 100));
+    await fireEvent(second, 'responderRelease', touch(100, 100));
+    await waitFor(() =>
+      expect(notePages.saveNotePage).toHaveBeenLastCalledWith(expect.anything(), 'n-1', 'h:learning-objectives', 'Learning objectives', [
+        expect.objectContaining({ strokes: [{ c: '#1f2933', w: 5, p: [20, 20, 80, 80] }] }),
+        expect.objectContaining({ strokes: [{ c: '#1f2933', w: 5, p: [200, 200] }] }),
+      ]),
+    );
+    await fireEvent.press(screen.getByLabelText('Previous page'));
+    expect(screen.getByText('Page 1 of 2')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Handwriting page. 1 lines written.')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Next: Introduction'));
+    expect(mockRouter.router.replace).toHaveBeenCalledWith({
+      pathname: '/note-page',
+      params: { noteId: 'n-1', page: 'h:introduction', title: 'Introduction' },
+    });
+    expect(screen.getByLabelText('No previous heading')).toBeDisabled();
+  });
+
+  it('opens a heading’s page from the note', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ id: 'n-1' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ body: 'Intro text\n## Speed of sound\n340 m/s' }));
+    jest.mocked(notes.listNoteAttachments).mockResolvedValue([]);
+    jest.mocked(notePages.listWrittenPages).mockResolvedValue(['h:speed-of-sound']);
+
+    await render(<NoteScreen />);
+    await fireEvent.press(await screen.findByLabelText('Open your handwritten notes for Speed of sound'));
+    expect(mockRouter.router.push).toHaveBeenCalledWith({
+      pathname: '/note-page',
+      params: { noteId: 'n-1', page: 'h:speed-of-sound', title: 'Speed of sound' },
+    });
+  });
+});
+
+describe('Full screen writing', () => {
+  it('hides the titles and Previous / Next, and brings them back', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({ noteId: 'n-1', page: 'h:introduction', title: 'Introduction' });
+    jest.mocked(notes.getNote).mockResolvedValue(note({ title: 'Quadratic equations', body: '## Objectives\n## Introduction\n## Summary' }));
+
+    await render(<NotePageScreen />);
+    expect(await screen.findByText('Quadratic equations')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Next: Summary')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Full screen'));
+    expect(screen.queryByText('Quadratic equations')).toBeNull();
+    expect(screen.queryByLabelText('Next: Summary')).toBeNull();
+    // The tools and the page stay.
+    expect(screen.getByLabelText('Pen')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Add page')).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Handwriting page/)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Exit full screen'));
+    expect(screen.getByText('Quadratic equations')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Next: Summary')).toBeOnTheScreen();
+  });
+
+  it('writes a handwritten note full screen', async () => {
+    mockRouter.useLocalSearchParams.mockReturnValue({});
+    jest.mocked(tags.listTags).mockResolvedValue([]);
+    await render(<NoteEditorScreen />);
+    await fireEvent.press(await screen.findByLabelText('Handwritten notes: Write with your finger or a pen'));
+    await fireEvent.press(screen.getByLabelText('Full screen'));
+    expect(screen.queryByLabelText('Title')).toBeNull();
+    expect(screen.queryByLabelText('Save')).toBeNull();
+    expect(screen.getByLabelText(/^Handwriting page/)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Exit full screen'));
+    expect(screen.getByLabelText('Title')).toBeOnTheScreen();
   });
 });

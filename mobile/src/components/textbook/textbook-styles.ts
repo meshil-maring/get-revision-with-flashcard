@@ -96,6 +96,18 @@ export const TEXTBOOK_CSS = `
 .tb-h-mark{position:absolute;left:-30px;top:.15em;color:var(--tb-example);width:18px;height:18px}
 @media (max-width:767px){.tb-h-mark{left:auto;right:0}}
 
+/* Handwriting pages: tap a heading or question (or its pen) to write about it by hand. */
+.tb-h-page,.tb-question-line{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tb-h-page:active,.tb-question-line:active{opacity:.75}
+.tb-pen{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+  width:32px;height:32px;margin:-6px 0 -4px .15em;border-radius:50%;color:var(--tb-secondary);opacity:.55;cursor:pointer}
+.tb-pen svg{width:17px;height:17px}
+.tb-pen:hover,.tb-pen:focus-visible{opacity:1;background:var(--tb-surface)}
+.tb-pen:focus-visible{outline:2px solid var(--tb-link);outline-offset:1px}
+.tb-pen[data-written=true]{opacity:1;color:#fff;background:var(--tb-example)}
+.tb-pen[data-written=true] svg{width:15px;height:15px}
+.tb-label .tb-pen{margin-left:auto}
+
 /* Maths. */
 .tb-article .katex{font-size:1.08em;text-rendering:auto}
 .tb-math-inline{white-space:nowrap}

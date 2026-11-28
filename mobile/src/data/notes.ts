@@ -50,7 +50,7 @@ function toNote(row: NoteRow): Note {
     id: row.id,
     folderId: row.folder_id,
     title: row.title,
-    style: row.style === 'cornell' ? 'cornell' : 'plain',
+    style: row.style === 'cornell' || row.style === 'handwritten' ? row.style : 'plain',
     body: row.body,
     rows: parseRows(row.cornell_rows),
     summary: row.summary,
@@ -70,7 +70,8 @@ function cleanInput(input: NoteInput) {
   return {
     title: input.title.trim(),
     style: input.style,
-    body: (input.body ?? '').trim(),
+    // A drawing is saved exactly as it is.
+    body: input.style === 'handwritten' ? (input.body ?? '') : (input.body ?? '').trim(),
     rows: JSON.stringify(rows),
     summary: (input.summary ?? '').trim(),
   };
@@ -253,6 +254,7 @@ export async function searchNotes(
 
 /** All the words in a note, as one string (for search and previews). */
 export function noteText(note: Pick<Note, 'title' | 'style' | 'body' | 'rows' | 'summary'>): string {
+  if (note.style === 'handwritten') return note.title; // the drawing has no words to find
   if (note.style === 'cornell') {
     return [note.title, ...note.rows.flatMap((r) => [r.cue, r.notes]), note.summary].join('\n');
   }

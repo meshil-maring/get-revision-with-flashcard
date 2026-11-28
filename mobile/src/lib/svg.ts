@@ -44,7 +44,7 @@ export function svgAspectRatio(svg: string): number {
 
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
-function utf8ToBase64(text: string): string {
+export function utf8ToBase64(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let out = '';
   for (let i = 0; i < bytes.length; i += 3) {

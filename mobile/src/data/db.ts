@@ -81,7 +81,7 @@ const MIGRATIONS: string[] = [
     id           TEXT PRIMARY KEY NOT NULL,
     folder_id    TEXT REFERENCES folders(id), -- null = top level
     title        TEXT NOT NULL,
-    style        TEXT NOT NULL DEFAULT 'plain', -- 'plain' | 'cornell'
+    style        TEXT NOT NULL DEFAULT 'plain', -- 'plain' | 'cornell' | 'handwritten'
     body         TEXT NOT NULL DEFAULT '',      -- plain notes (light formatting)
     cornell_rows TEXT NOT NULL DEFAULT '[]',    -- Cornell notes: JSON [{ "cue": "", "notes": "" }]
     summary      TEXT NOT NULL DEFAULT '',      -- Cornell notes: summary at the bottom
@@ -210,6 +210,28 @@ const MIGRATIONS: string[] = [
   DROP TRIGGER IF EXISTS sync_note_attachments_insert;
   DROP TRIGGER IF EXISTS sync_note_attachments_update;
   ${syncTriggers('note_attachments', 'NEW.id', ['note_id', 'kind', 'name', 'mime_type', 'deleted_at', 'remote_key', 'caption', 'alt_text', 'position'])}
+  `,
+  // v15: a handwriting page for each heading or question of a note (tap "1 Learning objectives"
+  // to write about it). The id is "<note_id>:<page>", so two devices that start the same page
+  // write the same row. `page` is the heading's key (lib/textbook.ts pageKey); `ink` is the drawing.
+  `
+  CREATE TABLE IF NOT EXISTS note_pages (
+    id          TEXT PRIMARY KEY NOT NULL,
+    note_id     TEXT NOT NULL REFERENCES notes(id),
+    page        TEXT NOT NULL,
+    title       TEXT NOT NULL DEFAULT '', -- the heading or question, as it was when last written on
+    ink         TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    deleted_at  TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_note_pages_note_id ON note_pages(note_id);
+  ${syncTriggers('note_pages', 'NEW.id')}
+  CREATE TRIGGER IF NOT EXISTS notes_delete_pages AFTER UPDATE OF deleted_at ON notes
+  WHEN NEW.deleted_at IS NOT NULL AND OLD.deleted_at IS NULL
+  BEGIN
+    UPDATE note_pages SET deleted_at = NEW.deleted_at WHERE note_id = NEW.id AND deleted_at IS NULL;
+  END;
   `,
 ];
 

@@ -211,6 +211,14 @@ export async function updateNote(db: Db, userId: string, noteId: string, edit: N
   if (isGoodToKnow && edit.goodToKnow?.length)
     throw new ToolError(`This is the "${GOOD_TO_KNOW_TITLE}" note: edit its body instead of passing good_to_know.`);
 
+  if (
+    note.style === 'handwritten' &&
+    (edit.style !== undefined || edit.body !== undefined || edit.cornellRows !== undefined || edit.summary !== undefined)
+  )
+    throw new ToolError(
+      'This note is handwritten (drawn in the app), so its writing can’t be changed here. You can still change its title or tags, or make a new typed note.',
+    );
+
   const now = new Date().toISOString();
   const style = edit.style ?? note.style;
   const updated: NoteRow = {

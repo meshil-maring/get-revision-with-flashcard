@@ -170,14 +170,18 @@ function ContinueNote({ last }: { last: LastNote }) {
       className="mb-8 flex-row items-center gap-4 rounded-3xl bg-surface p-4 active:bg-line"
     >
       <View className="h-15 w-15 items-center justify-center rounded-2xl bg-calm-soft">
-        <Icon name={note.style === 'cornell' ? 'reader-outline' : 'document-text-outline'} size={30} color={colors.primary} />
+        <Icon
+          name={note.style === 'cornell' ? 'reader-outline' : note.style === 'handwritten' ? 'brush-outline' : 'document-text-outline'}
+          size={30}
+          color={colors.primary}
+        />
       </View>
       <View className="flex-1">
         <Text className="text-xl font-bold text-ink" numberOfLines={1}>
           {note.title}
         </Text>
         <Text className="text-base text-muted" numberOfLines={1}>
-          {note.style === 'cornell' ? 'Cornell note' : 'Note'}
+          {note.style === 'cornell' ? 'Cornell note' : note.style === 'handwritten' ? 'Handwritten note' : 'Note'}
           {folder ? ` · ${folder}` : ''}
         </Text>
       </View>

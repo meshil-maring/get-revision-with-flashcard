@@ -12,6 +12,7 @@ const DEFAULT_LIMIT = 3900;
 /** What the note says, in reading order: title, then the body (or cues, notes and summary). */
 export function noteSpeechText(note: Note): string {
   const parts = [note.title.trim()];
+  if (note.style === 'handwritten') return parts[0]; // a drawing can't be read out
   if (note.style === 'cornell') {
     for (const row of note.rows) {
       parts.push(row.cue.trim(), speakable(row.notes));

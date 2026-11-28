@@ -20,7 +20,8 @@ export type FolderRow = Row & { parent_id: string | null; name: string };
 export type NoteRow = Row & {
   folder_id: string | null;
   title: string;
-  style: 'plain' | 'cornell';
+  /** handwritten = drawn in the app with a finger or pen; `body` holds the drawing (JSON), not text. */
+  style: 'plain' | 'cornell' | 'handwritten';
   body: string;
   cornell_rows: string;
   summary: string;
@@ -356,7 +357,8 @@ export async function listNotes(db: Db, userId: string, filter: { folderPath?: s
       tags: tagsByNote.get(n.id) ?? [],
       createdBy: n.created_by,
       updatedAt: n.updated_at,
-      text: `${n.title}\n${n.body}\n${n.cornell_rows}\n${n.summary}`.toLowerCase(),
+      // A handwritten note's body is a drawing, so only its title can be searched.
+      text: (n.style === 'handwritten' ? n.title : `${n.title}\n${n.body}\n${n.cornell_rows}\n${n.summary}`).toLowerCase(),
     }))
     .filter((n) => {
       if (wantedPath && !(sameName(n.folder, wantedPath) || n.folder.toLowerCase().startsWith(`${wantedPath.toLowerCase()} / `)))
@@ -390,7 +392,9 @@ export async function getNote(db: Db, userId: string, noteId: string) {
     tags: tagsByNote.get(note.id) ?? [],
     ...(note.style === 'cornell'
       ? { cornellRows: parseCornellRows(note.cornell_rows), summary: note.summary }
-      : { body: note.body }),
+      : note.style === 'handwritten'
+        ? { handwritten: 'The user wrote this note by hand in the app. Its writing is a drawing, so there is no text to read or edit here.' }
+        : { body: note.body }),
     createdBy: note.created_by,
     updatedAt: note.updated_at,
   };
@@ -533,6 +537,8 @@ export async function goodToKnowChange(
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
   if (existing) {
     // A Cornell "Good to know" (the student changed it) gets the points in its summary instead.
+    if (existing.style === 'handwritten')
+      throw new ToolError(`This folder's "${GOOD_TO_KNOW_TITLE}" note is handwritten, so key points can't be added to it. Leave out good_to_know.`);
     const field = existing.style === 'cornell' ? 'summary' : 'body';
     return {
       row: { table: 'notes', id: existing.id, data: { ...existing, [field]: apply(existing[field]), updated_at: now } },
