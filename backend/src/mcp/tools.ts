@@ -34,7 +34,17 @@ const NOTE_EXTRAS =
   'yellow #fef3c7), labels in rounded lavender boxes with a thin line or arrow to what they name, purple ' +
   '(#7c5cd6) arrows for movement or flow (use <marker> for arrowheads), round corners (rx). Plain SVG only: ' +
   'shapes, paths, text, markers, gradients. Scripts, event handlers, <foreignObject>, images, links, CSS and ' +
-  'filters are removed or not drawn. Keep each diagram under 60,000 characters.';
+  'filters are removed or not drawn. Keep each diagram under 60,000 characters. ' +
+  'MATHS AND TEXTBOOK NOTES (maths, physics, chemistry, engineering, computer science): write formulas in LaTeX, ' +
+  'inline as $x^2+y^2=z^2$ and displayed on their own lines as $$…$$ (or \\[ … \\], or \\begin{align}…\\end{align}); ' +
+  'chemistry with \\ce{2H2 + O2 -> 2H2O}; write a dollar sign in text as \\$. Code goes in ``` fences with the language. ' +
+  'The app then shows the note like a textbook chapter: numbered sections (use "## " for sections, "### " for ' +
+  'subsections), numbered equations, and these blocks, each closed by a line with only ":::": ' +
+  '":::definition Name", ":::theorem Name" (also lemma, proposition, corollary, remark), ":::proof", ' +
+  '":::example Title" (a worked example: start paragraphs with "Question:", "Step 1: …", "Step 2: …" and ' +
+  '"Final answer:", each followed by its equations; \\boxed{} the result), ":::exercise [easy|medium|hard] Title" ' +
+  '(numbered questions, with ":::hint" and ":::solution" blocks inside, shown folded), ":::summary" at the end ' +
+  'and ":::references". Put "Chapter N: " in the title to number the chapter.';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const card = z.object({

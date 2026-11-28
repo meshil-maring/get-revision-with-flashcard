@@ -10,6 +10,7 @@ import { AiBadge, FolderPath } from '@/components/notes/folder-browser';
 import { FocusReader } from '@/components/notes/focus-reader';
 import { ArticleHeader, ArticleNote, CornellPaper } from '@/components/notes/note-layouts';
 import { NoteImages, NoteImagesProvider, placedImageIds, type ImageSyncState } from '@/components/notes/note-images';
+import { TextbookNote } from '@/components/notes/textbook-note';
 import { ReadAloudButton, ReadAloudPlayer, useReadAloud } from '@/components/notes/read-aloud';
 import { PatrickHand_400Regular, useFonts } from '@expo-google-fonts/patrick-hand';
 
@@ -23,14 +24,27 @@ import { TagChip } from '@/components/tags/tag-chip';
 import { Button, EmptyState, Icon, IconButton, useColors } from '@/components/ui';
 import { getFolderPath } from '@/data/folders';
 import { deleteNote, getNote, listNoteAttachments, listNotes, markNoteRead, setNoteFavorite } from '@/data/notes';
-import { getNoteHandwriting, setNoteHandwriting } from '@/data/settings';
+import {
+  getNoteHandwriting,
+  getNoteView,
+  getNoteViewDefault,
+  setNoteHandwriting,
+  setNoteView,
+  type NoteView,
+  type NoteViewDefault,
+} from '@/data/settings';
 import { listTagsForNotes } from '@/data/tags';
 import type { FolderCrumb, Note, NoteAttachment, Tag } from '@/data/types';
 import { confirm } from '@/lib/confirm';
 import { useOptionalAccount } from '@/providers/account-context';
 import { bodyWithoutTitle, isGoodToKnow, suggestCards } from '@/lib/notes';
+import { looksLikeTextbook } from '@/lib/textbook';
 
-/** Reading a note. Read it aloud, step through the folder, and (from the ⋮ menu) make flashcards, favourite, edit or delete it. */
+/**
+ * Reading a note. Read it aloud, step through the folder, and (from the ⋮ menu) make flashcards, favourite, edit or delete it.
+ * A note is shown in the standard view, or typeset like a textbook (maths, numbered sections, worked examples): notes with
+ * maths or textbook blocks open as a textbook unless the ⋮ menu says otherwise for that note.
+ */
 export default function NoteScreen() {
   // focus=1: opened with Previous / Next from focus mode, so stay in focus mode.
   const { id, focus: startInFocus } = useLocalSearchParams<{ id: string; focus?: string }>();
@@ -51,20 +65,28 @@ export default function NoteScreen() {
   const stopReading = readAloud.stop;
   // Cornell notes are shown in a handwritten font, unless it was turned off from the ⋮ menu.
   const [handwriting, setHandwriting] = useState(true);
+  // standard / textbook as chosen for this note; null = never chosen, so it depends on what the note has.
+  const [chosenView, setChosenView] = useState<NoteView | null>(null);
+  // How notes open when not switched one by one (Settings → Notes open as).
+  const [viewDefault, setViewDefault] = useState<NoteViewDefault>('auto');
   const [fontLoaded] = useFonts({ PatrickHand_400Regular });
 
   const load = useCallback(async () => {
     const n = await getNote(db, id);
     // Shown under "Continue Studying" on Home.
     if (n) void markNoteRead(db, n.id);
-    const [p, a, t, s, h] = await Promise.all([
+    const [p, a, t, s, h, v, d] = await Promise.all([
       getFolderPath(db, n?.folderId ?? null),
       listNoteAttachments(db, id),
       listTagsForNotes(db, [id]),
       n ? listNotes(db, n.folderId) : Promise.resolve([]),
       getNoteHandwriting(db),
+      getNoteView(db, id),
+      getNoteViewDefault(db),
     ]);
     setHandwriting(h);
+    setChosenView(v);
+    setViewDefault(d);
     setNote(n);
     setPath(p);
     setAttachments(a);
@@ -126,6 +148,22 @@ export default function NoteScreen() {
     ? { cornell: true, font: handwriting && fontLoaded ? 'PatrickHand_400Regular' : undefined }
     : { article: true };
   const plainBody = bodyWithoutTitle(current.body, current.title);
+  const allText = cornell ? [...current.rows.map((r) => r.notes), current.summary].join('\n') : current.body;
+  const view: NoteView =
+    chosenView ?? (viewDefault !== 'auto' ? viewDefault : looksLikeTextbook(allText) ? 'textbook' : 'standard');
+  const textbook = view === 'textbook' && !isEmpty;
+
+  async function chooseView(next: NoteView) {
+    setChosenView(next);
+    if (next === 'standard') setFocus(false);
+    await setNoteView(db, current.id, next);
+  }
+
+  function openSibling(to: 'previous' | 'next') {
+    const target = to === 'previous' ? previous : next;
+    // In focus mode the next note opens in focus mode too.
+    if (target) router.replace({ pathname: '/note/[id]', params: focus ? { id: target.id, focus: '1' } : { id: target.id } });
+  }
 
   async function toggleHandwriting() {
     await setNoteHandwriting(db, !handwriting);
@@ -153,6 +191,94 @@ export default function NoteScreen() {
       <NoteSteps previous={previous} next={next} position={position} total={siblings.length} inFocus={focus && !isEmpty} />
     ) : null;
 
+  const menu = (
+    <ActionSheet
+      visible={menuOpen}
+      title={current.title}
+      onClose={() => setMenuOpen(false)}
+      actions={[
+        {
+          icon: 'copy-outline',
+          label: suggested > 0 ? `Make flashcards (${suggested} found)` : 'Make flashcards',
+          onPress: () => router.push({ pathname: '/note-cards', params: { noteId: current.id } }),
+        },
+        current.favoritedAt
+          ? { icon: 'star', label: 'Remove from favourites', onPress: toggleFavorite }
+          : { icon: 'star-outline', label: 'Add to favourites', onPress: toggleFavorite },
+        ...(cornell && !textbook
+          ? [
+              {
+                icon: 'pencil-outline' as const,
+                label: handwriting ? 'Use normal font' : 'Use handwritten font',
+                onPress: toggleHandwriting,
+              },
+            ]
+          : []),
+        { icon: 'create-outline', label: 'Edit note', onPress: edit },
+        { icon: 'trash-outline', label: 'Delete note', tone: 'danger', onPress: handleDelete },
+      ]}
+    />
+  );
+
+  const header = (
+    <Stack.Screen
+      options={{
+        title: '',
+        headerShown: true,
+        headerRight: () => (
+          <View className="flex-row">
+            {isEmpty ? null : (
+              <TextbookSwitch on={view === 'textbook'} onPress={() => void chooseView(view === 'textbook' ? 'standard' : 'textbook')} />
+            )}
+            {isEmpty ? null : <ReadAloudButton speaking={readAloud.open} onPress={readAloud.toggle} />}
+            <IconButton icon="ellipsis-vertical" label="More options" onPress={() => setMenuOpen(true)} />
+          </View>
+        ),
+      }}
+    />
+  );
+
+  // The textbook view: the reader has its own contents, reading settings, focus mode and previous / next.
+  // Focus mode hides the app's header and the status bar, and the reader its side columns.
+  if (textbook) {
+    return (
+      <View className="flex-1 bg-page" style={focus ? { paddingTop: insets.top } : undefined}>
+        {focus ? (
+          <>
+            <Stack.Screen options={{ headerShown: false }} />
+            <StatusBar hidden />
+          </>
+        ) : (
+          header
+        )}
+        <TextbookNote
+          focus={focus}
+          onFocusChange={setFocus}
+          note={current}
+          path={path}
+          tags={tags}
+          images={images}
+          extraImageIds={otherImages.map((i) => i.id)}
+          previous={previous}
+          next={next}
+          onNavigate={openSibling}
+          onUseStandard={() => void chooseView('standard')}
+        />
+        {readAloud.open || (files.length > 0 && !focus) ? (
+          <View className="gap-3 border-t border-line bg-card px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+            <ReadAloudPlayer readAloud={readAloud} />
+            {files.length > 0 && !focus ? (
+              <View className="w-full max-w-3xl self-center">
+                <AttachmentList items={files.map((a) => ({ ...a, key: a.id }))} />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+        {menu}
+      </View>
+    );
+  }
+
   if (focus && !isEmpty) {
     return (
       <>
@@ -175,18 +301,7 @@ export default function NoteScreen() {
 
   return (
     <View className="flex-1 bg-page">
-      <Stack.Screen
-        options={{
-          title: '',
-          headerShown: true,
-          headerRight: () => (
-            <View className="flex-row">
-              {isEmpty ? null : <ReadAloudButton speaking={readAloud.open} onPress={readAloud.toggle} />}
-              <IconButton icon="ellipsis-vertical" label="More options" onPress={() => setMenuOpen(true)} />
-            </View>
-          ),
-        }}
-      />
+      {header}
 
       <NoteLookProvider look={look}>
       <NoteImagesProvider images={images} sync={imageSync}>
@@ -262,32 +377,7 @@ export default function NoteScreen() {
         </View>
       </View>
 
-      <ActionSheet
-        visible={menuOpen}
-        title={current.title}
-        onClose={() => setMenuOpen(false)}
-        actions={[
-          {
-            icon: 'copy-outline',
-            label: suggested > 0 ? `Make flashcards (${suggested} found)` : 'Make flashcards',
-            onPress: () => router.push({ pathname: '/note-cards', params: { noteId: current.id } }),
-          },
-          current.favoritedAt
-            ? { icon: 'star', label: 'Remove from favourites', onPress: toggleFavorite }
-            : { icon: 'star-outline', label: 'Add to favourites', onPress: toggleFavorite },
-          ...(cornell
-            ? [
-                {
-                  icon: 'pencil-outline' as const,
-                  label: handwriting ? 'Use normal font' : 'Use handwritten font',
-                  onPress: toggleHandwriting,
-                },
-              ]
-            : []),
-          { icon: 'create-outline', label: 'Edit note', onPress: edit },
-          { icon: 'trash-outline', label: 'Delete note', tone: 'danger', onPress: handleDelete },
-        ]}
-      />
+      {menu}
     </View>
   );
 }
@@ -350,6 +440,27 @@ function NoteSteps({
         <Icon name="chevron-forward" size={22} color={colors.primary} />
       </Pressable>
     </View>
+  );
+}
+
+/** The header's switch between the standard view and the textbook view of this note. */
+function TextbookSwitch({ on, onPress }: { on: boolean; onPress: () => void }) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="switch"
+      aria-checked={on}
+      accessibilityLabel="Textbook view"
+      accessibilityHint={on ? 'Shows the note in the standard view' : 'Shows the note like a textbook, with typeset maths'}
+      className={`mr-1 h-9 flex-row items-center gap-1.5 self-center rounded-full border px-3 ${
+        on ? 'border-primary bg-primary' : 'border-line bg-card active:bg-surface'
+      }`}
+    >
+      <Icon name={on ? 'school' : 'school-outline'} size={18} color={on ? colors.white : colors.muted} />
+      <Text className={`text-sm font-bold ${on ? 'text-white' : 'text-muted'}`}>Textbook</Text>
+    </Pressable>
   );
 }
 

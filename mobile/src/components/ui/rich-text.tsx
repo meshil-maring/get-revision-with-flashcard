@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { ScrollView, Text, View, type TextStyle } from 'react-native';
+import { Platform, ScrollView, Text, View, type TextStyle } from 'react-native';
 
 import { Diagram } from '@/components/ui/diagram';
 import { type Colors, Icon, type IconName, useColors } from '@/components/ui';
 import { parseRichText, tableColumnSizes, type Block, type BoxKind, type Span, type TableRow } from '@/lib/rich-text';
+import { ENV_LABELS } from '@/lib/textbook';
 
 type Props = {
   text: string;
@@ -201,6 +202,25 @@ function BoxView({ block, size, tone }: { block: Block; size: RichTextSize; tone
   );
 }
 
+const CODE_FONT = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
+
+/** A textbook block (definition, theorem, example…) in the standard view: a box with its kind as the title. */
+function EnvView({ block, size, tone }: { block: Block; size: RichTextSize; tone: 'default' | 'onDark' }) {
+  const colors = useColors();
+  const font = useNoteFont();
+  const title = block.spans.map((s) => s.text).join('').trim();
+  return (
+    <View className="my-1 gap-1.5 rounded-2xl border-2 p-3" style={{ borderColor: colors.noteBorder, backgroundColor: colors.noteFill }}>
+      <Text accessibilityRole="header" className={`${scaledText('text-lg', size)} font-bold`} style={[{ color: colors.notePurple }, font]}>
+        {ENV_LABELS[block.env ?? 'remark']}
+        {title ? ': ' : ''}
+        {title ? <Spans spans={block.spans} tone="default" /> : null}
+      </Text>
+      <Blocks blocks={block.children ?? []} tone={tone} size={size} />
+    </View>
+  );
+}
+
 function BlockView({
   block,
   align,
@@ -234,6 +254,29 @@ function BlockView({
   }
   if (block.type === 'image') {
     return <InlineImage imageRef={block.imageRef ?? ''} />;
+  }
+  // Maths, code and textbook blocks are typeset by the textbook reader; here they get a simple,
+  // readable form (formulas as plain text, e.g. "x = (−b ± √(b²−4ac))/(2a)").
+  if (block.type === 'math') {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="min-w-full justify-center" className="my-1 rounded-lg bg-surface" testID="math-fallback">
+        <Text className={`${ink} ${body} px-3 py-2 text-center italic`} style={font} accessibilityLabel={`Equation: ${block.spans[0]?.text ?? ''}`}>
+          {block.spans[0]?.text ?? ''}
+        </Text>
+      </ScrollView>
+    );
+  }
+  if (block.type === 'code') {
+    return (
+      <ScrollView horizontal className="my-1 rounded-lg border border-line bg-surface" testID="code-block">
+        <Text className={`${ink} px-3 py-2 text-sm`} style={{ fontFamily: CODE_FONT }}>
+          {block.code ?? ''}
+        </Text>
+      </ScrollView>
+    );
+  }
+  if (block.type === 'env') {
+    return <EnvView block={block} size={size} tone={tone} />;
   }
   // The Cornell look (a paper Cornell sheet): headings underlined in blue ink, as if with a pen.
   if (cornell && tone === 'default' && (block.type === 'h1' || block.type === 'h2' || block.type === 'h3')) {
@@ -439,6 +482,8 @@ function Spans({ spans, tone }: { spans: Span[]; tone: 'default' | 'onDark' }) {
       span.underline ? 'underline' : '',
       // Highlighter yellow.
       span.highlight ? 'bg-warning/60' : '',
+      // A formula, as readable plain text.
+      span.math !== undefined ? 'italic' : '',
     ].join(' ');
     // Dark text on the highlight on the blue answer side, so it stays readable in both themes.
     const style = span.highlight && tone === 'onDark' ? { color: colors.highlightInk } : undefined;
